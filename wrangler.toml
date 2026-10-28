@@ -1,7 +1,7 @@
-name = "engineering-office-forecast"
+name = "engineering-office"
 compatibility_date = "2024-10-01"
 pages_build_output_dir = "dist"
 
-# KV binding + AUTH secret are configured in the Cloudflare Pages dashboard:
-#   Pages → Settings → Functions → KV namespace bindings → FORECAST_KV
-#   Pages → Settings → Environment variables (encrypted) → AUTH
+[[kv_namespaces]]
+binding = "FORECAST_KV"
+id = "a15981c0aa5342d1ac7dfc63aaf91fc5"
