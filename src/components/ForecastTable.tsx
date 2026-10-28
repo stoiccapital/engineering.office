@@ -19,10 +19,7 @@ const groups: ColGroup[] = [
 ]
 
 export function ForecastTable() {
-  const period = useForecast((s) => {
-    const key = `${s.year}-${s.quarter}`
-    return s.periods[key]
-  })
+  const period = useForecast((s) => s.period)
   const addRow = useForecast((s) => s.addRow)
   const updateRow = useForecast((s) => s.updateRow)
   const deleteRow = useForecast((s) => s.deleteRow)

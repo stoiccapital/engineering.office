@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import type { Period, ProjectRow, Quarter, RiskFlag } from './types'
+import { fetchPeriod, savePeriod } from './api'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -23,11 +23,7 @@ function emptyRow(): ProjectRow {
   }
 }
 
-function seedRow(partial: Partial<ProjectRow>): ProjectRow {
-  return { ...emptyRow(), ...partial }
-}
-
-function seedPeriod(year: number, quarter: Quarter): Period {
+function emptyPeriod(year: number, quarter: Quarter): Period {
   return { year, quarter, rows: [emptyRow(), emptyRow(), emptyRow()] }
 }
 
@@ -35,149 +31,106 @@ function periodKey(year: number, quarter: Quarter): string {
   return `${year}-${quarter}`
 }
 
+type SaveStatus = 'idle' | 'loading' | 'saving' | 'saved' | 'error'
+
 type State = {
   year: number
   quarter: Quarter
-  periods: Record<string, Period>
+  period: Period | null
+  status: SaveStatus
+  error: string | null
   setYear: (y: number) => void
   setQuarter: (q: Quarter) => void
-  currentPeriod: () => Period
+  load: () => Promise<void>
   addRow: () => void
   updateRow: (id: string, patch: Partial<ProjectRow>) => void
   deleteRow: (id: string) => void
   setFlag: (id: string, which: 'flagDE' | 'flagPL', flag: RiskFlag) => void
 }
 
-export const useForecast = create<State>()(
-  persist(
-    (set, get) => ({
-      year: CURRENT_YEAR,
-      quarter: 'Q1',
-      periods: {
-        [periodKey(CURRENT_YEAR, 'Q1')]: {
-          year: CURRENT_YEAR,
-          quarter: 'Q1',
-          rows: [
-            seedRow({
-              projektleiterDE: 'MuA',
-              projektleiterPL: 'KnD',
-              projektname: 'Tegernseer Platz',
-              projNr: '26D055',
-              leistung: 'Lph04 und Lph05 zu 100% abschließen',
-              forecastDE: 55000,
-              flagDE: 'w',
-              forecastPL: 25000,
-              flagPL: 'w',
-              leistungsstandDE: 0.3,
-              leistungsstandPL: 0.2,
-            }),
-            seedRow({
-              projektleiterDE: 'SuJ',
-              projektname: 'Passau Tunnel',
-              projNr: '26D056',
-              leistung: 'Lph01 und Lph02 zu 100% abschließen',
-              forecastDE: 100000,
-              flagDE: 'k',
-              leistungsstandDE: 0.5,
-            }),
-            seedRow({
-              projektleiterDE: 'MuA',
-              projektname: 'Schöpfwerk Großenbrode',
-              projNr: '26D057',
-              leistung: 'Lph01 bis Lph03 zu 100% abschließen',
-              forecastDE: 50000,
-              flagDE: 'w',
-              leistungsstandDE: 0.5,
-            }),
-            seedRow({
-              projektleiterDE: 'SuJ',
-              projektleiterPL: 'WeT',
-              projektname: 'ESTW E-Dellwig SIA EP',
-              projNr: '26D058',
-              leistung: 'Lph01 bis Lph03 zu 100% und Lph04 bis Lph06 zu 80% abschließen',
-              forecastDE: 30000,
-              flagDE: 'w',
-              forecastPL: 20000,
-              flagPL: 'w',
-              leistungsstandDE: 0.1,
-              leistungsstandPL: 0.08,
-            }),
-          ],
-        },
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
+  if (saveTimer) clearTimeout(saveTimer)
+  set({ status: 'saving' })
+  saveTimer = setTimeout(async () => {
+    const s = get()
+    if (!s.period) return
+    try {
+      await savePeriod(periodKey(s.year, s.quarter), s.period)
+      set({ status: 'saved', error: null })
+    } catch (e) {
+      set({ status: 'error', error: (e as Error).message })
+    }
+  }, 500)
+}
+
+export const useForecast = create<State>()((set, get) => ({
+  year: CURRENT_YEAR,
+  quarter: 'Q1',
+  period: null,
+  status: 'idle',
+  error: null,
+
+  setYear: (y) => {
+    set({ year: y })
+    void get().load()
+  },
+  setQuarter: (q) => {
+    set({ quarter: q })
+    void get().load()
+  },
+
+  load: async () => {
+    const s = get()
+    const key = periodKey(s.year, s.quarter)
+    set({ status: 'loading', error: null })
+    try {
+      const data = await fetchPeriod(key)
+      set({
+        period: data ?? emptyPeriod(s.year, s.quarter),
+        status: 'saved',
+      })
+    } catch (e) {
+      set({ status: 'error', error: (e as Error).message })
+    }
+  },
+
+  addRow: () => {
+    const s = get()
+    if (!s.period) return
+    set({ period: { ...s.period, rows: [...s.period.rows, emptyRow()] } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  updateRow: (id, patch) => {
+    const s = get()
+    if (!s.period) return
+    set({
+      period: {
+        ...s.period,
+        rows: s.period.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
       },
-      setYear: (y) =>
-        set((s) => {
-          const key = periodKey(y, s.quarter)
-          const periods = { ...s.periods }
-          if (!periods[key]) periods[key] = seedPeriod(y, s.quarter)
-          return { year: y, periods }
-        }),
-      setQuarter: (q) =>
-        set((s) => {
-          const key = periodKey(s.year, q)
-          const periods = { ...s.periods }
-          if (!periods[key]) periods[key] = seedPeriod(s.year, q)
-          return { quarter: q, periods }
-        }),
-      currentPeriod: () => {
-        const s = get()
-        const key = periodKey(s.year, s.quarter)
-        return s.periods[key] ?? seedPeriod(s.year, s.quarter)
+    })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  deleteRow: (id) => {
+    const s = get()
+    if (!s.period) return
+    set({ period: { ...s.period, rows: s.period.rows.filter((r) => r.id !== id) } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  setFlag: (id, which, flag) => {
+    const s = get()
+    if (!s.period) return
+    set({
+      period: {
+        ...s.period,
+        rows: s.period.rows.map((r) => (r.id === id ? { ...r, [which]: flag } : r)),
       },
-      addRow: () =>
-        set((s) => {
-          const key = periodKey(s.year, s.quarter)
-          const p = s.periods[key] ?? seedPeriod(s.year, s.quarter)
-          return {
-            periods: {
-              ...s.periods,
-              [key]: { ...p, rows: [...p.rows, emptyRow()] },
-            },
-          }
-        }),
-      updateRow: (id, patch) =>
-        set((s) => {
-          const key = periodKey(s.year, s.quarter)
-          const p = s.periods[key]
-          if (!p) return s
-          return {
-            periods: {
-              ...s.periods,
-              [key]: {
-                ...p,
-                rows: p.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
-              },
-            },
-          }
-        }),
-      deleteRow: (id) =>
-        set((s) => {
-          const key = periodKey(s.year, s.quarter)
-          const p = s.periods[key]
-          if (!p) return s
-          return {
-            periods: {
-              ...s.periods,
-              [key]: { ...p, rows: p.rows.filter((r) => r.id !== id) },
-            },
-          }
-        }),
-      setFlag: (id, which, flag) =>
-        set((s) => {
-          const key = periodKey(s.year, s.quarter)
-          const p = s.periods[key]
-          if (!p) return s
-          return {
-            periods: {
-              ...s.periods,
-              [key]: {
-                ...p,
-                rows: p.rows.map((r) => (r.id === id ? { ...r, [which]: flag } : r)),
-              },
-            },
-          }
-        }),
-    }),
-    { name: 'forecast-store-v1' },
-  ),
-)
+    })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+}))

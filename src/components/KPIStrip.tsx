@@ -4,7 +4,7 @@ import { derive } from '@/types'
 import { fmtEUR, fmtPct } from '@/lib/format'
 
 export function KPIStrip() {
-  const period = useForecast((s) => s.periods[`${s.year}-${s.quarter}`])
+  const period = useForecast((s) => s.period)
   const rows = period?.rows ?? []
 
   const k = useMemo(() => {
