@@ -2,12 +2,6 @@ name = "engineering-office-forecast"
 compatibility_date = "2024-10-01"
 pages_build_output_dir = "dist"
 
-# KV binding — create via:
-#   wrangler kv:namespace create FORECAST_KV
-# then paste the id below.
-[[kv_namespaces]]
-binding = "FORECAST_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
-
-# AUTH secret — set via:
-#   wrangler pages secret put AUTH --project-name=engineering-office-forecast
+# KV binding + AUTH secret are configured in the Cloudflare Pages dashboard:
+#   Pages → Settings → Functions → KV namespace bindings → FORECAST_KV
+#   Pages → Settings → Environment variables (encrypted) → AUTH
