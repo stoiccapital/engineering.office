@@ -46,6 +46,7 @@ type State = {
   updateRow: (id: string, patch: Partial<ProjectRow>) => void
   deleteRow: (id: string) => void
   setFlag: (id: string, which: 'flagDE' | 'flagPL', flag: RiskFlag) => void
+  replaceRows: (rows: ProjectRow[]) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -131,6 +132,13 @@ export const useForecast = create<State>()((set, get) => ({
         rows: s.period.rows.map((r) => (r.id === id ? { ...r, [which]: flag } : r)),
       },
     })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  replaceRows: (rows) => {
+    const s = get()
+    if (!s.period) return
+    set({ period: { ...s.period, rows } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 }))

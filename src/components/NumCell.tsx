@@ -24,7 +24,7 @@ export function NumCell({ value, onChange, readOnly, pct, className, placeholder
     return (
       <div
         className={cn(
-          'num px-2 py-1.5 text-sm text-muted-foreground tabular-nums',
+          'num px-2 py-1.5 text-sm text-muted-foreground',
           className,
         )}
       >

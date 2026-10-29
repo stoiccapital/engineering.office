@@ -25,6 +25,23 @@ export type Period = {
   rows: ProjectRow[]
 }
 
+export type PlanStatus = 'abstimmen' | 'urlaub' | 'frei' | 'abgabe'
+
+export const PLAN_STATUSES: PlanStatus[] = ['abstimmen', 'urlaub', 'frei', 'abgabe']
+
+export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
+  abstimmen: 'Abstimmen',
+  urlaub: 'Urlaub',
+  frei: 'Frei',
+  abgabe: 'Abgabe',
+}
+
+export type QuartalPlan = {
+  year: number
+  employees: string[]
+  cells: Record<string, PlanStatus>
+}
+
 // Derived values per row
 export type Derived = {
   forecastDEBereinigt: number | null // G - I

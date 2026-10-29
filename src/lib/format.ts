@@ -8,6 +8,20 @@ export function fmtEUR(v: number | null | undefined): string {
   }).format(v)
 }
 
+// Compact European notation per global rule: 1 500 → "1,5 k", 2 000 000 → "2,0 m"
+// Numbers < 1000 pass through to fmtEUR for a plain thousands format.
+export function fmtCompact(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return ''
+  const abs = Math.abs(v)
+  if (abs < 1000) return fmtEUR(v)
+  const fmt = (n: number, unit: string) =>
+    new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(n) + ' ' + unit
+  if (abs < 1_000_000) return fmt(v / 1000, 'k')
+  if (abs < 1_000_000_000) return fmt(v / 1_000_000, 'm')
+  if (abs < 1_000_000_000_000) return fmt(v / 1_000_000_000, 'b')
+  return fmt(v / 1_000_000_000_000, 't')
+}
+
 export function fmtPct(v: number | null | undefined): string {
   if (v === null || v === undefined || Number.isNaN(v)) return ''
   return new Intl.NumberFormat('de-DE', {

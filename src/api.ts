@@ -1,4 +1,4 @@
-import type { Period } from './types'
+import type { Period, QuartalPlan } from './types'
 
 const TOKEN_KEY = 'forecast-token'
 
@@ -39,6 +39,23 @@ export async function savePeriod(key: string, period: Period): Promise<void> {
     method: 'PUT',
     headers: headers(),
     body: JSON.stringify(period),
+  })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`save failed: ${res.status}`)
+}
+
+export async function fetchPlan(year: number): Promise<QuartalPlan | null> {
+  const res = await fetch(`/api/plan/${year}`, { headers: headers() })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  return (await res.json()) as QuartalPlan | null
+}
+
+export async function savePlan(year: number, plan: QuartalPlan): Promise<void> {
+  const res = await fetch(`/api/plan/${year}`, {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify(plan),
   })
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
