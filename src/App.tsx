@@ -6,11 +6,13 @@ import { AuthGate } from '@/components/AuthGate'
 import { SaveStatus } from '@/components/SaveStatus'
 import { PlanSaveStatus } from '@/components/PlanSaveStatus'
 import { YearSwitcher } from '@/components/YearSwitcher'
-import { QuartalPlanTable } from '@/components/QuartalPlanTable'
+import { QuarterSwitcher } from '@/components/QuarterSwitcher'
+import { PlanTabs } from '@/components/PlanTabs'
 import { ImportDialog } from '@/components/ImportDialog'
 import { Dashboard } from '@/components/Dashboard'
 import { DashboardPeriodSwitcher } from '@/components/DashboardPeriodSwitcher'
 import { LoadingCard } from '@/components/ui/loading-card'
+import { Logo } from '@/components/Logo'
 import { useForecast } from '@/store'
 import { usePlan } from '@/plan-store'
 import { clearToken } from '@/api'
@@ -61,7 +63,7 @@ function Shell() {
           <div className="flex items-center justify-between gap-4 px-6 py-4">
             <div>
               <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Ingenieurbüro
+                Ingenieurbüro Merkin &amp; Völker
               </div>
               <h1 className="text-lg font-semibold">{meta.title}</h1>
             </div>
@@ -69,7 +71,12 @@ function Shell() {
               {view === 'forecast' && <SaveStatus />}
               {view === 'plan' && <PlanSaveStatus />}
               {view === 'forecast' && <PeriodSwitcher />}
-              {view === 'plan' && <YearSwitcher />}
+              {view === 'plan' && (
+                <>
+                  <QuarterSwitcher />
+                  <YearSwitcher />
+                </>
+              )}
               {view === 'dashboard' && <DashboardPeriodSwitcher />}
               {view === 'forecast' && <ImportDialog />}
             </div>
@@ -87,7 +94,7 @@ function Shell() {
               <LoadingCard>Lade Forecast…</LoadingCard>
             ))}
           {view === 'plan' &&
-            (plan ? <QuartalPlanTable /> : <LoadingCard>Lade Quartalsplanung…</LoadingCard>)}
+            (plan ? <PlanTabs /> : <LoadingCard>Lade Quartalsplanung…</LoadingCard>)}
           {view === 'dashboard' && <Dashboard />}
         </main>
       </div>
@@ -104,8 +111,13 @@ function Sidebar({
 }) {
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r bg-background">
-      <div className="border-b px-4 py-4">
-        <div className="text-sm font-semibold">Ingenieurbüro</div>
+      <div className="space-y-3 border-b px-4 py-4">
+        <Logo />
+        <div className="text-sm font-semibold leading-tight">
+          Ingenieurbüro
+          <br />
+          Merkin &amp; Völker
+        </div>
       </div>
 
       <nav className="flex-1 space-y-0.5 p-2">

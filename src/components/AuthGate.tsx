@@ -53,7 +53,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         >
           <div>
             <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Ingenieurbüro
+              Ingenieurbüro Merkin &amp; Völker
             </div>
             <h1 className="text-lg font-semibold">Forecast</h1>
           </div>

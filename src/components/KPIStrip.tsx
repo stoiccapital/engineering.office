@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useForecast } from '@/store'
 import { derive } from '@/types'
-import { fmtEUR, fmtPct } from '@/lib/format'
+import { fmtEUR } from '@/lib/format'
 import { KPICard, KPIGrid } from '@/components/ui/kpi-card'
 
 export function KPIStrip() {
@@ -9,34 +9,59 @@ export function KPIStrip() {
   const rows = period?.rows ?? []
 
   const k = useMemo(() => {
-    let forecastDEBereinigt = 0
-    let abgerechnetDEBereinigt = 0
-    let gewichtetDE = 0
-    let kritisch = 0
-    let wahrscheinlich = 0
+    let deBereinigtSumme = 0
+    let deBereinigtKritisch = 0
+    let deBereinigtWahrscheinlich = 0
+    let plSumme = 0
+    let plKritisch = 0
+    let plWahrscheinlich = 0
     for (const r of rows) {
       const d = derive(r)
-      forecastDEBereinigt += d.forecastDEBereinigt ?? 0
-      abgerechnetDEBereinigt += d.abgerechnetDEBereinigt ?? 0
-      gewichtetDE += d.gewichtetDE ?? 0
-      if (r.flagDE === 'k') kritisch += d.forecastDEBereinigt ?? 0
-      else wahrscheinlich += d.forecastDEBereinigt ?? 0
+      const deB = d.forecastDEBereinigt ?? 0
+      const pl = r.forecastPL ?? 0
+      deBereinigtSumme += deB
+      plSumme += pl
+      if (r.flagDE === 'k') deBereinigtKritisch += deB
+      else deBereinigtWahrscheinlich += deB
+      if (r.flagPL === 'k') plKritisch += pl
+      else plWahrscheinlich += pl
     }
-    const share = forecastDEBereinigt > 0 ? gewichtetDE / forecastDEBereinigt : null
-    return { forecastDEBereinigt, gewichtetDE, share, kritisch, wahrscheinlich }
+    return {
+      deBereinigtSumme,
+      deBereinigtKritisch,
+      deBereinigtWahrscheinlich,
+      plSumme,
+      plKritisch,
+      plWahrscheinlich,
+    }
   }, [rows])
 
   return (
-    <KPIGrid>
-      <KPICard label="Forecast DE bereinigt" value={fmtEUR(k.forecastDEBereinigt)} unit="€" />
+    <KPIGrid cols={6}>
+      <KPICard label="DE bereinigt Summe" value={fmtEUR(k.deBereinigtSumme)} unit="€" />
       <KPICard
-        label="Gewichtet (Leistungsstand)"
-        value={fmtEUR(k.gewichtetDE)}
+        label="DE bereinigt wahrscheinlich"
+        value={fmtEUR(k.deBereinigtWahrscheinlich)}
         unit="€"
-        sub={k.share !== null ? fmtPct(k.share) : undefined}
       />
-      <KPICard label="Davon kritisch" value={fmtEUR(k.kritisch)} unit="€" tone="danger" />
-      <KPICard label="Davon wahrscheinlich" value={fmtEUR(k.wahrscheinlich)} unit="€" />
+      <KPICard
+        label="DE bereinigt kritisch"
+        value={fmtEUR(k.deBereinigtKritisch)}
+        unit="€"
+        tone="danger"
+      />
+      <KPICard label="Forecast Polen Summe" value={fmtEUR(k.plSumme)} unit="€" />
+      <KPICard
+        label="Forecast Polen wahrscheinlich"
+        value={fmtEUR(k.plWahrscheinlich)}
+        unit="€"
+      />
+      <KPICard
+        label="Forecast Polen kritisch"
+        value={fmtEUR(k.plKritisch)}
+        unit="€"
+        tone="danger"
+      />
     </KPIGrid>
   )
 }

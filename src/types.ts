@@ -36,10 +36,16 @@ export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
   abgabe: 'Abgabe',
 }
 
+export type WeekTodo = { id: string; text: string; done: boolean }
+
+export const MAX_TODOS_PER_WEEK = 10
+
 export type QuartalPlan = {
   year: number
   employees: string[]
   cells: Record<string, PlanStatus>
+  // Key `${empIndex}:${week}` -> todos for that employee/week cell.
+  todos?: Record<string, WeekTodo[]>
 }
 
 // Derived values per row
@@ -53,7 +59,9 @@ export type Derived = {
 }
 
 export function derive(r: ProjectRow): Derived {
-  const K = sub(r.forecastDE, r.forecastPL)
+  // Business rule: no Forecast DE (0 or empty) → bereinigt is 0, don't subtract PL.
+  const noDE = r.forecastDE === 0 || r.forecastDE === null
+  const K = noDE ? 0 : sub(r.forecastDE, r.forecastPL)
   const O = sub(r.abgerechnetDE, r.abgerechnetPL)
   return {
     forecastDEBereinigt: K,

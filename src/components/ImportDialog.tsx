@@ -199,9 +199,55 @@ function PickPhase({
   onFile: (f: File) => void
   onTemplate: () => void
 }) {
+  const [isDragging, setIsDragging] = useState(false)
+  const dragDepth = useRef(0)
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!e.dataTransfer.types.includes('Files')) return
+    dragDepth.current += 1
+    setIsDragging(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragDepth.current -= 1
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0
+      setIsDragging(false)
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragDepth.current = 0
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) onFile(file)
+  }
+
   return (
     <div className="space-y-4">
-      <label className="flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-border px-6 py-10 text-center transition-colors hover:border-foreground/40 hover:bg-accent/50">
+      <label
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed px-6 py-10 text-center transition-colors ${
+          isDragging
+            ? 'border-foreground bg-accent/70'
+            : 'border-border hover:border-foreground/40 hover:bg-accent/50'
+        }`}
+      >
         <Upload className="mb-2 h-6 w-6 text-muted-foreground" />
         <div className="text-sm font-medium">CSV oder XLSX hochladen</div>
         <div className="mt-1 text-xs text-muted-foreground">

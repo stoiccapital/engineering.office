@@ -60,3 +60,28 @@ export async function savePlan(year: number, plan: QuartalPlan): Promise<void> {
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
+
+export async function fetchLogo(): Promise<string | null> {
+  const res = await fetch('/api/logo', { headers: headers() })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  const data = (await res.json()) as { dataUrl: string | null }
+  return data.dataUrl
+}
+
+export async function saveLogo(dataUrl: string): Promise<void> {
+  const res = await fetch('/api/logo', {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify({ dataUrl }),
+  })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (res.status === 413) throw new Error('Datei zu groß (max. ~500 KB)')
+  if (!res.ok) throw new Error(`save failed: ${res.status}`)
+}
+
+export async function deleteLogo(): Promise<void> {
+  const res = await fetch('/api/logo', { method: 'DELETE', headers: headers() })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`delete failed: ${res.status}`)
+}

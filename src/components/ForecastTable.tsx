@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { Trash2, Plus } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Trash2, Plus, Lock, Unlock } from 'lucide-react'
 import { useForecast } from '@/store'
 import { derive } from '@/types'
 import type { ProjectRow } from '@/types'
@@ -25,23 +25,54 @@ export function ForecastTable() {
   const updateRow = useForecast((s) => s.updateRow)
   const deleteRow = useForecast((s) => s.deleteRow)
   const setFlag = useForecast((s) => s.setFlag)
+  const [locked, setLocked] = useState(true)
+  const [pmFilter, setPmFilter] = useState<string>('all')
 
   const rows = period?.rows ?? []
+  const pms = useMemo(() => uniquePMs(rows), [rows])
 
-  const totals = useMemo(() => computeTotals(rows), [rows])
+  const filteredRows = useMemo(() => {
+    if (pmFilter === 'all') return rows
+    if (pmFilter === '__unassigned__') {
+      return rows.filter(
+        (r) => !(r.projektleiterDE ?? '').trim() && !(r.projektleiterPL ?? '').trim(),
+      )
+    }
+    const canon = pmFilter.toLowerCase()
+    return rows.filter(
+      (r) =>
+        (r.projektleiterDE ?? '').trim().toLowerCase() === canon ||
+        (r.projektleiterPL ?? '').trim().toLowerCase() === canon,
+    )
+  }, [rows, pmFilter])
+
+  const totals = useMemo(() => computeTotals(filteredRows), [filteredRows])
 
   const subtitle = period
-    ? `${rows.length} Zeilen · ${period.year} ${period.quarter}`
+    ? pmFilter === 'all'
+      ? `${rows.length} Zeilen · ${period.year} ${period.quarter}`
+      : `${filteredRows.length} von ${rows.length} Zeilen · ${period.year} ${period.quarter}`
     : undefined
 
   return (
-    <Section title="Projekte" subtitle={subtitle} padded={false} footer={<ForecastLegend />}>
-      <div className="w-full overflow-x-auto">
+    <Section
+      title="Projekte"
+      subtitle={subtitle}
+      padded={false}
+      action={
+        <div className="flex items-center gap-2">
+          <PMFilter value={pmFilter} onChange={setPmFilter} pms={pms} />
+          <LockToggle locked={locked} onToggle={() => setLocked((v) => !v)} />
+        </div>
+      }
+      footer={<ForecastLegend />}
+    >
+      <div className="w-full max-h-[calc(100vh-320px)] overflow-auto">
         <table className="w-full min-w-[1800px] border-collapse text-sm">
           <colgroup>
             <col className="w-14" /> {/* PL DE */}
             <col className="w-14" /> {/* PL PL */}
-            <col className="w-52" /> {/* Projektname */}
+            <col className="min-w-[360px]" /> {/* Projektname */}
             <col className="w-24" /> {/* Nr */}
             <col className="min-w-[280px]" /> {/* Leistung */}
             <col className="w-28" /> {/* Forecast DE */}
@@ -60,8 +91,8 @@ export function ForecastTable() {
             <col className="w-10" />
           </colgroup>
 
-          <thead>
-            <tr className="border-b">
+          <thead className="sticky top-0 z-20 bg-card shadow-[inset_0_-1px_0_hsl(var(--border))]">
+            <tr>
               {groups.map((g, i) => (
                 <th
                   key={i}
@@ -72,7 +103,7 @@ export function ForecastTable() {
                 </th>
               ))}
             </tr>
-            <tr className="border-b bg-muted/40">
+            <tr className="border-b bg-muted">
               <Th>PL DE</Th>
               <Th>PL PLN</Th>
               <Th>Projektname</Th>
@@ -96,26 +127,39 @@ export function ForecastTable() {
           </thead>
 
           <tbody>
-            {rows.map((row) => (
+            {filteredRows.length === 0 && (
+              <tr>
+                <td
+                  colSpan={19}
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
+                >
+                  Keine Projekte für diese Auswahl.
+                </td>
+              </tr>
+            )}
+            {filteredRows.map((row) => (
               <Row
                 key={row.id}
                 row={row}
+                locked={locked}
                 onUpdate={(patch) => updateRow(row.id, patch)}
                 onFlag={(which, flag) => setFlag(row.id, which, flag)}
                 onDelete={() => deleteRow(row.id)}
               />
             ))}
-            <tr>
-              <td colSpan={19} className="p-0">
-                <button
-                  onClick={addRow}
-                  className="flex w-full items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <Plus className="h-4 w-4" />
-                  Projekt hinzufügen
-                </button>
-              </td>
-            </tr>
+            {!locked && pmFilter === 'all' && (
+              <tr>
+                <td colSpan={19} className="p-0">
+                  <button
+                    onClick={addRow}
+                    className="flex w-full items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Projekt hinzufügen
+                  </button>
+                </td>
+              </tr>
+            )}
           </tbody>
 
           <tfoot className="border-t">
@@ -141,52 +185,63 @@ function Th({ children, className }: { children?: React.ReactNode; className?: s
 
 function Row({
   row,
+  locked,
   onUpdate,
   onFlag,
   onDelete,
 }: {
   row: ProjectRow
+  locked: boolean
   onUpdate: (patch: Partial<ProjectRow>) => void
   onFlag: (which: 'flagDE' | 'flagPL', flag: ProjectRow['flagDE']) => void
   onDelete: () => void
 }) {
   const d = derive(row)
+  const ro = locked
   return (
     <tr className="border-b last:border-b-0 hover:bg-accent/40">
       <Td>
-        <TextCell value={row.projektleiterDE} onChange={(v) => onUpdate({ projektleiterDE: v })} placeholder="…" />
+        <TextCell value={row.projektleiterDE} onChange={(v) => onUpdate({ projektleiterDE: v })} placeholder="…" readOnly={ro} />
       </Td>
       <Td>
-        <TextCell value={row.projektleiterPL} onChange={(v) => onUpdate({ projektleiterPL: v })} placeholder="…" />
+        <TextCell value={row.projektleiterPL} onChange={(v) => onUpdate({ projektleiterPL: v })} placeholder="…" readOnly={ro} />
       </Td>
       <Td>
-        <TextCell value={row.projektname} onChange={(v) => onUpdate({ projektname: v })} placeholder="Projektname" />
+        <TextCell
+          value={row.projektname}
+          onChange={(v) => onUpdate({ projektname: v })}
+          placeholder="Projektname"
+          readOnly={ro}
+          multiline
+        />
       </Td>
       <Td>
-        <TextCell value={row.projNr} onChange={(v) => onUpdate({ projNr: v })} placeholder="26D000" className="font-mono text-xs" />
+        <TextCell value={row.projNr} onChange={(v) => onUpdate({ projNr: v })} placeholder="26D000" className="font-mono text-xs" readOnly={ro} />
       </Td>
       <Td>
         <TextCell
           value={row.leistung}
           onChange={(v) => onUpdate({ leistung: v })}
           placeholder="Leistung in Worten"
+          readOnly={ro}
+          multiline
         />
       </Td>
 
       <Td className="border-l">
-        <NumCell value={row.forecastDE} onChange={(v) => onUpdate({ forecastDE: v })} />
+        <NumCell value={row.forecastDE} onChange={(v) => onUpdate({ forecastDE: v })} readOnly={ro} />
       </Td>
       <Td>
         <div className="flex justify-center">
-          <FlagToggle value={row.flagDE} onChange={(f) => onFlag('flagDE', f)} compact />
+          <FlagToggle value={row.flagDE} onChange={(f) => onFlag('flagDE', f)} compact readOnly={ro} />
         </div>
       </Td>
       <Td>
-        <NumCell value={row.forecastPL} onChange={(v) => onUpdate({ forecastPL: v })} />
+        <NumCell value={row.forecastPL} onChange={(v) => onUpdate({ forecastPL: v })} readOnly={ro} />
       </Td>
       <Td>
         <div className="flex justify-center">
-          <FlagToggle value={row.flagPL} onChange={(f) => onFlag('flagPL', f)} compact />
+          <FlagToggle value={row.flagPL} onChange={(f) => onFlag('flagPL', f)} compact readOnly={ro} />
         </div>
       </Td>
       <Td>
@@ -194,10 +249,10 @@ function Row({
       </Td>
 
       <Td className="border-l">
-        <NumCell value={row.abgerechnetDE} onChange={(v) => onUpdate({ abgerechnetDE: v })} />
+        <NumCell value={row.abgerechnetDE} onChange={(v) => onUpdate({ abgerechnetDE: v })} readOnly={ro} />
       </Td>
       <Td>
-        <NumCell value={row.abgerechnetPL} onChange={(v) => onUpdate({ abgerechnetPL: v })} />
+        <NumCell value={row.abgerechnetPL} onChange={(v) => onUpdate({ abgerechnetPL: v })} readOnly={ro} />
       </Td>
       <Td>
         <NumCell value={d.abgerechnetDEBereinigt} readOnly />
@@ -207,27 +262,102 @@ function Row({
       </Td>
 
       <Td className="border-l">
-        <NumCell value={row.leistungsstandDE} onChange={(v) => onUpdate({ leistungsstandDE: v })} pct />
+        <NumCell value={row.leistungsstandDE} onChange={(v) => onUpdate({ leistungsstandDE: v })} pct readOnly={ro} />
       </Td>
       <Td>
         <NumCell value={d.gewichtetDE} readOnly />
       </Td>
       <Td>
-        <NumCell value={row.leistungsstandPL} onChange={(v) => onUpdate({ leistungsstandPL: v })} pct />
+        <NumCell value={row.leistungsstandPL} onChange={(v) => onUpdate({ leistungsstandPL: v })} pct readOnly={ro} />
       </Td>
       <Td>
         <NumCell value={d.gewichtetPL} readOnly />
       </Td>
       <Td>
-        <button
-          onClick={onDelete}
-          className="rounded-md p-1.5 text-muted-foreground/40 hover:bg-accent hover:text-destructive"
-          title="Zeile löschen"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {!locked && (
+          <button
+            onClick={onDelete}
+            className="rounded-md p-1.5 text-muted-foreground/40 hover:bg-accent hover:text-destructive"
+            title="Zeile löschen"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </Td>
     </tr>
+  )
+}
+
+function PMFilter({
+  value,
+  onChange,
+  pms,
+}: {
+  value: string
+  onChange: (v: string) => void
+  pms: string[]
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-accent focus:ring-1 focus:ring-ring"
+      title="Nach Projektleiter filtern"
+    >
+      <option value="all">Alle Projektleiter</option>
+      {pms.map((pm) => (
+        <option key={pm} value={pm}>
+          {pm}
+        </option>
+      ))}
+      <option value="__unassigned__">Ohne Zuordnung</option>
+    </select>
+  )
+}
+
+function uniquePMs(rows: ProjectRow[]): string[] {
+  // canon → raw → count. Display the most-common raw form per canon.
+  const counts = new Map<string, Map<string, number>>()
+  for (const r of rows) {
+    for (const raw of [r.projektleiterDE, r.projektleiterPL]) {
+      const name = (raw ?? '').trim()
+      if (!name) continue
+      const canon = name.toLowerCase()
+      const inner = counts.get(canon) ?? new Map<string, number>()
+      inner.set(name, (inner.get(name) ?? 0) + 1)
+      counts.set(canon, inner)
+    }
+  }
+  const out: string[] = []
+  for (const inner of counts.values()) {
+    let best = ''
+    let bestN = -1
+    for (const [raw, n] of inner) {
+      if (n > bestN) {
+        best = raw
+        bestN = n
+      }
+    }
+    out.push(best)
+  }
+  out.sort((a, b) => a.localeCompare(b, 'de'))
+  return out
+}
+
+function LockToggle({ locked, onToggle }: { locked: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+        locked
+          ? 'border-border bg-muted/40 text-muted-foreground hover:bg-accent'
+          : 'border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10'
+      }`}
+      title={locked ? 'Zum Bearbeiten entsperren' : 'Zum Schutz sperren'}
+    >
+      {locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+      {locked ? 'Gesperrt' : 'Entsperrt'}
+    </button>
   )
 }
 

@@ -1,21 +1,25 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useDashboard } from '@/dashboard-store'
 import {
-  computeKPI,
-  computePLLoad,
-  computeRiskByQuarter,
-  computeTopOpen,
-  computeYearCompare,
+  computeSixMetrics,
+  groupByProjektleiter,
+  listProjectsForPM,
+  type PMGroup,
+  type SixMetrics,
 } from '@/lib/analytics'
-import { fmtEUR, fmtCompact, fmtPct } from '@/lib/format'
-import { derive, type Quarter } from '@/types'
-import { cn } from '@/lib/utils'
-import { Section } from '@/components/ui/section'
+import { derive } from '@/types'
+import { fmtEUR, fmtPct } from '@/lib/format'
 import { KPICard, KPIGrid } from '@/components/ui/kpi-card'
 import { LoadingCard } from '@/components/ui/loading-card'
+import { Section } from '@/components/ui/section'
+import { cn } from '@/lib/utils'
+
+const KRIT_HIGH = 0.3
 
 export function Dashboard() {
   const periods = useDashboard((s) => s.periods)
+  const year = useDashboard((s) => s.year)
   const quarter = useDashboard((s) => s.quarter)
   const status = useDashboard((s) => s.status)
   const load = useDashboard((s) => s.load)
@@ -25,11 +29,15 @@ export function Dashboard() {
   }, [status, load])
 
   const current = periods[quarter] ?? null
-  const kpi = useMemo(() => computeKPI(current), [current])
-  const yearCompare = useMemo(() => computeYearCompare(periods), [periods])
-  const plLoad = useMemo(() => computePLLoad(current, 10), [current])
-  const riskByQ = useMemo(() => computeRiskByQuarter(periods), [periods])
-  const topOpen = useMemo(() => computeTopOpen(current, 10), [current])
+  const rows = current?.rows ?? []
+  const totals = useMemo(() => computeSixMetrics(rows), [rows])
+  const groups = useMemo(() => groupByProjektleiter(current), [current])
+
+  const gesamt = totals.deBereinigtSumme + totals.plSumme
+  const totalKritisch = totals.deBereinigtKritisch + totals.plKritisch
+  const kritischShare = gesamt > 0 ? totalKritisch / gesamt : null
+  const projectCount = rows.filter(hasAnyMoney).length
+  const pmCount = groups.filter((g) => g.name !== 'Ohne Zuordnung').length
 
   if (status === 'loading' || status === 'idle') {
     return <LoadingCard>Lade Analytik…</LoadingCard>
@@ -37,316 +45,438 @@ export function Dashboard() {
 
   return (
     <>
-      <KPIGrid>
+      <HeroCard
+        year={year}
+        quarter={quarter}
+        gesamt={gesamt}
+        projectCount={projectCount}
+        pmCount={pmCount}
+        kritischShare={kritischShare}
+      />
+
+      <KPIGrid cols={6}>
+        <KPICard label="DE bereinigt Summe" value={fmtEUR(totals.deBereinigtSumme)} unit="€" />
         <KPICard
-          label="Forecast DE bereinigt"
-          value={fmtEUR(kpi.forecastDE)}
+          label="DE bereinigt wahrscheinlich"
+          value={fmtEUR(totals.deBereinigtWahrscheinlich)}
           unit="€"
-          sub={`${kpi.aktiveProjekte} aktive Projekte`}
         />
         <KPICard
-          label="Abgerechnet DE"
-          value={fmtEUR(kpi.abgerechnetDE)}
+          label="DE bereinigt kritisch"
+          value={fmtEUR(totals.deBereinigtKritisch)}
           unit="€"
-          sub={kpi.rechnungsquote !== null ? `${fmtPct(kpi.rechnungsquote)} Rechnungsquote` : undefined}
+          tone="danger"
+          sub={shareOf(totals.deBereinigtKritisch, totals.deBereinigtSumme)}
         />
-        <KPICard label="Noch offen DE" value={fmtEUR(kpi.nochOffenDE)} unit="€" />
+        <KPICard label="Forecast Polen Summe" value={fmtEUR(totals.plSumme)} unit="€" />
         <KPICard
-          label="Risikoanteil"
-          value={kpi.risikoanteil !== null ? fmtPct(kpi.risikoanteil) : ''}
-          tone={kpi.risikoanteil !== null && kpi.risikoanteil > 0.3 ? 'danger' : undefined}
+          label="Forecast Polen wahrscheinlich"
+          value={fmtEUR(totals.plWahrscheinlich)}
+          unit="€"
+        />
+        <KPICard
+          label="Forecast Polen kritisch"
+          value={fmtEUR(totals.plKritisch)}
+          unit="€"
+          tone="danger"
+          sub={shareOf(totals.plKritisch, totals.plSumme)}
         />
       </KPIGrid>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Jahresverlauf" subtitle="Forecast vs. Abgerechnet (DE bereinigt)">
-          <YearCompareChart data={yearCompare} activeQuarter={quarter} />
-        </Section>
-        <Section title="Risiko-Mix" subtitle="Forecast nach Flag, pro Quartal">
-          <RiskByQuarterChart data={riskByQ} activeQuarter={quarter} />
-        </Section>
-      </div>
-
       <Section
-        title="Projektleiter Auslastung"
-        subtitle={`Top 10 nach Forecast DE bereinigt · ${quarter}`}
-      >
-        <PLLoadChart data={plLoad} />
-      </Section>
-
-      <Section
-        title="Top 10 Noch offen DE"
-        subtitle={`${quarter} · unverrechnete Leistung`}
+        title="Projektleiter"
+        subtitle={`${groups.length} ${groups.length === 1 ? 'Eintrag' : 'Einträge'} · sortiert nach Gesamt`}
         padded={false}
       >
-        <TopOpenTable rows={topOpen} />
+        <PMTable groups={groups} companyGesamt={gesamt} totals={totals} />
       </Section>
     </>
   )
 }
 
-// ---------- Year compare chart ----------
-
-function YearCompareChart({
-  data,
-  activeQuarter,
+function HeroCard({
+  year,
+  quarter,
+  gesamt,
+  projectCount,
+  pmCount,
+  kritischShare,
 }: {
-  data: ReturnType<typeof computeYearCompare>
-  activeQuarter: Quarter
+  year: number
+  quarter: string
+  gesamt: number
+  projectCount: number
+  pmCount: number
+  kritischShare: number | null
 }) {
-  const max = Math.max(1, ...data.map((d) => Math.max(d.forecast, d.abgerechnet)))
-  const H = 180
-  const barGroupW = 70
-  const barW = 22
-  const gap = 10
-  const padL = 24
-  const padR = 8
-  const padT = 10
-  const padB = 24
-  const W = padL + padR + data.length * barGroupW
-
   return (
-    <div className="space-y-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-56 w-full">
-        <line
-          x1={padL}
-          y1={H - padB}
-          x2={W - padR}
-          y2={H - padB}
-          className="stroke-border"
-        />
-        {data.map((d, i) => {
-          const xBase = padL + i * barGroupW + (barGroupW - (barW * 2 + gap)) / 2
-          const chartH = H - padT - padB
-          const fh = (d.forecast / max) * chartH
-          const ah = (d.abgerechnet / max) * chartH
-          const isActive = d.quarter === activeQuarter
-          return (
-            <g key={d.quarter}>
-              <rect
-                x={xBase}
-                y={H - padB - fh}
-                width={barW}
-                height={fh}
-                className={cn('fill-foreground/80', !isActive && 'fill-foreground/40')}
-              />
-              <rect
-                x={xBase + barW + gap}
-                y={H - padB - ah}
-                width={barW}
-                height={ah}
-                className={cn('fill-emerald-500', !isActive && 'fill-emerald-500/50')}
-              />
-              <text
-                x={xBase + barW + gap / 2}
-                y={H - 6}
-                textAnchor="middle"
-                className="fill-muted-foreground text-[10px] font-mono"
-              >
-                {d.quarter}
-              </text>
-              <text
-                x={xBase + barW / 2}
-                y={H - padB - fh - 4}
-                textAnchor="middle"
-                className="fill-muted-foreground text-[9px] font-mono"
-              >
-                {fmtCompact(d.forecast)}
-              </text>
-              <text
-                x={xBase + barW + gap + barW / 2}
-                y={H - padB - ah - 4}
-                textAnchor="middle"
-                className="fill-muted-foreground text-[9px] font-mono"
-              >
-                {fmtCompact(d.abgerechnet)}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <LegendDot className="bg-foreground/80" label="Forecast" />
-        <LegendDot className="bg-emerald-500" label="Abgerechnet" />
-      </div>
-    </div>
-  )
-}
+    <div className="rounded-lg border bg-card p-6">
+      <div className="flex items-start justify-between gap-6">
+        <div className="min-w-0">
+          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Gesamt (DE + PL) · {year} {quarter}
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="font-mono text-4xl font-semibold tabular-nums md:text-5xl">
+              {fmtEUR(gesamt) || '—'}
+            </span>
+            {gesamt > 0 && <span className="text-xl text-muted-foreground">€</span>}
+          </div>
+          <div className="mt-2 font-mono text-sm text-muted-foreground tabular-nums">
+            {projectCount} {projectCount === 1 ? 'aktives Projekt' : 'aktive Projekte'} ·{' '}
+            {pmCount} {pmCount === 1 ? 'Projektleiter' : 'Projektleiter'}
+          </div>
+        </div>
 
-// ---------- Risk by quarter chart ----------
-
-function RiskByQuarterChart({
-  data,
-  activeQuarter,
-}: {
-  data: ReturnType<typeof computeRiskByQuarter>
-  activeQuarter: Quarter
-}) {
-  const totals = data.map((d) => d.kritisch + d.wahrscheinlich)
-  const max = Math.max(1, ...totals)
-  const H = 180
-  const barGroupW = 70
-  const barW = 32
-  const padL = 24
-  const padR = 8
-  const padT = 10
-  const padB = 24
-  const W = padL + padR + data.length * barGroupW
-
-  return (
-    <div className="space-y-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-56 w-full">
-        <line
-          x1={padL}
-          y1={H - padB}
-          x2={W - padR}
-          y2={H - padB}
-          className="stroke-border"
-        />
-        {data.map((d, i) => {
-          const chartH = H - padT - padB
-          const total = d.kritisch + d.wahrscheinlich
-          const totalH = (total / max) * chartH
-          const kH = total > 0 ? totalH * (d.kritisch / total) : 0
-          const wH = totalH - kH
-          const x = padL + i * barGroupW + (barGroupW - barW) / 2
-          const yBase = H - padB
-          const isActive = d.quarter === activeQuarter
-          return (
-            <g key={d.quarter}>
-              <rect
-                x={x}
-                y={yBase - wH}
-                width={barW}
-                height={wH}
-                className={cn('fill-muted-foreground/40', isActive && 'fill-muted-foreground/70')}
-              />
-              <rect
-                x={x}
-                y={yBase - wH - kH}
-                width={barW}
-                height={kH}
-                className={cn('fill-destructive/60', isActive && 'fill-destructive')}
-              />
-              <text
-                x={x + barW / 2}
-                y={H - 6}
-                textAnchor="middle"
-                className="fill-muted-foreground text-[10px] font-mono"
-              >
-                {d.quarter}
-              </text>
-              <text
-                x={x + barW / 2}
-                y={yBase - wH - kH - 4}
-                textAnchor="middle"
-                className="fill-muted-foreground text-[9px] font-mono"
-              >
-                {fmtCompact(total)}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <LegendDot className="bg-destructive" label="kritisch" />
-        <LegendDot className="bg-muted-foreground/50" label="wahrscheinlich" />
-      </div>
-    </div>
-  )
-}
-
-// ---------- PL load bars ----------
-
-function PLLoadChart({ data }: { data: ReturnType<typeof computePLLoad> }) {
-  if (data.length === 0) {
-    return <div className="py-6 text-center text-xs text-muted-foreground">Keine Zuordnung</div>
-  }
-  const max = Math.max(1, ...data.map((d) => d.forecast))
-
-  return (
-    <div className="space-y-1">
-      {data.map((d) => {
-        const pct = (d.forecast / max) * 100
-        return (
-          <div key={d.name} className="flex items-center gap-3">
-            <div className="w-20 shrink-0 text-xs font-mono text-muted-foreground">{d.name}</div>
-            <div className="relative h-6 flex-1 rounded bg-muted/40">
-              <div
-                className="h-full rounded bg-foreground/80"
-                style={{ width: `${pct}%` }}
-              />
-              <div className="absolute inset-0 flex items-center justify-end pr-2">
-                <span className="num text-[11px] text-foreground">
-                  {fmtEUR(d.forecast)} €
-                </span>
-              </div>
+        {kritischShare !== null && (
+          <div className="shrink-0 rounded-md border bg-background px-4 py-3 text-right">
+            <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Kritisch-Anteil
             </div>
-            <div className="num w-10 shrink-0 text-right text-xs text-muted-foreground">
-              {d.count}
+            <div
+              className={`mt-1 font-mono text-2xl font-semibold tabular-nums ${
+                kritischShare > KRIT_HIGH ? 'text-destructive' : 'text-foreground'
+              }`}
+            >
+              {fmtPct(kritischShare)}
             </div>
           </div>
-        )
-      })}
+        )}
+      </div>
     </div>
   )
 }
 
-// ---------- Top open table ----------
+function PMTable({
+  groups,
+  companyGesamt,
+  totals,
+}: {
+  groups: PMGroup[]
+  companyGesamt: number
+  totals: SixMetrics
+}) {
+  const [open, setOpen] = useState<Set<string>>(new Set())
 
-function TopOpenTable({ rows }: { rows: ReturnType<typeof computeTopOpen> }) {
-  if (rows.length === 0) {
-    return <div className="px-4 py-6 text-center text-xs text-muted-foreground">Nichts offen</div>
+  function toggle(name: string) {
+    setOpen((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
   }
+
+  if (groups.length === 0) {
+    return (
+      <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+        Keine Projektleiter in diesem Quartal.
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr className="border-b bg-muted/40 text-muted-foreground">
-            <th className="px-3 py-2 text-left font-medium">Proj. Nr.</th>
-            <th className="px-3 py-2 text-left font-medium">Projektname</th>
-            <th className="px-3 py-2 text-left font-medium">PL</th>
-            <th className="px-3 py-2 text-right font-medium">Forecast DE</th>
-            <th className="px-3 py-2 text-right font-medium">Abgerechnet DE</th>
-            <th className="px-3 py-2 text-right font-medium">Noch offen DE</th>
-            <th className="px-3 py-2 text-center font-medium">Flag</th>
+            <Th className="text-left">Projektleiter</Th>
+            <Th className="num">Projekte</Th>
+            <Th className="num border-l">DE Σ</Th>
+            <Th className="num">DE wahr.</Th>
+            <Th className="num">DE krit.</Th>
+            <Th className="num border-l">PL Σ</Th>
+            <Th className="num">PL wahr.</Th>
+            <Th className="num">PL krit.</Th>
+            <Th className="num border-l">Gesamt</Th>
+            <Th className="num">% Ges.</Th>
+            <Th className="num">% krit.</Th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => {
-            const d = derive(r)
-            return (
-              <tr key={r.id} className="border-b last:border-b-0">
-                <td className="num px-3 py-2">{r.projNr}</td>
-                <td className="max-w-[320px] truncate px-3 py-2">{r.projektname}</td>
-                <td className="px-3 py-2">{r.projektleiterDE || '—'}</td>
-                <td className="num px-3 py-2">{fmtEUR(d.forecastDEBereinigt)}</td>
-                <td className="num px-3 py-2">{fmtEUR(d.abgerechnetDEBereinigt)}</td>
-                <td className="num px-3 py-2 font-semibold">{fmtEUR(d.nochOffenDE)}</td>
-                <td className="px-3 py-2 text-center">
-                  <span
-                    className={cn(
-                      'rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold',
-                      r.flagDE === 'k' ? 'bg-destructive/10 text-destructive' : 'bg-muted',
-                    )}
-                  >
-                    {r.flagDE}
-                  </span>
-                </td>
-              </tr>
-            )
-          })}
+          {groups.map((g) => (
+            <PMRow
+              key={g.name}
+              g={g}
+              companyGesamt={companyGesamt}
+              isOpen={open.has(g.name)}
+              onToggle={() => toggle(g.name)}
+            />
+          ))}
+        </tbody>
+        <tfoot className="border-t">
+          <TotalsRow totals={totals} companyGesamt={companyGesamt} />
+        </tfoot>
+      </table>
+    </div>
+  )
+}
+
+function PMRow({
+  g,
+  companyGesamt,
+  isOpen,
+  onToggle,
+}: {
+  g: PMGroup
+  companyGesamt: number
+  isOpen: boolean
+  onToggle: () => void
+}) {
+  const m = g.metrics
+  const gesamt = m.deBereinigtSumme + m.plSumme
+  const kritisch = m.deBereinigtKritisch + m.plKritisch
+  const shareGesamt = companyGesamt > 0 ? gesamt / companyGesamt : null
+  const shareKritisch = gesamt > 0 ? kritisch / gesamt : null
+  const atRisk = shareKritisch !== null && shareKritisch > KRIT_HIGH
+  const isUnassigned = g.name === 'Ohne Zuordnung'
+
+  return (
+    <>
+      <tr
+        onClick={onToggle}
+        className={cn(
+          'cursor-pointer border-b last:border-b-0 hover:bg-accent/40',
+          atRisk && 'bg-destructive/[0.03]',
+          isOpen && 'bg-accent/40',
+        )}
+      >
+        <td className="px-3 py-2">
+          <div className="flex items-center gap-2">
+            {isOpen ? (
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            )}
+            {atRisk && <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" />}
+            <span className={isUnassigned ? 'italic text-muted-foreground' : 'font-medium'}>
+              {g.name}
+            </span>
+          </div>
+        </td>
+        <NumTd v={g.projectCount} format="int" />
+        <NumTd v={m.deBereinigtSumme} className="border-l" />
+        <NumTd v={m.deBereinigtWahrscheinlich} dim />
+        <NumTd v={m.deBereinigtKritisch} />
+        <NumTd v={m.plSumme} className="border-l" />
+        <NumTd v={m.plWahrscheinlich} dim />
+        <NumTd v={m.plKritisch} />
+        <NumTd v={gesamt} className="border-l" bold />
+        <NumTd v={shareGesamt} format="pct" dim />
+        <NumTd v={shareKritisch} format="pct" tone={atRisk ? 'danger' : undefined} />
+      </tr>
+      {isOpen && (
+        <tr className="border-b bg-muted/20">
+          <td colSpan={11} className="p-0">
+            <ProjectsSubTable g={g} />
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+function ProjectsSubTable({ g }: { g: PMGroup }) {
+  const projects = useMemo(
+    () =>
+      listProjectsForPM(g).filter((p) => {
+        const d = derive(p.row)
+        const deB = d.forecastDEBereinigt ?? 0
+        const pl = p.row.forecastPL ?? 0
+        if (p.side === 'DE') return deB > 0
+        if (p.side === 'PL') return pl > 0
+        return deB + pl > 0
+      }),
+    [g],
+  )
+
+  if (projects.length === 0) {
+    return (
+      <div className="px-6 py-3 text-xs text-muted-foreground">
+        Keine Projekte mit Forecast &gt; 0.
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-6 py-3">
+      <table className="w-full border-collapse text-xs">
+        <thead>
+          <tr className="border-b text-muted-foreground">
+            <SubTh className="w-24 text-left">Proj. Nr.</SubTh>
+            <SubTh className="text-left">Projektname</SubTh>
+            <SubTh className="w-20 text-left">Seite</SubTh>
+            <SubTh className="num w-32">Forecast</SubTh>
+            <SubTh className="w-12 text-center">Flag</SubTh>
+          </tr>
+        </thead>
+        <tbody>
+          {projects.map((p) => (
+            <ProjectSubRow key={p.row.id} p={p} />
+          ))}
         </tbody>
       </table>
     </div>
   )
 }
 
-function LegendDot({ className, label }: { className: string; label: string }) {
+function ProjectSubRow({ p }: { p: import('@/lib/analytics').PMProject }) {
+  const d = derive(p.row)
+  const deB = d.forecastDEBereinigt ?? 0
+  const pl = p.row.forecastPL ?? 0
+
+  let forecastDisplay: React.ReactNode
+  if (p.side === 'DE') forecastDisplay = <span>{fmtEUR(deB) || '—'}</span>
+  else if (p.side === 'PL') forecastDisplay = <span>{fmtEUR(pl) || '—'}</span>
+  else
+    forecastDisplay = (
+      <span>
+        <span className="text-muted-foreground">DE</span> {fmtEUR(deB) || '—'}{' '}
+        <span className="ml-2 text-muted-foreground">PL</span> {fmtEUR(pl) || '—'}
+      </span>
+    )
+
+  const flag =
+    p.side === 'DE' ? p.row.flagDE : p.side === 'PL' ? p.row.flagPL : null
+
   return (
-    <span className="flex items-center gap-1.5">
-      <span className={cn('inline-block h-2.5 w-2.5 rounded-sm', className)} />
-      {label}
-    </span>
+    <tr className="border-b last:border-b-0">
+      <td className="px-2 py-1.5 font-mono">{p.row.projNr || '—'}</td>
+      <td className="max-w-[480px] truncate px-2 py-1.5">
+        {p.row.projektname || <span className="text-muted-foreground">—</span>}
+      </td>
+      <td className="px-2 py-1.5 text-muted-foreground">{p.side}</td>
+      <td className="num px-2 py-1.5">{forecastDisplay}</td>
+      <td className="px-2 py-1.5 text-center">
+        {flag ? (
+          <span
+            className={cn(
+              'rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold',
+              flag === 'k' ? 'bg-destructive/10 text-destructive' : 'bg-muted',
+            )}
+          >
+            {flag}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40">·</span>
+        )}
+      </td>
+    </tr>
   )
+}
+
+function SubTh({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <th
+      className={`px-2 py-1.5 text-[10px] font-medium uppercase tracking-wider ${
+        className ?? ''
+      }`}
+    >
+      {children}
+    </th>
+  )
+}
+
+function TotalsRow({
+  totals,
+  companyGesamt,
+}: {
+  totals: SixMetrics
+  companyGesamt: number
+}) {
+  const kritisch = totals.deBereinigtKritisch + totals.plKritisch
+  const shareKritisch = companyGesamt > 0 ? kritisch / companyGesamt : null
+  return (
+    <tr className="bg-muted/60 font-semibold">
+      <td className="px-3 py-2 text-xs uppercase tracking-wider text-muted-foreground">
+        Summe
+      </td>
+      <td />
+      <NumTd v={totals.deBereinigtSumme} className="border-l" />
+      <NumTd v={totals.deBereinigtWahrscheinlich} dim />
+      <NumTd v={totals.deBereinigtKritisch} />
+      <NumTd v={totals.plSumme} className="border-l" />
+      <NumTd v={totals.plWahrscheinlich} dim />
+      <NumTd v={totals.plKritisch} />
+      <NumTd v={companyGesamt} className="border-l" bold />
+      <NumTd v={1} format="pct" dim />
+      <NumTd
+        v={shareKritisch}
+        format="pct"
+        tone={shareKritisch !== null && shareKritisch > KRIT_HIGH ? 'danger' : undefined}
+      />
+    </tr>
+  )
+}
+
+function Th({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <th
+      className={`px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider ${
+        className ?? ''
+      }`}
+    >
+      {children}
+    </th>
+  )
+}
+
+function NumTd({
+  v,
+  format = 'eur',
+  dim,
+  bold,
+  tone,
+  className,
+}: {
+  v: number | null
+  format?: 'eur' | 'pct' | 'int'
+  dim?: boolean
+  bold?: boolean
+  tone?: 'danger'
+  className?: string
+}) {
+  const str =
+    v === null
+      ? ''
+      : format === 'pct'
+        ? fmtPct(v)
+        : format === 'int'
+          ? String(v)
+          : fmtEUR(v)
+  const display = str || <span className="text-muted-foreground/40">—</span>
+  return (
+    <td
+      className={`num px-3 py-2 ${bold ? 'font-semibold' : ''} ${
+        dim ? 'text-muted-foreground' : ''
+      } ${tone === 'danger' ? 'text-destructive' : ''} ${className ?? ''}`}
+    >
+      {display}
+    </td>
+  )
+}
+
+function hasAnyMoney(r: {
+  forecastDE: number | null
+  forecastPL: number | null
+  abgerechnetDE: number | null
+  abgerechnetPL: number | null
+}): boolean {
+  return (
+    (r.forecastDE ?? 0) !== 0 ||
+    (r.forecastPL ?? 0) !== 0 ||
+    (r.abgerechnetDE ?? 0) !== 0 ||
+    (r.abgerechnetPL ?? 0) !== 0
+  )
+}
+
+function shareOf(part: number, whole: number): string | undefined {
+  if (whole <= 0) return undefined
+  return fmtPct(part / whole) + ' Anteil'
 }

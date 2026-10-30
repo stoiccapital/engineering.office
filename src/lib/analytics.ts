@@ -3,137 +3,185 @@ import { derive } from '@/types'
 
 export const QUARTERS: Quarter[] = ['Q1', 'Q2', 'Q3', 'Q4']
 
-const UNASSIGNED = 'ohne'
+const UNASSIGNED = 'Ohne Zuordnung'
 
-type Nums = { k: number; o: number; nochOffen: number; forecastRaw: number }
+export type SixMetrics = {
+  deBereinigtSumme: number
+  deBereinigtWahrscheinlich: number
+  deBereinigtKritisch: number
+  plSumme: number
+  plWahrscheinlich: number
+  plKritisch: number
+}
 
-function sumNums(rows: ProjectRow[]): Nums {
-  let k = 0
-  let o = 0
-  let forecastRaw = 0
-  for (const r of rows) {
-    const d = derive(r)
-    k += d.forecastDEBereinigt ?? 0
-    o += d.abgerechnetDEBereinigt ?? 0
-    forecastRaw += r.forecastDE ?? 0
+export function emptySixMetrics(): SixMetrics {
+  return {
+    deBereinigtSumme: 0,
+    deBereinigtWahrscheinlich: 0,
+    deBereinigtKritisch: 0,
+    plSumme: 0,
+    plWahrscheinlich: 0,
+    plKritisch: 0,
   }
-  return { k, o, nochOffen: k - o, forecastRaw }
 }
 
-export type KPI = {
-  forecastDE: number
-  abgerechnetDE: number
-  nochOffenDE: number
-  rechnungsquote: number | null
-  risikoanteil: number | null
-  aktiveProjekte: number
+export function computeSixMetricsSplit(
+  deRows: ProjectRow[],
+  plRows: ProjectRow[],
+): SixMetrics {
+  const m = emptySixMetrics()
+  for (const r of deRows) {
+    const deB = derive(r).forecastDEBereinigt ?? 0
+    m.deBereinigtSumme += deB
+    if (r.flagDE === 'k') m.deBereinigtKritisch += deB
+    else m.deBereinigtWahrscheinlich += deB
+  }
+  for (const r of plRows) {
+    const pl = r.forecastPL ?? 0
+    m.plSumme += pl
+    if (r.flagPL === 'k') m.plKritisch += pl
+    else m.plWahrscheinlich += pl
+  }
+  return m
 }
 
-export function computeKPI(period: Period | null): KPI {
-  if (!period) {
-    return {
-      forecastDE: 0,
-      abgerechnetDE: 0,
-      nochOffenDE: 0,
-      rechnungsquote: null,
-      risikoanteil: null,
-      aktiveProjekte: 0,
+// Top totals: every row contributes its DE side + its PL side.
+export function computeSixMetrics(rows: ProjectRow[]): SixMetrics {
+  return computeSixMetricsSplit(rows, rows)
+}
+
+export type PMGroup = {
+  name: string
+  projectCount: number
+  metrics: SixMetrics
+  deRows: ProjectRow[]
+  plRows: ProjectRow[]
+}
+
+export type PMProject = {
+  row: ProjectRow
+  side: 'DE' | 'PL' | 'beide'
+}
+
+export function listProjectsForPM(g: PMGroup): PMProject[] {
+  const byId = new Map<string, { row: ProjectRow; de: boolean; pl: boolean }>()
+  for (const r of g.deRows) {
+    byId.set(r.id, { row: r, de: true, pl: false })
+  }
+  for (const r of g.plRows) {
+    const entry = byId.get(r.id)
+    if (entry) entry.pl = true
+    else byId.set(r.id, { row: r, de: false, pl: true })
+  }
+  const list: PMProject[] = []
+  for (const e of byId.values()) {
+    const side: PMProject['side'] = e.de && e.pl ? 'beide' : e.de ? 'DE' : 'PL'
+    list.push({ row: e.row, side })
+  }
+  // Sort by largest contribution first.
+  list.sort((a, b) => contrib(b) - contrib(a))
+  return list
+}
+
+function contrib(p: PMProject): number {
+  const d = derive(p.row)
+  const deB = d.forecastDEBereinigt ?? 0
+  const pl = p.row.forecastPL ?? 0
+  if (p.side === 'DE') return deB
+  if (p.side === 'PL') return pl
+  return deB + pl
+}
+
+function hasMoney(r: ProjectRow): boolean {
+  return (
+    (r.forecastDE ?? 0) !== 0 ||
+    (r.forecastPL ?? 0) !== 0 ||
+    (r.abgerechnetDE ?? 0) !== 0 ||
+    (r.abgerechnetPL ?? 0) !== 0
+  )
+}
+
+export function groupByProjektleiter(period: Period | null): PMGroup[] {
+  if (!period) return []
+
+  // canon → { deRows, plRows, displayCounts }
+  type Bucket = {
+    canon: string
+    deRows: ProjectRow[]
+    plRows: ProjectRow[]
+    displayCounts: Map<string, number>
+  }
+  const buckets = new Map<string, Bucket>()
+
+  function bucket(canon: string): Bucket {
+    let b = buckets.get(canon)
+    if (!b) {
+      b = { canon, deRows: [], plRows: [], displayCounts: new Map() }
+      buckets.set(canon, b)
+    }
+    return b
+  }
+  function tally(b: Bucket, raw: string) {
+    b.displayCounts.set(raw, (b.displayCounts.get(raw) ?? 0) + 1)
+  }
+
+  for (const r of period.rows) {
+    const deRaw = (r.projektleiterDE ?? '').trim()
+    const plRaw = (r.projektleiterPL ?? '').trim()
+
+    if (deRaw) {
+      const b = bucket(deRaw.toLowerCase())
+      b.deRows.push(r)
+      tally(b, deRaw)
+    }
+    if (plRaw) {
+      const b = bucket(plRaw.toLowerCase())
+      b.plRows.push(r)
+      tally(b, plRaw)
+    }
+    // Row with money but no PM anywhere → Ohne Zuordnung (both sides, since no one owns it).
+    if (!deRaw && !plRaw && hasMoney(r)) {
+      const b = bucket('__unassigned__')
+      b.deRows.push(r)
+      b.plRows.push(r)
     }
   }
-  const { k, o, nochOffen } = sumNums(period.rows)
 
-  let kritischForecast = 0
-  let aktiv = 0
-  for (const r of period.rows) {
-    const d = derive(r)
-    const forecastBer = d.forecastDEBereinigt ?? 0
-    if (r.flagDE === 'k') kritischForecast += forecastBer
-    const hasActivity =
-      (r.forecastDE ?? 0) !== 0 ||
-      (r.forecastPL ?? 0) !== 0 ||
-      (r.abgerechnetDE ?? 0) !== 0 ||
-      (r.abgerechnetPL ?? 0) !== 0
-    if (hasActivity) aktiv++
+  const groups: PMGroup[] = []
+  for (const b of buckets.values()) {
+    const projectIds = new Set<string>()
+    for (const r of b.deRows) projectIds.add(r.id)
+    for (const r of b.plRows) projectIds.add(r.id)
+    const name =
+      b.canon === '__unassigned__' ? UNASSIGNED : pickDisplay(b.displayCounts)
+    groups.push({
+      name,
+      projectCount: projectIds.size,
+      metrics: computeSixMetricsSplit(b.deRows, b.plRows),
+      deRows: b.deRows,
+      plRows: b.plRows,
+    })
   }
 
-  return {
-    forecastDE: k,
-    abgerechnetDE: o,
-    nochOffenDE: nochOffen,
-    rechnungsquote: k > 0 ? o / k : null,
-    risikoanteil: k > 0 ? kritischForecast / k : null,
-    aktiveProjekte: aktiv,
-  }
-}
-
-export type QuarterPoint = {
-  quarter: Quarter
-  forecast: number
-  abgerechnet: number
-}
-
-export function computeYearCompare(periods: Partial<Record<Quarter, Period | null>>): QuarterPoint[] {
-  return QUARTERS.map((q) => {
-    const p = periods[q] ?? null
-    const { k, o } = p ? sumNums(p.rows) : { k: 0, o: 0 }
-    return { quarter: q, forecast: k, abgerechnet: o }
+  groups.sort((a, b) => {
+    // Ohne Zuordnung always last, regardless of amount.
+    if (a.name === UNASSIGNED && b.name !== UNASSIGNED) return 1
+    if (b.name === UNASSIGNED && a.name !== UNASSIGNED) return -1
+    const sa = a.metrics.deBereinigtSumme + a.metrics.plSumme
+    const sb = b.metrics.deBereinigtSumme + b.metrics.plSumme
+    return sb - sa
   })
+  return groups
 }
 
-export type PLSlice = { name: string; forecast: number; count: number }
-
-export function computePLLoad(period: Period | null, limit = 10): PLSlice[] {
-  if (!period) return []
-  const groups = new Map<string, { forecast: number; count: number }>()
-  for (const r of period.rows) {
-    const name = r.projektleiterDE?.trim() || UNASSIGNED
-    const d = derive(r)
-    const forecast = d.forecastDEBereinigt ?? 0
-    if (forecast <= 0) continue
-    const g = groups.get(name) ?? { forecast: 0, count: 0 }
-    g.forecast += forecast
-    g.count += 1
-    groups.set(name, g)
+function pickDisplay(counts: Map<string, number>): string {
+  let best = ''
+  let bestCount = -1
+  for (const [name, count] of counts) {
+    if (count > bestCount) {
+      best = name
+      bestCount = count
+    }
   }
-  const list = Array.from(groups.entries()).map(([name, g]) => ({ name, ...g }))
-  list.sort((a, b) => b.forecast - a.forecast)
-  return list.slice(0, limit)
-}
-
-export type RiskMix = { kritisch: number; wahrscheinlich: number }
-
-export function computeRiskMix(period: Period | null): RiskMix {
-  if (!period) return { kritisch: 0, wahrscheinlich: 0 }
-  let kritisch = 0
-  let wahrscheinlich = 0
-  for (const r of period.rows) {
-    const d = derive(r)
-    const f = d.forecastDEBereinigt ?? 0
-    if (f <= 0) continue
-    if (r.flagDE === 'k') kritisch += f
-    else wahrscheinlich += f
-  }
-  return { kritisch, wahrscheinlich }
-}
-
-export type RiskPoint = { quarter: Quarter; kritisch: number; wahrscheinlich: number }
-
-export function computeRiskByQuarter(
-  periods: Partial<Record<Quarter, Period | null>>,
-): RiskPoint[] {
-  return QUARTERS.map((q) => {
-    const p = periods[q] ?? null
-    const mix = computeRiskMix(p)
-    return { quarter: q, kritisch: mix.kritisch, wahrscheinlich: mix.wahrscheinlich }
-  })
-}
-
-export function computeTopOpen(period: Period | null, limit = 10): ProjectRow[] {
-  if (!period) return []
-  return [...period.rows]
-    .map((r) => ({ row: r, open: (derive(r).nochOffenDE ?? 0) }))
-    .filter((x) => x.open > 0)
-    .sort((a, b) => b.open - a.open)
-    .slice(0, limit)
-    .map((x) => x.row)
+  return best
 }

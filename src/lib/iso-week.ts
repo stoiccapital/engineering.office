@@ -48,3 +48,27 @@ export function monthOfISOWeek(year: number, week: number): number {
   thursday.setUTCDate(monday.getUTCDate() + 3)
   return thursday.getUTCMonth()
 }
+
+export type QuarterLabel = 'Q1' | 'Q2' | 'Q3' | 'Q4'
+
+export function quarterOfISOWeek(year: number, week: number): QuarterLabel {
+  const m = monthOfISOWeek(year, week)
+  if (m <= 2) return 'Q1'
+  if (m <= 5) return 'Q2'
+  if (m <= 8) return 'Q3'
+  return 'Q4'
+}
+
+// Returns the ISO year + ISO week number for today.
+export function currentISOWeek(now: Date = new Date()): { year: number; week: number } {
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const dayN = (d.getUTCDay() + 6) % 7
+  d.setUTCDate(d.getUTCDate() - dayN + 3)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 4))
+  const yearStartDayN = (yearStart.getUTCDay() + 6) % 7
+  yearStart.setUTCDate(yearStart.getUTCDate() - yearStartDayN + 3)
+  return {
+    year: d.getUTCFullYear(),
+    week: 1 + Math.round((d.getTime() - yearStart.getTime()) / (7 * 24 * 3600 * 1000)),
+  }
+}

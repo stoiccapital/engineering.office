@@ -38,6 +38,20 @@ export function KPICard({
   )
 }
 
-export function KPIGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{children}</div>
+export function KPIGrid({
+  children,
+  cols = 4,
+}: {
+  children: React.ReactNode
+  cols?: 3 | 4 | 6 | 7
+}) {
+  const colsCls =
+    cols === 7
+      ? 'md:grid-cols-4 xl:grid-cols-7'
+      : cols === 6
+        ? 'md:grid-cols-3 lg:grid-cols-6'
+        : cols === 3
+          ? 'md:grid-cols-3'
+          : 'md:grid-cols-4'
+  return <div className={`grid grid-cols-2 gap-3 ${colsCls}`}>{children}</div>
 }
