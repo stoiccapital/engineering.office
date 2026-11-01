@@ -1,12 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePlan, cellKey } from '@/plan-store'
-import {
-  MAX_TODOS_PER_WEEK,
-  PLAN_STATUSES,
-  PLAN_STATUS_LABELS,
-  type PlanStatus,
-  type WeekTodo,
-} from '@/types'
+import { MAX_TODOS_PER_WEEK, type WeekTodo } from '@/types'
 import {
   MONTH_LABELS_DE,
   currentISOWeek,
@@ -15,56 +9,31 @@ import {
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
-import { ChevronDown, Plus, X } from 'lucide-react'
+import { Maximize2, Minimize2, Plus, X } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 
-const STATUS_CLASSES: Record<PlanStatus, string> = {
-  abstimmen: 'bg-amber-100 text-amber-900 hover:bg-amber-200',
-  urlaub: 'bg-sky-100 text-sky-900 hover:bg-sky-200',
-  frei: 'bg-muted text-muted-foreground hover:bg-accent',
-  abgabe: 'bg-destructive/15 text-destructive hover:bg-destructive/25',
+type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | null
+
+function todoTone(text: string): TodoTone {
+  const t = text.toLowerCase()
+  if (t.includes('aufgabe')) return 'red'
+  if (t.includes('abgabe')) return 'green'
+  if (t.includes('abstimmen')) return 'yellow'
+  if (t.includes('urlaub')) return 'blue'
+  return null
 }
 
-function StatusSelect({
-  status,
-  onChange,
-}: {
-  status: PlanStatus | undefined
-  onChange: (next: PlanStatus | null) => void
-}) {
-  return (
-    <div className="relative">
-      <select
-        value={status ?? ''}
-        onChange={(e) => onChange((e.target.value || null) as PlanStatus | null)}
-        className={cn(
-          'h-7 w-full cursor-pointer appearance-none border-0 bg-transparent pl-2 pr-6 font-mono text-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring',
-          status ? STATUS_CLASSES[status] : 'text-muted-foreground/60 hover:bg-accent',
-        )}
-        title={status ? PLAN_STATUS_LABELS[status] : 'Leer'}
-      >
-        <option value="">— Leer —</option>
-        {PLAN_STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {PLAN_STATUS_LABELS[s]}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        className={cn(
-          'pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2',
-          status ? 'opacity-70' : 'opacity-40',
-        )}
-      />
-    </div>
-  )
+const TONE_CLASSES: Record<Exclude<TodoTone, null>, string> = {
+  red: 'bg-red-50 text-red-900 border-l-2 border-red-500',
+  green: 'bg-emerald-50 text-emerald-900 border-l-2 border-emerald-500',
+  yellow: 'bg-amber-50 text-amber-900 border-l-2 border-amber-500',
+  blue: 'bg-sky-50 text-sky-900 border-l-2 border-sky-500',
 }
 
 export function QuartalPlanTable() {
   const year = usePlan((s) => s.year)
   const quarter = usePlan((s) => s.quarter)
   const plan = usePlan((s) => s.plan)
-  const setCell = usePlan((s) => s.setCell)
   const renameEmployee = usePlan((s) => s.renameEmployee)
   const addEmployee = usePlan((s) => s.addEmployee)
   const removeEmployee = usePlan((s) => s.removeEmployee)
@@ -97,6 +66,23 @@ export function QuartalPlanTable() {
     return t.year === year ? t.week : null
   }, [year])
 
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen()
+    } else {
+      void containerRef.current?.requestFullscreen()
+    }
+  }
+
   if (!plan) return null
 
   const todoCount = plan.todos
@@ -106,15 +92,40 @@ export function QuartalPlanTable() {
   const subtitle = `${plan.employees.length} Mitarbeiter · ${weekRows.length} Wochen · ${todoCount} Aufgaben`
 
   return (
-    <Section title={title} subtitle={subtitle} padded={false} footer={<PlanLegend />}>
-      <div className="overflow-auto">
+    <div
+      ref={containerRef}
+      className={cn(
+        isFullscreen && 'flex h-screen w-screen flex-col bg-background p-4',
+      )}
+    >
+      <Section
+        title={title}
+        subtitle={subtitle}
+        padded={false}
+        className={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
+        footer={<PlanLegend />}
+        action={
+          <button
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
+            className="rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )}
+          </button>
+        }
+      >
+      <div className={cn('overflow-auto', isFullscreen && 'max-h-[calc(100vh-200px)]')}>
         <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 z-20 bg-muted/40">
+          <thead className="sticky top-0 z-20 bg-muted">
             <tr className="border-b">
-              <th className="sticky left-0 z-30 w-16 bg-muted/40 px-2 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th className="sticky left-0 z-30 w-16 bg-muted px-2 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Monat
               </th>
-              <th className="sticky left-16 z-30 w-14 border-r bg-muted/40 px-2 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th className="sticky left-16 z-30 w-14 border-r bg-muted px-2 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 KW
               </th>
               {plan.employees.map((name, i) => (
@@ -175,14 +186,9 @@ export function QuartalPlanTable() {
                   </td>
                   {plan.employees.map((_, empIndex) => {
                     const key = cellKey(empIndex, row.week)
-                    const status = plan.cells[key]
                     const todos = plan.todos?.[key] ?? []
                     return (
                       <td key={empIndex} className="min-w-[280px] border-l p-0 align-top">
-                        <StatusSelect
-                          status={status}
-                          onChange={(next) => setCell(empIndex, row.week, next)}
-                        />
                         <WeekTodosCell
                           todos={todos}
                           onAdd={() => addTodo(empIndex, row.week)}
@@ -199,7 +205,8 @@ export function QuartalPlanTable() {
           </tbody>
         </table>
       </div>
-    </Section>
+      </Section>
+    </div>
   )
 }
 
@@ -217,7 +224,12 @@ function WeekTodosCell({
   const atLimit = todos.length >= MAX_TODOS_PER_WEEK
   const empty = todos.length === 0
   return (
-    <div className="group/cell flex flex-col gap-0.5 p-1.5">
+    <div
+      className={cn(
+        'group/cell flex flex-col gap-0.5 p-1.5',
+        empty && 'bg-red-50 border-l-2 border-red-500',
+      )}
+    >
       {todos.map((todo) => (
         <TodoRow
           key={todo.id}
@@ -232,7 +244,7 @@ function WeekTodosCell({
         className={cn(
           'flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all',
           atLimit && 'cursor-not-allowed text-muted-foreground/40',
-          !atLimit && empty && 'text-muted-foreground/40 hover:text-foreground',
+          !atLimit && empty && 'text-red-900/70 hover:text-red-900',
           !atLimit && !empty &&
             'rounded border border-dashed text-muted-foreground hover:bg-accent hover:text-foreground',
         )}
@@ -254,8 +266,14 @@ function TodoRow({
   onUpdate: (patch: Partial<Omit<WeekTodo, 'id'>>) => void
   onRemove: () => void
 }) {
+  const tone = todoTone(todo.text)
   return (
-    <div className="group flex items-start gap-1.5 rounded px-1 py-0.5 hover:bg-muted/40">
+    <div
+      className={cn(
+        'group flex items-start gap-1.5 rounded px-1 py-0.5',
+        tone ? TONE_CLASSES[tone] : 'hover:bg-muted',
+      )}
+    >
       <input
         type="checkbox"
         checked={todo.done}
@@ -265,11 +283,11 @@ function TodoRow({
       <textarea
         value={todo.text}
         onChange={(e) => onUpdate({ text: e.target.value })}
-        placeholder="Aufgabe…"
+        placeholder="Aufgabe, Abgabe, Abstimmen, Urlaub…"
         rows={1}
         className={cn(
           'min-w-0 flex-1 resize-none bg-transparent text-xs leading-snug outline-none placeholder:text-muted-foreground/50',
-          todo.done && 'text-muted-foreground line-through',
+          todo.done && 'line-through opacity-60',
         )}
         style={{ fieldSizing: 'content' } as React.CSSProperties}
       />
@@ -284,28 +302,28 @@ function TodoRow({
   )
 }
 
-const LEGEND_SWATCH: Record<PlanStatus, string> = {
-  abstimmen: 'bg-amber-100 text-amber-900',
-  urlaub: 'bg-sky-100 text-sky-900',
-  frei: 'bg-muted text-muted-foreground',
-  abgabe: 'bg-destructive/15 text-destructive',
-}
+const LEGEND_ITEMS: { label: string; tone: Exclude<TodoTone, null> }[] = [
+  { label: 'Aufgabe', tone: 'red' },
+  { label: 'Abgabe', tone: 'green' },
+  { label: 'Abstimmen', tone: 'yellow' },
+  { label: 'Urlaub', tone: 'blue' },
+]
 
 function PlanLegend() {
   return (
     <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
       <span className="font-medium uppercase tracking-wider">Legende</span>
-      {PLAN_STATUSES.map((s) => (
-        <span key={s} className="flex items-center gap-1.5">
+      {LEGEND_ITEMS.map((item) => (
+        <span key={item.tone} className="flex items-center gap-1.5">
           <span
-            className={`inline-block rounded px-1.5 py-0.5 font-mono text-[10px] ${LEGEND_SWATCH[s]}`}
+            className={`inline-block rounded px-1.5 py-0.5 font-mono text-[10px] ${TONE_CLASSES[item.tone]}`}
           >
-            {PLAN_STATUS_LABELS[s]}
+            {item.label}
           </span>
         </span>
       ))}
       <span className="ml-auto">
-        Status aus Dropdown wählen · Aufgaben inline bearbeiten · Änderungen werden automatisch
+        Zeile färbt sich automatisch anhand des Schlüsselworts. Änderungen werden automatisch
         gespeichert.
       </span>
     </div>

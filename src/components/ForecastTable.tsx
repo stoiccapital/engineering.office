@@ -15,7 +15,6 @@ const groups: ColGroup[] = [
   { label: 'Projekt', span: 5 },
   { label: 'Forecast', span: 5, leading: true },
   { label: 'Abgerechnet', span: 4, leading: true },
-  { label: 'Leistungsstand', span: 4, leading: true },
   { label: '', span: 1 },
 ]
 
@@ -84,10 +83,6 @@ export function ForecastTable() {
             <col className="w-28" /> {/* Abg PL */}
             <col className="w-28" /> {/* Abg bereinigt */}
             <col className="w-28" /> {/* Noch offen */}
-            <col className="w-24" /> {/* % DE */}
-            <col className="w-28" /> {/* Gew DE */}
-            <col className="w-24" /> {/* % PL */}
-            <col className="w-28" /> {/* Gew PL */}
             <col className="w-10" />
           </colgroup>
 
@@ -118,10 +113,6 @@ export function ForecastTable() {
               <Th className="num">Abgerechnet PL</Th>
               <Th className="num text-muted-foreground">Abg. bereinigt</Th>
               <Th className="num text-muted-foreground">Noch offen DE</Th>
-              <Th className="num border-l">% DE</Th>
-              <Th className="num text-muted-foreground">Gewichtet DE</Th>
-              <Th className="num">% PL</Th>
-              <Th className="num text-muted-foreground">Gewichtet PL</Th>
               <Th></Th>
             </tr>
           </thead>
@@ -130,7 +121,7 @@ export function ForecastTable() {
             {filteredRows.length === 0 && (
               <tr>
                 <td
-                  colSpan={19}
+                  colSpan={15}
                   className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   Keine Projekte für diese Auswahl.
@@ -261,18 +252,6 @@ function Row({
         <NumCell value={d.nochOffenDE} readOnly />
       </Td>
 
-      <Td className="border-l">
-        <NumCell value={row.leistungsstandDE} onChange={(v) => onUpdate({ leistungsstandDE: v })} pct readOnly={ro} />
-      </Td>
-      <Td>
-        <NumCell value={d.gewichtetDE} readOnly />
-      </Td>
-      <Td>
-        <NumCell value={row.leistungsstandPL} onChange={(v) => onUpdate({ leistungsstandPL: v })} pct readOnly={ro} />
-      </Td>
-      <Td>
-        <NumCell value={d.gewichtetPL} readOnly />
-      </Td>
       <Td>
         {!locked && (
           <button
@@ -373,8 +352,6 @@ type Totals = {
   abgerechnetPL: number
   abgerechnetDEBereinigt: number
   nochOffenDE: number
-  gewichtetDE: number
-  gewichtetPL: number
 }
 
 function emptyTotals(): Totals {
@@ -386,8 +363,6 @@ function emptyTotals(): Totals {
     abgerechnetPL: 0,
     abgerechnetDEBereinigt: 0,
     nochOffenDE: 0,
-    gewichtetDE: 0,
-    gewichtetPL: 0,
   }
 }
 
@@ -400,8 +375,6 @@ function addTo(t: Totals, r: ProjectRow) {
   t.abgerechnetPL += r.abgerechnetPL ?? 0
   t.abgerechnetDEBereinigt += d.abgerechnetDEBereinigt ?? 0
   t.nochOffenDE += d.nochOffenDE ?? 0
-  t.gewichtetDE += d.gewichtetDE ?? 0
-  t.gewichtetPL += d.gewichtetPL ?? 0
 }
 
 function computeTotals(rows: ProjectRow[]) {
@@ -410,15 +383,11 @@ function computeTotals(rows: ProjectRow[]) {
   const w = emptyTotals()
   for (const r of rows) {
     addTo(sum, r)
-    // Excel SUMIF uses the DE flag ($L / mirror of H) for both DE and PL totals,
-    // but PL side uses $J (flagPL) — we follow that split.
     const tDE = r.flagDE === 'k' ? k : w
     tDE.forecastDE += r.forecastDE ?? 0
     tDE.forecastDEBereinigt += derive(r).forecastDEBereinigt ?? 0
-    tDE.gewichtetDE += derive(r).gewichtetDE ?? 0
     const tPL = r.flagPL === 'k' ? k : w
     tPL.forecastPL += r.forecastPL ?? 0
-    tPL.gewichtetPL += derive(r).gewichtetPL ?? 0
   }
   return { sum, k, w }
 }
@@ -447,10 +416,6 @@ function TotalsRow({
       <TotCell v={totals.abgerechnetPL} />
       <TotCell v={totals.abgerechnetDEBereinigt} />
       <TotCell v={totals.nochOffenDE} />
-      <td className="border-l" />
-      <TotCell v={totals.gewichtetDE} />
-      <td />
-      <TotCell v={totals.gewichtetPL} />
       <td />
     </tr>
   )

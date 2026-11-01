@@ -25,14 +25,13 @@ export type Period = {
   rows: ProjectRow[]
 }
 
-export type PlanStatus = 'abstimmen' | 'urlaub' | 'frei' | 'abgabe'
+export type PlanStatus = 'abstimmen' | 'urlaub' | 'abgabe'
 
-export const PLAN_STATUSES: PlanStatus[] = ['abstimmen', 'urlaub', 'frei', 'abgabe']
+export const PLAN_STATUSES: PlanStatus[] = ['abstimmen', 'urlaub', 'abgabe']
 
 export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
   abstimmen: 'Abstimmen',
   urlaub: 'Urlaub',
-  frei: 'Frei',
   abgabe: 'Abgabe',
 }
 
@@ -46,6 +45,56 @@ export type QuartalPlan = {
   cells: Record<string, PlanStatus>
   // Key `${empIndex}:${week}` -> todos for that employee/week cell.
   todos?: Record<string, WeekTodo[]>
+}
+
+export type ZielePersonRole = 'team' | 'ausschreibung' | 'verwaltung'
+
+export type ZielePerson = {
+  id: string
+  name: string
+  fte: number
+  role?: ZielePersonRole // defaults to 'team'
+}
+
+export type ZieleTeam = {
+  id: string
+  name: string
+  people: ZielePerson[]
+}
+
+export type ZieleBranch = {
+  id: 'de' | 'pl'
+  label: string
+  umsatzProFTE: number
+  ruhendePct: number // 0..1
+  teams: ZieleTeam[]
+}
+
+export type Ziele = {
+  year: number
+  branches: ZieleBranch[]
+}
+
+export type UmsatzBranch = 'de' | 'pl'
+export type MonthValues = (number | null)[] // length 12, Jan..Dez
+
+export type UmsatzTeam = {
+  id: string
+  name: string
+  branch: UmsatzBranch
+  fte: number
+  forecast: MonthValues
+  rechnungen: MonthValues
+  ziel: MonthValues
+}
+
+export type Umsatzkontrolle = {
+  year: number
+  teams: UmsatzTeam[]
+}
+
+export function emptyMonthValues(): MonthValues {
+  return Array.from({ length: 12 }, () => null)
 }
 
 // Derived values per row

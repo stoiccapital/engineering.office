@@ -17,7 +17,6 @@ const TODO_PREVIEW = 3
 const STATUS_BADGE: Record<PlanStatus, string> = {
   abstimmen: 'bg-amber-100 text-amber-900',
   urlaub: 'bg-sky-100 text-sky-900',
-  frei: 'bg-muted text-muted-foreground',
   abgabe: 'bg-destructive/15 text-destructive',
 }
 

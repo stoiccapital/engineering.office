@@ -5,29 +5,39 @@ import { ForecastTable } from '@/components/ForecastTable'
 import { AuthGate } from '@/components/AuthGate'
 import { SaveStatus } from '@/components/SaveStatus'
 import { PlanSaveStatus } from '@/components/PlanSaveStatus'
+import { ZieleSaveStatus } from '@/components/ZieleSaveStatus'
+import { UmsatzSaveStatus } from '@/components/UmsatzSaveStatus'
 import { YearSwitcher } from '@/components/YearSwitcher'
 import { QuarterSwitcher } from '@/components/QuarterSwitcher'
 import { PlanTabs } from '@/components/PlanTabs'
 import { ImportDialog } from '@/components/ImportDialog'
 import { Dashboard } from '@/components/Dashboard'
 import { DashboardPeriodSwitcher } from '@/components/DashboardPeriodSwitcher'
+import { Ziele } from '@/components/Ziele'
+import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
 import { LoadingCard } from '@/components/ui/loading-card'
 import { Logo } from '@/components/Logo'
 import { useForecast } from '@/store'
 import { usePlan } from '@/plan-store'
+import { useZiele } from '@/ziele-store'
+import { useUmsatz } from '@/umsatz-store'
 import { clearToken } from '@/api'
 import { cn } from '@/lib/utils'
-import { CalendarDays, LayoutDashboard, LogOut, Table2 } from 'lucide-react'
+import { CalendarDays, Gauge, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Table2, Target } from 'lucide-react'
 
-type View = 'forecast' | 'plan' | 'dashboard'
+const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
+
+type View = 'forecast' | 'plan' | 'dashboard' | 'ziele' | 'umsatz'
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
   forecast: { title: 'Forecast', label: 'Forecast', icon: Table2 },
   plan: { title: 'Quartalsplanung', label: 'Quartalsplanung', icon: CalendarDays },
   dashboard: { title: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  ziele: { title: 'Ziele', label: 'Ziele', icon: Target },
+  umsatz: { title: 'Umsatzkontrolle', label: 'Umsatzkontrolle', icon: Gauge },
 }
 
-const VIEW_ORDER: View[] = ['dashboard', 'forecast', 'plan']
+const VIEW_ORDER: View[] = ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz']
 
 export default function App() {
   return (
@@ -39,10 +49,17 @@ export default function App() {
 
 function Shell() {
   const [view, setView] = useState<View>('forecast')
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1',
+  )
   const loadForecast = useForecast((s) => s.load)
   const period = useForecast((s) => s.period)
   const loadPlan = usePlan((s) => s.load)
   const plan = usePlan((s) => s.plan)
+  const loadZiele = useZiele((s) => s.load)
+  const ziele = useZiele((s) => s.ziele)
+  const loadUmsatz = useUmsatz((s) => s.load)
+  const umsatz = useUmsatz((s) => s.data)
 
   useEffect(() => {
     void loadForecast()
@@ -52,11 +69,28 @@ function Shell() {
     if (view === 'plan' && !plan) void loadPlan()
   }, [view, plan, loadPlan])
 
+  useEffect(() => {
+    if (view === 'ziele' && !ziele) void loadZiele()
+  }, [view, ziele, loadZiele])
+
+  useEffect(() => {
+    if (view === 'umsatz' && !umsatz) void loadUmsatz()
+  }, [view, umsatz, loadUmsatz])
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
+  }, [collapsed])
+
   const meta = VIEW_META[view]
 
   return (
     <div className="flex min-h-screen bg-muted/30">
-      <Sidebar view={view} onSelect={setView} />
+      <Sidebar
+        view={view}
+        onSelect={setView}
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((v) => !v)}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="border-b bg-background">
@@ -70,6 +104,8 @@ function Shell() {
             <div className="flex items-center gap-4">
               {view === 'forecast' && <SaveStatus />}
               {view === 'plan' && <PlanSaveStatus />}
+              {view === 'ziele' && <ZieleSaveStatus />}
+              {view === 'umsatz' && <UmsatzSaveStatus />}
               {view === 'forecast' && <PeriodSwitcher />}
               {view === 'plan' && (
                 <>
@@ -96,6 +132,8 @@ function Shell() {
           {view === 'plan' &&
             (plan ? <PlanTabs /> : <LoadingCard>Lade Quartalsplanung…</LoadingCard>)}
           {view === 'dashboard' && <Dashboard />}
+          {view === 'ziele' && <Ziele />}
+          {view === 'umsatz' && <Umsatzkontrolle />}
         </main>
       </div>
     </div>
@@ -105,19 +143,39 @@ function Shell() {
 function Sidebar({
   view,
   onSelect,
+  collapsed,
+  onToggleCollapsed,
 }: {
   view: View
   onSelect: (v: View) => void
+  collapsed: boolean
+  onToggleCollapsed: () => void
 }) {
   return (
-    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r bg-background">
-      <div className="space-y-3 border-b px-4 py-4">
-        <Logo />
-        <div className="text-sm font-semibold leading-tight">
-          Ingenieurbüro
-          <br />
-          Merkin &amp; Völker
-        </div>
+    <aside
+      className={cn(
+        'sticky top-0 flex h-screen shrink-0 flex-col border-r bg-background transition-[width] duration-200',
+        collapsed ? 'w-14' : 'w-56',
+      )}
+    >
+      <div
+        className={cn(
+          'flex items-center border-b',
+          collapsed ? 'justify-center px-2 py-4' : 'justify-between gap-2 px-4 py-4',
+        )}
+      >
+        {collapsed ? (
+          <Logo />
+        ) : (
+          <div className="min-w-0 space-y-3">
+            <Logo />
+            <div className="text-sm font-semibold leading-tight">
+              Ingenieurbüro
+              <br />
+              Merkin &amp; Völker
+            </div>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 space-y-0.5 p-2">
@@ -127,21 +185,43 @@ function Sidebar({
             icon={VIEW_META[v].icon}
             label={VIEW_META[v].label}
             active={v === view}
+            collapsed={collapsed}
             onClick={() => onSelect(v)}
           />
         ))}
       </nav>
 
-      <div className="border-t p-2">
+      <div className="space-y-0.5 border-t p-2">
+        <button
+          onClick={onToggleCollapsed}
+          title={collapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+            collapsed ? 'justify-center px-2' : 'px-3',
+          )}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="h-4 w-4" />
+          ) : (
+            <>
+              <PanelLeftClose className="h-4 w-4" />
+              Einklappen
+            </>
+          )}
+        </button>
         <button
           onClick={() => {
             clearToken()
             location.reload()
           }}
-          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          title={collapsed ? 'Abmelden' : undefined}
+          className={cn(
+            'flex w-full items-center gap-2 rounded-md py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+            collapsed ? 'justify-center px-2' : 'px-3',
+          )}
         >
           <LogOut className="h-4 w-4" />
-          Abmelden
+          {!collapsed && 'Abmelden'}
         </button>
       </div>
     </aside>
@@ -152,25 +232,29 @@ function NavItem({
   icon: Icon,
   label,
   active,
+  collapsed,
   onClick,
 }: {
   icon: typeof Table2
   label: string
   active: boolean
+  collapsed: boolean
   onClick: () => void
 }) {
   return (
     <button
       onClick={onClick}
+      title={collapsed ? label : undefined}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        'flex w-full items-center gap-2 rounded-md py-2 text-sm font-medium transition-colors',
+        collapsed ? 'justify-center px-2' : 'px-3',
         active
           ? 'bg-foreground text-background'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
       <Icon className="h-4 w-4" />
-      {label}
+      {!collapsed && label}
     </button>
   )
 }
