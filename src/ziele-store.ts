@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Ziele, ZieleBranch, ZielePerson, ZieleTeam } from './types'
 import { fetchZiele, saveZiele } from './api'
+import { defaultZiele } from './lib/seeds'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -78,7 +79,7 @@ export const useZiele = create<State>()((set, get) => ({
     set({ status: 'loading', error: null })
     try {
       const data = await fetchZiele(s.year)
-      set({ ziele: data, status: 'saved' })
+      set({ ziele: data ?? defaultZiele(s.year), status: 'saved' })
     } catch (e) {
       set({ status: 'error', error: (e as Error).message })
     }

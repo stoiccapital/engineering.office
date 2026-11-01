@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { MonthValues, Umsatzkontrolle, UmsatzTeam } from './types'
 import { emptyMonthValues } from './types'
 import { fetchUmsatz, saveUmsatz } from './api'
+import { defaultUmsatz } from './lib/seeds'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -70,7 +71,7 @@ export const useUmsatz = create<State>()((set, get) => ({
     set({ status: 'loading', error: null })
     try {
       const data = await fetchUmsatz(s.year)
-      set({ data, status: 'saved' })
+      set({ data: data ?? defaultUmsatz(s.year), status: 'saved' })
     } catch (e) {
       set({ status: 'error', error: (e as Error).message })
     }
