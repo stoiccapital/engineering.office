@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { fmtEUR, fmtPct, parseNum, parsePct } from '@/lib/format'
+import { fmtDecimal, fmtEUR, fmtPct, parseNum, parsePct } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -7,12 +7,17 @@ type Props = {
   onChange?: (v: number | null) => void
   readOnly?: boolean
   pct?: boolean
+  decimals?: number
   className?: string
   placeholder?: string
 }
 
-export function NumCell({ value, onChange, readOnly, pct, className, placeholder }: Props) {
-  const display = pct ? fmtPct(value) : fmtEUR(value)
+export function NumCell({ value, onChange, readOnly, pct, decimals, className, placeholder }: Props) {
+  const display = pct
+    ? fmtPct(value)
+    : decimals !== undefined
+      ? fmtDecimal(value, decimals)
+      : fmtEUR(value)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(display)
 

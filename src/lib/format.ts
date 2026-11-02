@@ -22,6 +22,15 @@ export function fmtCompact(v: number | null | undefined): string {
   return fmt(v / 1_000_000_000_000, 't')
 }
 
+// Fixed-decimal European format (e.g. FTE: 0 → "0,00", 1.5 → "1,50").
+export function fmtDecimal(v: number | null | undefined, decimals: number): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return ''
+  return new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(v)
+}
+
 export function fmtPct(v: number | null | undefined): string {
   if (v === null || v === undefined || Number.isNaN(v)) return ''
   return new Intl.NumberFormat('de-DE', {

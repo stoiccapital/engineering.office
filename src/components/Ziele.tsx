@@ -6,7 +6,7 @@ import { TextCell } from './TextCell'
 import { LoadingCard } from '@/components/ui/loading-card'
 import { useZiele, computeTeamTargets, teamFTE, type TeamTargets } from '@/ziele-store'
 import type { ZieleBranch, ZieleTeam } from '@/types'
-import { fmtEUR } from '@/lib/format'
+import { fmtDecimal, fmtEUR } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export function Ziele() {
@@ -55,7 +55,7 @@ function BranchBlock({ branch }: { branch: ZieleBranch }) {
   return (
     <Section
       title={branch.label}
-      subtitle={`${totalFTE.toFixed(2)} FTE · ${branch.teams.length} Teams`}
+      subtitle={`${fmtDecimal(totalFTE, 2)} FTE · ${branch.teams.length} Teams`}
       action={
         <button
           onClick={() => addTeam(branch.id)}
@@ -124,7 +124,7 @@ function TeamBlock({ branch, team }: { branch: ZieleBranch; team: ZieleTeam }) {
             className="min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-sm font-semibold outline-none focus:bg-background focus:ring-1 focus:ring-ring"
           />
           <span className="font-mono text-xs text-muted-foreground">
-            {targets.fte.toFixed(2)} FTE
+            {fmtDecimal(targets.fte, 2)} FTE
           </span>
         </div>
         <button
@@ -162,6 +162,7 @@ function TeamBlock({ branch, team }: { branch: ZieleBranch; team: ZieleTeam }) {
                 <NumCell
                   value={p.fte}
                   onChange={(v) => updatePerson(branch.id, team.id, p.id, { fte: v ?? 0 })}
+                  decimals={2}
                   className="text-right"
                 />
               </td>
@@ -249,7 +250,7 @@ function BranchTotals({ totals }: { totals: TeamTargets }) {
     <div className="rounded-md border bg-foreground/5 p-3">
       <div className="mb-2 flex items-baseline justify-between">
         <div className="text-xs font-semibold uppercase tracking-wider">Niederlassung — Summe</div>
-        <div className="font-mono text-xs text-muted-foreground">{totals.fte.toFixed(2)} FTE</div>
+        <div className="font-mono text-xs text-muted-foreground">{fmtDecimal(totals.fte, 2)} FTE</div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <TotalCol label="Umsatzziel" jahr={totals.umsatzJahr} quartal={totals.umsatzQuartal} monat={totals.umsatzMonat} />

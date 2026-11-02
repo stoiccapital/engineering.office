@@ -14,7 +14,7 @@ import {
   subMonthValues,
   totalSum,
 } from '@/lib/umsatz'
-import { fmtEUR } from '@/lib/format'
+import { fmtDecimal, fmtEUR } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export function Umsatzkontrolle() {
@@ -51,7 +51,7 @@ export function Umsatzkontrolle() {
     <div className="space-y-6">
       <Section
         title="Zielkontrolle"
-        subtitle={`${teams.length} Teams · ${totalFte.toFixed(2)} FTE gesamt`}
+        subtitle={`${teams.length} Teams · ${fmtDecimal(totalFte, 2)} FTE gesamt`}
         padded={false}
         action={
           <button
@@ -198,6 +198,7 @@ function TeamsConfig({ teams }: { teams: UmsatzTeam[] }) {
                 <NumCell
                   value={t.fte}
                   onChange={(v) => updateTeam(t.id, { fte: v ?? 0 })}
+                  decimals={2}
                   className="text-right"
                 />
               </td>
@@ -484,7 +485,7 @@ function RechnungenTrailing({
   const annualized = team.fte > 0 ? (summe / visibleMonths.length) * 12 / team.fte : null
   return (
     <div className="flex items-center justify-end gap-3 px-3 py-1.5 font-mono text-xs text-muted-foreground">
-      <span>{team.fte.toFixed(2)} FTE</span>
+      <span>{fmtDecimal(team.fte, 2)} FTE</span>
       <span className="font-semibold text-foreground">
         {annualized !== null ? `${fmtEUR(annualized)} €/FTE p.a.` : '—'}
       </span>
@@ -497,7 +498,7 @@ function RechnungenTotalTrailing({ teams, total }: { teams: UmsatzTeam[]; total:
   const perFte = fte > 0 ? total / fte : null
   return (
     <div className="flex items-center justify-end gap-3 px-3 py-1.5 font-mono text-xs font-semibold">
-      <span>{fte.toFixed(2)} FTE</span>
+      <span>{fmtDecimal(fte, 2)} FTE</span>
       <span>{perFte !== null ? `${fmtEUR(perFte)} €/FTE` : '—'}</span>
     </div>
   )
