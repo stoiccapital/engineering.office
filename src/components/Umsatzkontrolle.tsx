@@ -3,11 +3,10 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { NumCell } from './NumCell'
 import { LoadingCard } from '@/components/ui/loading-card'
-import { useUmsatz, type MetricKey } from '@/umsatz-store'
+import { useUmsatz, type MetricKey, type QuarterView } from '@/umsatz-store'
 import type { MonthValues, UmsatzBranch, UmsatzTeam } from '@/types'
 import {
   MONTH_LABELS,
-  QUARTER_END_MONTH_INDEX,
   QUARTER_LABELS,
   addMonthValues,
   cumulativeMonthValues,
@@ -20,6 +19,7 @@ import { cn } from '@/lib/utils'
 
 export function Umsatzkontrolle() {
   const data = useUmsatz((s) => s.data)
+  const quarter = useUmsatz((s) => s.quarter)
   const addTeam = useUmsatz((s) => s.addTeam)
 
   const teams = data?.teams ?? EMPTY_TEAMS
@@ -43,6 +43,8 @@ export function Umsatzkontrolle() {
   const pufferDE = useMemo(() => branchCumulative(diffByTeam, 'de'), [diffByTeam])
   const pufferPL = useMemo(() => branchCumulative(diffByTeam, 'pl'), [diffByTeam])
 
+  const filter = useMemo(() => quarterFilter(quarter), [quarter])
+
   if (!data) return <LoadingCard>Lade Umsatzkontrolle…</LoadingCard>
 
   return (
@@ -63,25 +65,32 @@ export function Umsatzkontrolle() {
       >
         <div className="space-y-6 p-4">
           <TeamsConfig teams={teams} />
-          <MetricTable title="Forecast" metric="forecast" teams={teams} totals={forecastTotal} editable />
+          <MetricTable title="Forecast" metric="forecast" teams={teams} totals={forecastTotal} editable filter={filter} />
           <MetricTable
             title="Gestellte Rechnungen"
             metric="rechnungen"
             teams={teams}
             totals={rechnungenTotal}
             editable
-            trailing={(t) => <RechnungenTrailing team={t} />}
+            filter={filter}
+            trailing={(t) => <RechnungenTrailing team={t} visibleMonths={filter.months} />}
             trailingTotalLabel="FTE Σ"
-            trailingTotal={<RechnungenTotalTrailing teams={teams} total={totalSum(rechnungenTotal)} />}
+            trailingTotal={
+              <RechnungenTotalTrailing
+                teams={teams}
+                total={visibleSum(rechnungenTotal, filter.months)}
+              />
+            }
           />
-          <MetricTable title="Zielvorgaben" metric="ziel" teams={teams} totals={zielTotal} editable />
+          <MetricTable title="Zielvorgaben" metric="ziel" teams={teams} totals={zielTotal} editable filter={filter} />
           <DerivedMetricTable
             title="Differenz (Rg. − Ziel)"
             teams={teams.map((t, i) => ({ name: t.name, values: diffByTeam[i].values, branch: t.branch }))}
             totals={diffTotal}
             colorDeltas
+            filter={filter}
           />
-          <PufferRows deValues={pufferDE} plValues={pufferPL} />
+          <PufferRows deValues={pufferDE} plValues={pufferPL} filter={filter} />
         </div>
       </Section>
 
@@ -92,6 +101,7 @@ export function Umsatzkontrolle() {
             teams={teams.map((t, i) => ({ name: t.name, values: abwFcByTeam[i].values, branch: t.branch }))}
             totals={abwFcTotal}
             colorDeltas
+            filter={filter}
           />
           <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
@@ -110,6 +120,24 @@ export function Umsatzkontrolle() {
 }
 
 const EMPTY_TEAMS: UmsatzTeam[] = []
+
+type QuarterFilter = {
+  months: readonly number[]
+  quarters: readonly number[]
+  showTotal: boolean
+}
+
+function quarterFilter(q: QuarterView): QuarterFilter {
+  if (q === 'all') {
+    return { months: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], quarters: [0, 1, 2, 3], showTotal: true }
+  }
+  const idx = Number(q.slice(1)) - 1
+  return { months: [idx * 3, idx * 3 + 1, idx * 3 + 2], quarters: [idx], showTotal: false }
+}
+
+function visibleSum(values: MonthValues, months: readonly number[]): number {
+  return months.reduce<number>((s, i) => s + (values[i] ?? 0), 0)
+}
 
 function sumMetric(teams: UmsatzTeam[], metric: MetricKey): MonthValues {
   let out: MonthValues = Array.from({ length: 12 }, () => null)
@@ -196,6 +224,7 @@ function MetricTable({
   teams,
   totals,
   editable,
+  filter,
   trailing,
   trailingTotalLabel,
   trailingTotal,
@@ -205,6 +234,7 @@ function MetricTable({
   teams: UmsatzTeam[]
   totals: MonthValues
   editable?: boolean
+  filter: QuarterFilter
   trailing?: (team: UmsatzTeam) => React.ReactNode
   trailingTotalLabel?: string
   trailingTotal?: React.ReactNode
@@ -217,13 +247,14 @@ function MetricTable({
       </div>
       <div className="overflow-auto">
         <table className="w-full border-collapse text-sm">
-          <HeaderRow trailing={trailing ? trailingTotalLabel : undefined} />
+          <HeaderRow filter={filter} trailing={trailing ? trailingTotalLabel : undefined} />
           <tbody>
             {teams.map((team) => (
               <tr key={team.id} className="border-b last:border-b-0 hover:bg-accent/20">
                 <TeamNameCell name={team.name} />
                 <MonthRow
                   values={team[metric]}
+                  filter={filter}
                   onChange={
                     editable
                       ? (idx, v) => updateCell(team.id, metric, idx, v)
@@ -235,7 +266,7 @@ function MetricTable({
             ))}
             <tr className="border-t bg-muted/50 font-semibold">
               <TeamNameCell name={`Gesamt ${title}`} />
-              <MonthRow values={totals} />
+              <MonthRow values={totals} filter={filter} />
               {trailingTotal && <td className="border-l">{trailingTotal}</td>}
             </tr>
           </tbody>
@@ -250,11 +281,13 @@ function DerivedMetricTable({
   teams,
   totals,
   colorDeltas,
+  filter,
 }: {
   title: string
   teams: { name: string; values: MonthValues; branch: UmsatzBranch }[]
   totals: MonthValues
   colorDeltas?: boolean
+  filter: QuarterFilter
 }) {
   return (
     <div className="rounded-md border">
@@ -263,17 +296,17 @@ function DerivedMetricTable({
       </div>
       <div className="overflow-auto">
         <table className="w-full border-collapse text-sm">
-          <HeaderRow />
+          <HeaderRow filter={filter} />
           <tbody>
             {teams.map((team, i) => (
               <tr key={i} className="border-b last:border-b-0">
                 <TeamNameCell name={`Δ${team.name}`} />
-                <MonthRow values={team.values} colorDeltas={colorDeltas} />
+                <MonthRow values={team.values} filter={filter} colorDeltas={colorDeltas} />
               </tr>
             ))}
             <tr className="border-t bg-muted/50 font-semibold">
               <TeamNameCell name="Σ Differenz" />
-              <MonthRow values={totals} colorDeltas={colorDeltas} />
+              <MonthRow values={totals} filter={filter} colorDeltas={colorDeltas} />
             </tr>
           </tbody>
         </table>
@@ -285,9 +318,11 @@ function DerivedMetricTable({
 function PufferRows({
   deValues,
   plValues,
+  filter,
 }: {
   deValues: MonthValues
   plValues: MonthValues
+  filter: QuarterFilter
 }) {
   return (
     <div className="rounded-md border">
@@ -296,15 +331,15 @@ function PufferRows({
       </div>
       <div className="overflow-auto">
         <table className="w-full border-collapse text-sm">
-          <HeaderRow />
+          <HeaderRow filter={filter} />
           <tbody>
             <tr className="border-b hover:bg-accent/20">
               <TeamNameCell name="Puffer NL DE" />
-              <MonthRow values={deValues} colorDeltas />
+              <MonthRow values={deValues} filter={filter} colorDeltas />
             </tr>
             <tr className="hover:bg-accent/20">
               <TeamNameCell name="Puffer NL PL" />
-              <MonthRow values={plValues} colorDeltas />
+              <MonthRow values={plValues} filter={filter} colorDeltas />
             </tr>
           </tbody>
         </table>
@@ -313,19 +348,20 @@ function PufferRows({
   )
 }
 
-function HeaderRow({ trailing }: { trailing?: string }) {
+function HeaderRow({ filter, trailing }: { filter: QuarterFilter; trailing?: string }) {
+  const quarterEnds = new Set(filter.quarters.map((q) => q * 3 + 2))
   return (
     <thead className="bg-muted/20">
       <tr className="border-b">
         <th className="sticky left-0 z-10 min-w-[180px] bg-muted/20 px-2 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Team
         </th>
-        {MONTH_LABELS.map((label, idx) => {
-          const q = QUARTER_END_MONTH_INDEX.indexOf(idx as 2 | 5 | 8 | 11)
+        {filter.months.map((idx) => {
+          const q = quarterEnds.has(idx) ? Math.floor(idx / 3) : -1
           return (
-            <Fragment key={label}>
+            <Fragment key={idx}>
               <th className="num min-w-[72px] px-2 py-2 text-right text-xs font-medium text-muted-foreground">
-                {label}
+                {MONTH_LABELS[idx]}
               </th>
               {q !== -1 && (
                 <th className="num min-w-[88px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -335,9 +371,11 @@ function HeaderRow({ trailing }: { trailing?: string }) {
             </Fragment>
           )
         })}
-        <th className="num min-w-[96px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Σ
-        </th>
+        {filter.showTotal && (
+          <th className="num min-w-[96px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Σ
+          </th>
+        )}
         {trailing && (
           <th className="num min-w-[120px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {trailing}
@@ -358,15 +396,18 @@ function TeamNameCell({ name }: { name: string }) {
 
 function MonthRow({
   values,
+  filter,
   onChange,
   colorDeltas,
 }: {
   values: MonthValues
+  filter: QuarterFilter
   onChange?: (monthIndex: number, v: number | null) => void
   colorDeltas?: boolean
 }) {
+  const quarterEnds = new Set(filter.quarters.map((q) => q * 3 + 2))
   const cells: React.ReactNode[] = []
-  for (let i = 0; i < 12; i++) {
+  for (const i of filter.months) {
     cells.push(
       <td key={`m${i}`} className="px-0">
         {onChange ? (
@@ -380,20 +421,22 @@ function MonthRow({
         )}
       </td>,
     )
-    const q = QUARTER_END_MONTH_INDEX.indexOf(i as 2 | 5 | 8 | 11)
-    if (q !== -1) {
+    if (quarterEnds.has(i)) {
+      const q = Math.floor(i / 3) as 0 | 1 | 2 | 3
       cells.push(
         <td key={`q${q}`} className="border-l bg-muted/30 px-0">
-          <ReadCell v={quarterSum(values, q as 0 | 1 | 2 | 3)} bold colorDeltas={colorDeltas} />
+          <ReadCell v={quarterSum(values, q)} bold colorDeltas={colorDeltas} />
         </td>,
       )
     }
   }
-  cells.push(
-    <td key="sum" className="border-l bg-muted/40 px-0">
-      <ReadCell v={totalSum(values)} bold colorDeltas={colorDeltas} />
-    </td>,
-  )
+  if (filter.showTotal) {
+    cells.push(
+      <td key="sum" className="border-l bg-muted/40 px-0">
+        <ReadCell v={totalSum(values)} bold colorDeltas={colorDeltas} />
+      </td>,
+    )
+  }
   return <>{cells}</>
 }
 
@@ -430,14 +473,20 @@ function ReadCell({
   )
 }
 
-function RechnungenTrailing({ team }: { team: UmsatzTeam }) {
-  const summe = totalSum(team.rechnungen)
-  const perFte = team.fte > 0 ? summe / team.fte : null
+function RechnungenTrailing({
+  team,
+  visibleMonths,
+}: {
+  team: UmsatzTeam
+  visibleMonths: readonly number[]
+}) {
+  const summe = visibleSum(team.rechnungen, visibleMonths)
+  const annualized = team.fte > 0 ? (summe / visibleMonths.length) * 12 / team.fte : null
   return (
     <div className="flex items-center justify-end gap-3 px-3 py-1.5 font-mono text-xs text-muted-foreground">
       <span>{team.fte.toFixed(2)} FTE</span>
       <span className="font-semibold text-foreground">
-        {perFte !== null ? `${fmtEUR(perFte)} €/FTE` : '—'}
+        {annualized !== null ? `${fmtEUR(annualized)} €/FTE p.a.` : '—'}
       </span>
     </div>
   )

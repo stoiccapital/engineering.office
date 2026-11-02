@@ -8,14 +8,18 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 export type MetricKey = 'forecast' | 'rechnungen' | 'ziel'
 
+export type QuarterView = 'all' | 'Q1' | 'Q2' | 'Q3' | 'Q4'
+
 type SaveStatus = 'idle' | 'loading' | 'saving' | 'saved' | 'error'
 
 type State = {
   year: number
+  quarter: QuarterView
   data: Umsatzkontrolle | null
   status: SaveStatus
   error: string | null
   setYear: (y: number) => void
+  setQuarter: (q: QuarterView) => void
   load: () => Promise<void>
   addTeam: () => void
   removeTeam: (id: string) => void
@@ -57,6 +61,7 @@ function withMonth(values: MonthValues, index: number, value: number | null): Mo
 
 export const useUmsatz = create<State>()((set, get) => ({
   year: CURRENT_YEAR,
+  quarter: 'all',
   data: null,
   status: 'idle',
   error: null,
@@ -65,6 +70,8 @@ export const useUmsatz = create<State>()((set, get) => ({
     set({ year: y })
     void get().load()
   },
+
+  setQuarter: (q) => set({ quarter: q }),
 
   load: async () => {
     const s = get()

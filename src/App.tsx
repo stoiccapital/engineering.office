@@ -7,6 +7,7 @@ import { SaveStatus } from '@/components/SaveStatus'
 import { PlanSaveStatus } from '@/components/PlanSaveStatus'
 import { ZieleSaveStatus } from '@/components/ZieleSaveStatus'
 import { UmsatzSaveStatus } from '@/components/UmsatzSaveStatus'
+import { UmsatzQuarterSwitcher } from '@/components/UmsatzQuarterSwitcher'
 import { YearSwitcher } from '@/components/YearSwitcher'
 import { QuarterSwitcher } from '@/components/QuarterSwitcher'
 import { PlanTabs } from '@/components/PlanTabs'
@@ -138,6 +139,7 @@ function Shell() {
                 </>
               )}
               {view === 'dashboard' && <DashboardPeriodSwitcher />}
+              {view === 'umsatz' && <UmsatzQuarterSwitcher />}
               {view === 'forecast' && <ImportDialog />}
             </div>
           </div>
