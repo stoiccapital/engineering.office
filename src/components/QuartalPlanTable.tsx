@@ -11,8 +11,9 @@ import {
 import { cn } from '@/lib/utils'
 import { Maximize2, Minimize2, Plus, X } from 'lucide-react'
 import { Section } from '@/components/ui/section'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 
-type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | null
+type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | 'purple' | null
 
 function todoTone(text: string): TodoTone {
   const t = text.toLowerCase()
@@ -20,14 +21,24 @@ function todoTone(text: string): TodoTone {
   if (t.includes('abgabe')) return 'green'
   if (t.includes('abstimmen')) return 'yellow'
   if (t.includes('urlaub')) return 'blue'
+  if (t.includes('pufferarbeiten')) return 'purple'
   return null
 }
 
 const TONE_CLASSES: Record<Exclude<TodoTone, null>, string> = {
-  red: 'bg-red-50 text-red-900 border-l-2 border-red-500',
-  green: 'bg-emerald-50 text-emerald-900 border-l-2 border-emerald-500',
-  yellow: 'bg-amber-50 text-amber-900 border-l-2 border-amber-500',
-  blue: 'bg-sky-50 text-sky-900 border-l-2 border-sky-500',
+  red: 'text-red-600 border-l-2 border-red-500 pl-1.5',
+  green: 'text-emerald-600 border-l-2 border-emerald-500 pl-1.5',
+  yellow: 'text-amber-600 border-l-2 border-amber-500 pl-1.5',
+  blue: 'text-sky-600 border-l-2 border-sky-500 pl-1.5',
+  purple: 'text-violet-600 border-l-2 border-violet-500 pl-1.5',
+}
+
+const LEGEND_CLASSES: Record<Exclude<TodoTone, null>, string> = {
+  red: 'text-red-600 border-l-2 border-red-500',
+  green: 'text-emerald-600 border-l-2 border-emerald-500',
+  yellow: 'text-amber-600 border-l-2 border-amber-500',
+  blue: 'text-sky-600 border-l-2 border-sky-500',
+  purple: 'text-violet-600 border-l-2 border-violet-500',
 }
 
 export function QuartalPlanTable() {
@@ -103,29 +114,32 @@ export function QuartalPlanTable() {
         subtitle={subtitle}
         padded={false}
         className={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
-        footer={<PlanLegend />}
         action={
-          <button
-            onClick={toggleFullscreen}
-            title={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
-            className="rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            {isFullscreen ? (
-              <Minimize2 className="h-3.5 w-3.5" />
-            ) : (
-              <Maximize2 className="h-3.5 w-3.5" />
-            )}
-          </button>
+          <div className="flex items-center gap-1">
+            <PlanLegend />
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Maximize2 className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
         }
       >
       <div className={cn('overflow-auto', isFullscreen && 'max-h-[calc(100vh-200px)]')}>
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-20 bg-muted">
             <tr className="border-b">
-              <th className="sticky left-0 z-30 w-16 bg-muted px-2 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th className="sticky left-0 z-30 w-16 bg-muted px-2 py-2 text-left text-xs font-medium text-muted-foreground">
                 Monat
               </th>
-              <th className="sticky left-16 z-30 w-14 border-r bg-muted px-2 py-2 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th className="sticky left-16 z-30 w-14 border-r bg-muted px-2 py-2 text-right text-xs font-medium text-muted-foreground">
                 KW
               </th>
               {plan.employees.map((name, i) => (
@@ -227,7 +241,7 @@ function WeekTodosCell({
     <div
       className={cn(
         'group/cell flex flex-col gap-0.5 p-1.5',
-        empty && 'bg-red-50 border-l-2 border-red-500',
+        empty && 'border-l-2 border-red-400/50',
       )}
     >
       {todos.map((todo) => (
@@ -244,7 +258,7 @@ function WeekTodosCell({
         className={cn(
           'flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all',
           atLimit && 'cursor-not-allowed text-muted-foreground/40',
-          !atLimit && empty && 'text-red-900/70 hover:text-red-900',
+          !atLimit && empty && 'text-red-500/70 hover:text-red-600',
           !atLimit && !empty &&
             'rounded border border-dashed text-muted-foreground hover:bg-accent hover:text-foreground',
         )}
@@ -283,7 +297,7 @@ function TodoRow({
       <textarea
         value={todo.text}
         onChange={(e) => onUpdate({ text: e.target.value })}
-        placeholder="Aufgabe, Abgabe, Abstimmen, Urlaub…"
+        placeholder="Aufgabe, Abgabe, Abstimmen, Urlaub, Pufferarbeiten…"
         rows={1}
         className={cn(
           'min-w-0 flex-1 resize-none bg-transparent text-xs leading-snug outline-none placeholder:text-muted-foreground/50',
@@ -302,30 +316,45 @@ function TodoRow({
   )
 }
 
-const LEGEND_ITEMS: { label: string; tone: Exclude<TodoTone, null> }[] = [
+const LEGEND_ITEMS: { label: string; tone: Exclude<TodoTone, null>; purpose?: string }[] = [
   { label: 'Aufgabe', tone: 'red' },
   { label: 'Abgabe', tone: 'green' },
   { label: 'Abstimmen', tone: 'yellow' },
   { label: 'Urlaub', tone: 'blue' },
+  {
+    label: 'Pufferarbeiten',
+    tone: 'purple',
+    purpose:
+      'Pufferarbeiten, wenn der MA noch Kapa hat, werden hier notiert. Wird er früher mit seinen ToDos fertig, kann er diese Aufgaben reinnehmen.',
+  },
 ]
 
 function PlanLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-      <span className="font-medium uppercase tracking-wider">Legende</span>
-      {LEGEND_ITEMS.map((item) => (
-        <span key={item.tone} className="flex items-center gap-1.5">
-          <span
-            className={`inline-block rounded px-1.5 py-0.5 font-mono text-[10px] ${TONE_CLASSES[item.tone]}`}
-          >
-            {item.label}
-          </span>
-        </span>
-      ))}
-      <span className="ml-auto">
-        Zeile färbt sich automatisch anhand des Schlüsselworts. Änderungen werden automatisch
-        gespeichert.
-      </span>
-    </div>
+    <InfoTooltip>
+      <div className="space-y-2">
+        <div className="font-medium">Schlüsselwörter</div>
+        <div className="space-y-1.5">
+          {LEGEND_ITEMS.map((item) => (
+            <div key={item.tone} className="space-y-1">
+              <span
+                className={`inline-block px-1.5 py-0.5 font-mono text-[11px] ${LEGEND_CLASSES[item.tone]}`}
+              >
+                {item.label}
+              </span>
+              {item.purpose && (
+                <div className="pl-2 text-[11px] leading-snug text-muted-foreground">
+                  <span className="font-medium text-foreground/80">Zweck: </span>
+                  {item.purpose}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="pt-1 text-muted-foreground">
+          Zeile färbt sich automatisch anhand des Schlüsselworts. Leere Zellen rot markiert.
+        </div>
+      </div>
+    </InfoTooltip>
   )
 }

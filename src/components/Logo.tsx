@@ -4,6 +4,26 @@ import { useLogo } from '@/logo-store'
 
 const MAX_BYTES = 500 * 1024
 
+export function LogoMark() {
+  const dataUrl = useLogo((s) => s.dataUrl)
+  const status = useLogo((s) => s.status)
+  const load = useLogo((s) => s.load)
+
+  useEffect(() => {
+    if (status === 'idle') void load()
+  }, [status, load])
+
+  return (
+    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded border bg-background">
+      {dataUrl ? (
+        <img src={dataUrl} alt="" className="h-full w-full object-contain p-0.5" />
+      ) : (
+        <span className="h-2 w-2 rounded-sm bg-foreground/70" aria-hidden />
+      )}
+    </span>
+  )
+}
+
 export function Logo() {
   const dataUrl = useLogo((s) => s.dataUrl)
   const status = useLogo((s) => s.status)

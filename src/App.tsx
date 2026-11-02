@@ -12,16 +12,16 @@ import { Dashboard } from '@/components/Dashboard'
 import { Ziele } from '@/components/Ziele'
 import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
 import { PeriodPicker, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
+import { UserMenu } from '@/components/ui/user-menu'
+import { CommandPalette } from '@/components/ui/command-palette'
 import { useDashboard } from '@/dashboard-store'
 import { LoadingCard } from '@/components/ui/loading-card'
-import { Logo } from '@/components/Logo'
 import { useForecast } from '@/store'
 import { usePlan } from '@/plan-store'
 import { useZiele } from '@/ziele-store'
 import { useUmsatz } from '@/umsatz-store'
-import { clearToken } from '@/api'
 import { cn } from '@/lib/utils'
-import { Briefcase, CalendarDays, ChevronDown, ChevronRight, Gauge, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Table2, Target } from 'lucide-react'
+import { Briefcase, CalendarDays, ChevronDown, ChevronRight, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Table2, Target } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
@@ -104,6 +104,8 @@ function Shell() {
   const meta = VIEW_META[view]
 
   return (
+    <>
+    <CommandPalette onNavigate={setView} />
     <div className="flex min-h-screen bg-muted/30">
       <Sidebar
         view={view}
@@ -117,12 +119,7 @@ function Shell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="border-b bg-background">
           <div className="flex items-center justify-between gap-4 px-6 py-4">
-            <div>
-              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Ingenieurbüro Merkin &amp; Völker
-              </div>
-              <h1 className="text-lg font-semibold">{meta.title}</h1>
-            </div>
+            <h1 className="text-base font-semibold">{meta.title}</h1>
             <div className="flex items-center gap-4">
               {view === 'forecast' && <SaveStatus />}
               {view === 'plan' && <PlanSaveStatus />}
@@ -134,7 +131,7 @@ function Shell() {
           </div>
         </header>
 
-        <main className="flex-1 space-y-6 px-6 py-6">
+        <main className="flex-1 space-y-8 px-6 py-6">
           {view === 'forecast' &&
             (period ? (
               <>
@@ -152,6 +149,7 @@ function Shell() {
         </main>
       </div>
     </div>
+    </>
   )
 }
 
@@ -180,21 +178,10 @@ function Sidebar({
       <div
         className={cn(
           'flex items-center border-b',
-          collapsed ? 'justify-center px-2 py-4' : 'justify-between gap-2 px-4 py-4',
+          collapsed ? 'justify-center px-1 py-2' : 'px-2 py-2',
         )}
       >
-        {collapsed ? (
-          <Logo />
-        ) : (
-          <div className="min-w-0 space-y-3">
-            <Logo />
-            <div className="text-sm font-semibold leading-tight">
-              Ingenieurbüro
-              <br />
-              Merkin &amp; Völker
-            </div>
-          </div>
-        )}
+        <UserMenu collapsed={collapsed} />
       </div>
 
       <nav className="flex-1 space-y-0.5 p-2">
@@ -240,7 +227,7 @@ function Sidebar({
         })}
       </nav>
 
-      <div className="space-y-0.5 border-t p-2">
+      <div className="border-t p-2">
         <button
           onClick={onToggleCollapsed}
           title={collapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'}
@@ -257,20 +244,6 @@ function Sidebar({
               Einklappen
             </>
           )}
-        </button>
-        <button
-          onClick={() => {
-            clearToken()
-            location.reload()
-          }}
-          title={collapsed ? 'Abmelden' : undefined}
-          className={cn(
-            'flex w-full items-center gap-2 rounded-md py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-            collapsed ? 'justify-center px-2' : 'px-3',
-          )}
-        >
-          <LogOut className="h-4 w-4" />
-          {!collapsed && 'Abmelden'}
         </button>
       </div>
     </aside>
@@ -380,10 +353,10 @@ function NavItem({
       onClick={onClick}
       title={collapsed ? label : undefined}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md py-2 text-sm font-medium transition-colors',
+        'flex w-full items-center gap-2 rounded-md py-1.5 text-[13px] font-medium transition-colors',
         collapsed ? 'justify-center px-2' : nested ? 'pl-7 pr-3' : 'px-3',
         active
-          ? 'bg-foreground text-background'
+          ? 'bg-accent text-foreground'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
@@ -413,7 +386,7 @@ function NavGroupHeader({
       <div
         title={label}
         className={cn(
-          'flex w-full items-center justify-center rounded-md px-2 py-2 text-sm font-medium',
+          'flex w-full items-center justify-center rounded-md px-2 py-1.5 text-[13px] font-medium',
           childActive ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
@@ -425,7 +398,7 @@ function NavGroupHeader({
     <button
       onClick={onToggle}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        'flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-[13px] font-normal transition-colors',
         childActive ? 'text-foreground' : 'text-muted-foreground',
         'hover:bg-accent hover:text-foreground',
       )}

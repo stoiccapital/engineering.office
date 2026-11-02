@@ -14,23 +14,25 @@ export function KPICard({
   tone?: 'danger'
 }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-2 flex items-baseline gap-1">
+    <div className="rounded-lg border bg-card p-3">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="mt-1 flex items-baseline gap-1">
         <span
           className={cn(
-            'font-mono text-2xl font-semibold tabular-nums',
+            'text-xl font-semibold',
             tone === 'danger' && 'text-destructive',
           )}
+          style={{ fontFeatureSettings: '"tnum"' }}
         >
           {value || '—'}
         </span>
-        {unit && value && <span className="text-sm text-muted-foreground">{unit}</span>}
+        {unit && value && <span className="text-xs text-muted-foreground">{unit}</span>}
       </div>
       {sub && (
-        <div className="mt-1 font-mono text-xs text-muted-foreground tabular-nums">
+        <div
+          className="mt-0.5 text-xs text-muted-foreground"
+          style={{ fontFeatureSettings: '"tnum"' }}
+        >
           {sub}
         </div>
       )}

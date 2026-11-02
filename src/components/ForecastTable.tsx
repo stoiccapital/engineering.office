@@ -8,6 +8,7 @@ import { TextCell } from './TextCell'
 import { FlagToggle } from './FlagToggle'
 import { fmtEUR } from '@/lib/format'
 import { Section } from '@/components/ui/section'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 
 type ColGroup = { label: string; span: number; leading?: boolean }
 
@@ -62,9 +63,9 @@ export function ForecastTable() {
         <div className="flex items-center gap-2">
           <PMFilter value={pmFilter} onChange={setPmFilter} pms={pms} />
           <LockToggle locked={locked} onToggle={() => setLocked((v) => !v)} />
+          <ForecastLegend />
         </div>
       }
-      footer={<ForecastLegend />}
     >
       <div className="w-full max-h-[calc(100vh-320px)] overflow-auto">
         <table className="w-full min-w-[1800px] border-collapse text-sm">
@@ -92,7 +93,7 @@ export function ForecastTable() {
                 <th
                   key={i}
                   colSpan={g.span}
-                  className={`px-2 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground ${g.leading ? 'border-l' : ''}`}
+                  className={`px-2 py-2 text-left text-xs font-medium text-muted-foreground ${g.leading ? 'border-l' : ''}`}
                 >
                   {g.label}
                 </th>
@@ -190,7 +191,7 @@ function Row({
   const d = derive(row)
   const ro = locked
   return (
-    <tr className="border-b last:border-b-0 hover:bg-accent/40">
+    <tr className="border-b last:border-b-0 hover:bg-accent">
       <Td>
         <TextCell value={row.projektleiterDE} onChange={(v) => onUpdate({ projektleiterDE: v })} placeholder="…" readOnly={ro} />
       </Td>
@@ -401,10 +402,10 @@ function TotalsRow({
   totals: Totals
   highlight?: boolean
 }) {
-  const rowCls = highlight ? 'bg-muted/60 font-semibold' : 'bg-muted/20'
+  const rowCls = highlight ? 'border-t-2 border-foreground/20 font-semibold' : ''
   return (
     <tr className={`border-t ${rowCls}`}>
-      <td colSpan={5} className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <td colSpan={5} className="px-3 py-2 text-xs font-medium text-muted-foreground">
         {label}
       </td>
       <TotCell v={totals.forecastDE} className="border-l" />
@@ -431,23 +432,25 @@ function TotCell({ v, className }: { v: number; className?: string }) {
 
 function ForecastLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-      <span className="font-medium uppercase tracking-wider">Legende</span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block rounded bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-destructive">
-          k
-        </span>
-        kritisch
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">
-          w
-        </span>
-        wahrscheinlich
-      </span>
-      <span className="ml-auto">
-        Werte in €. Änderungen werden automatisch gespeichert.
-      </span>
-    </div>
+    <InfoTooltip>
+      <div className="space-y-2">
+        <div className="font-medium">Flags</div>
+        <div className="flex items-center gap-2">
+          <span className="inline-block rounded bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-destructive">
+            k
+          </span>
+          <span className="text-muted-foreground">kritisch</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">
+            w
+          </span>
+          <span className="text-muted-foreground">wahrscheinlich</span>
+        </div>
+        <div className="pt-1 text-muted-foreground">
+          Werte in €. Änderungen werden automatisch gespeichert.
+        </div>
+      </div>
+    </InfoTooltip>
   )
 }

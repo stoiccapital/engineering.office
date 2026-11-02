@@ -11,12 +11,32 @@
   --muted-foreground: 240 3.8% 46.1%;
   --accent: 240 4.8% 95.9%;
   --accent-foreground: 240 5.9% 10%;
+  --primary: 233 55% 60%;
+  --primary-foreground: 0 0% 100%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
-  --ring: 240 10% 3.9%;
+  --ring: 233 55% 60%;
   --radius: 0.5rem;
+}
+
+.dark {
+  --background: 240 8% 4%;
+  --foreground: 220 15% 94%;
+  --card: 240 7% 10%;
+  --card-foreground: 220 15% 94%;
+  --muted: 240 6% 13%;
+  --muted-foreground: 220 8% 65%;
+  --accent: 240 6% 17%;
+  --accent-foreground: 220 15% 94%;
+  --primary: 233 55% 67%;
+  --primary-foreground: 0 0% 100%;
+  --destructive: 0 70% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 6% 22%;
+  --input: 240 6% 22%;
+  --ring: 233 55% 67%;
 }
 
 * {
@@ -39,4 +59,9 @@ body {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+/* Thin Lucide icons globally — Linear-weight 1.5 (default is 2). */
+svg.lucide {
+  stroke-width: 1.5;
 }

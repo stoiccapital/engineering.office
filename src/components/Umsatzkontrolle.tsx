@@ -1,6 +1,7 @@
 import { Fragment, useMemo } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Section } from '@/components/ui/section'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { NumCell } from './NumCell'
 import { LoadingCard } from '@/components/ui/loading-card'
 import { useUmsatz, type MetricKey, type QuarterView } from '@/umsatz-store'
@@ -90,11 +91,31 @@ export function Umsatzkontrolle() {
             colorDeltas
             filter={filter}
           />
-          <PufferRows deValues={pufferDE} plValues={pufferPL} filter={filter} />
+          <div className="mt-4 border-t pt-6">
+            <PufferRows deValues={pufferDE} plValues={pufferPL} filter={filter} />
+          </div>
         </div>
       </Section>
 
-      <Section title="Forecast Kontrolle" padded={false}>
+      <Section
+        title="Forecast Kontrolle"
+        padded={false}
+        action={
+          <InfoTooltip>
+            <div className="space-y-2">
+              <div className="font-medium">Farbkodierung</div>
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                <span className="text-muted-foreground">Forecast überschritten (&gt; 20 k)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+                <span className="text-muted-foreground">Forecast unterschritten (&lt; −20 k)</span>
+              </div>
+            </div>
+          </InfoTooltip>
+        }
+      >
         <div className="p-4">
           <DerivedMetricTable
             title="Abweichung Forecast (Rg. − Forecast)"
@@ -103,16 +124,6 @@ export function Umsatzkontrolle() {
             colorDeltas
             filter={filter}
           />
-          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-400/70" />
-              Forecast überschritten (&gt; 20 k)
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-400/70" />
-              Forecast unterschritten (&lt; −20 k)
-            </span>
-          </div>
         </div>
       </Section>
     </div>
@@ -161,10 +172,8 @@ function TeamsConfig({ teams }: { teams: UmsatzTeam[] }) {
   const updateTeam = useUmsatz((s) => s.updateTeam)
   const removeTeam = useUmsatz((s) => s.removeTeam)
   return (
-    <div className="rounded-md border bg-muted/20">
-      <div className="border-b bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Teams
-      </div>
+    <div>
+      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">Teams</div>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b bg-muted/20">
@@ -242,8 +251,8 @@ function MetricTable({
 }) {
   const updateCell = useUmsatz((s) => s.updateCell)
   return (
-    <div className="rounded-md border">
-      <div className="border-b bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <div>
+      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">
         {title}
       </div>
       <div className="overflow-auto">
@@ -251,7 +260,7 @@ function MetricTable({
           <HeaderRow filter={filter} trailing={trailing ? trailingTotalLabel : undefined} />
           <tbody>
             {teams.map((team) => (
-              <tr key={team.id} className="border-b last:border-b-0 hover:bg-accent/20">
+              <tr key={team.id} className="border-b last:border-b-0 hover:bg-accent">
                 <TeamNameCell name={team.name} />
                 <MonthRow
                   values={team[metric]}
@@ -265,7 +274,7 @@ function MetricTable({
                 {trailing && <td className="border-l">{trailing(team)}</td>}
               </tr>
             ))}
-            <tr className="border-t bg-muted/50 font-semibold">
+            <tr className="border-t-2 border-foreground/20 font-semibold">
               <TeamNameCell name={`Gesamt ${title}`} />
               <MonthRow values={totals} filter={filter} />
               {trailingTotal && <td className="border-l">{trailingTotal}</td>}
@@ -291,8 +300,8 @@ function DerivedMetricTable({
   filter: QuarterFilter
 }) {
   return (
-    <div className="rounded-md border">
-      <div className="border-b bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <div>
+      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">
         {title}
       </div>
       <div className="overflow-auto">
@@ -305,7 +314,7 @@ function DerivedMetricTable({
                 <MonthRow values={team.values} filter={filter} colorDeltas={colorDeltas} />
               </tr>
             ))}
-            <tr className="border-t bg-muted/50 font-semibold">
+            <tr className="border-t-2 border-foreground/20 font-semibold">
               <TeamNameCell name="Σ Differenz" />
               <MonthRow values={totals} filter={filter} colorDeltas={colorDeltas} />
             </tr>
@@ -326,19 +335,19 @@ function PufferRows({
   filter: QuarterFilter
 }) {
   return (
-    <div className="rounded-md border">
-      <div className="border-b bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <div>
+      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">
         Verbleibender Puffer (kumuliert)
       </div>
       <div className="overflow-auto">
         <table className="w-full border-collapse text-sm">
           <HeaderRow filter={filter} />
           <tbody>
-            <tr className="border-b hover:bg-accent/20">
+            <tr className="border-b hover:bg-accent">
               <TeamNameCell name="Puffer NL DE" />
               <MonthRow values={deValues} filter={filter} colorDeltas />
             </tr>
-            <tr className="hover:bg-accent/20">
+            <tr className="hover:bg-accent">
               <TeamNameCell name="Puffer NL PL" />
               <MonthRow values={plValues} filter={filter} colorDeltas />
             </tr>
@@ -354,7 +363,7 @@ function HeaderRow({ filter, trailing }: { filter: QuarterFilter; trailing?: str
   return (
     <thead className="bg-muted/20">
       <tr className="border-b">
-        <th className="sticky left-0 z-10 min-w-[180px] bg-muted/20 px-2 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <th className="sticky left-0 z-10 min-w-[180px] bg-muted/20 px-2 py-2 text-left text-xs font-medium text-muted-foreground">
           Team
         </th>
         {filter.months.map((idx) => {
@@ -365,7 +374,7 @@ function HeaderRow({ filter, trailing }: { filter: QuarterFilter; trailing?: str
                 {MONTH_LABELS[idx]}
               </th>
               {q !== -1 && (
-                <th className="num min-w-[88px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <th className="num min-w-[88px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">
                   {QUARTER_LABELS[q]}
                 </th>
               )}
@@ -373,12 +382,12 @@ function HeaderRow({ filter, trailing }: { filter: QuarterFilter; trailing?: str
           )
         })}
         {filter.showTotal && (
-          <th className="num min-w-[96px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <th className="num min-w-[96px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">
             Σ
           </th>
         )}
         {trailing && (
-          <th className="num min-w-[120px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <th className="num min-w-[120px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">
             {trailing}
           </th>
         )}
@@ -458,8 +467,8 @@ function ReadCell({
   const tone =
     colorDeltas && Math.abs(v) >= 20_000
       ? v > 0
-        ? 'text-emerald-700 bg-emerald-50/60'
-        : 'text-red-700 bg-red-50/60'
+        ? 'text-emerald-600'
+        : 'text-red-600'
       : ''
   return (
     <div

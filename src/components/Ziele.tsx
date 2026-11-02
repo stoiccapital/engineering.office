@@ -99,7 +99,7 @@ function BranchConfig({
 function ConfigRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex items-center justify-between gap-2 text-xs">
-      <span className="font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="font-medium text-muted-foreground">{label}</span>
       <div className="min-w-[140px]">{children}</div>
     </label>
   )
@@ -150,7 +150,7 @@ function TeamBlock({ branch, team }: { branch: ZieleBranch; team: ZieleTeam }) {
         </thead>
         <tbody>
           {team.people.map((p) => (
-            <tr key={p.id} className="group border-b last:border-b-0 hover:bg-accent/30">
+            <tr key={p.id} className="group border-b last:border-b-0 hover:bg-accent">
               <td>
                 <TextCell
                   value={p.name}
@@ -226,13 +226,13 @@ function TargetGroup({
 }) {
   return (
     <div className={cn('bg-card p-3', tone === 'accent' && 'bg-muted/20')}>
-      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="mb-1.5 text-[10px] font-semibold text-muted-foreground">
         {title}
       </div>
       <div className="grid grid-cols-3 gap-2">
         {items.map((item) => (
           <div key={item.label}>
-            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            <div className="text-[10px] font-medium text-muted-foreground">
               {item.label}
             </div>
             <div className="num tabular-nums text-sm font-semibold">
@@ -249,7 +249,7 @@ function BranchTotals({ totals }: { totals: TeamTargets }) {
   return (
     <div className="rounded-md border bg-foreground/5 p-3">
       <div className="mb-2 flex items-baseline justify-between">
-        <div className="text-xs font-semibold uppercase tracking-wider">Niederlassung — Summe</div>
+        <div className="text-xs font-semibold">Niederlassung — Summe</div>
         <div className="font-mono text-xs text-muted-foreground">{fmtDecimal(totals.fte, 2)} FTE</div>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -273,7 +273,7 @@ function TotalCol({
 }) {
   return (
     <div>
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="mb-1 text-[10px] font-semibold text-muted-foreground">
         {label}
       </div>
       <div className="space-y-0.5 text-sm">

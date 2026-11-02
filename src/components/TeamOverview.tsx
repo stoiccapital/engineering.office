@@ -79,7 +79,7 @@ export function TeamOverview() {
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-20 bg-muted">
             <tr className="border-b">
-              <th className="sticky left-0 z-30 min-w-[180px] bg-muted px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <th className="sticky left-0 z-30 min-w-[180px] bg-muted px-3 py-2 text-left text-xs font-medium text-muted-foreground">
                 Mitarbeiter
               </th>
               {weeks.map(({ week, month }) => {
@@ -93,13 +93,13 @@ export function TeamOverview() {
                     )}
                   >
                     <div className="flex items-baseline gap-2">
-                      <span className="font-mono text-[11px] uppercase tracking-wider">KW</span>
+                      <span className="font-mono text-[11px]">KW</span>
                       <span className="num text-sm font-semibold tabular-nums">{week}</span>
                       <span className="text-[11px] text-muted-foreground">
                         · {MONTH_LABELS_DE[month]}
                       </span>
                       {isToday && (
-                        <span className="ml-auto rounded bg-foreground px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-background">
+                        <span className="ml-auto rounded bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
                           Heute
                         </span>
                       )}
