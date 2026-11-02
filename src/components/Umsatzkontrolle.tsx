@@ -48,7 +48,7 @@ export function Umsatzkontrolle() {
   return (
     <div className="space-y-6">
       <Section
-        title="Umsatzkontrolle"
+        title="Zielkontrolle"
         subtitle={`${teams.length} Teams · ${totalFte.toFixed(2)} FTE gesamt`}
         padded={false}
         action={

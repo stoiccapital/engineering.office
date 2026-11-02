@@ -23,9 +23,10 @@ import { useZiele } from '@/ziele-store'
 import { useUmsatz } from '@/umsatz-store'
 import { clearToken } from '@/api'
 import { cn } from '@/lib/utils'
-import { CalendarDays, Gauge, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Table2, Target } from 'lucide-react'
+import { Briefcase, CalendarDays, ChevronDown, ChevronRight, Gauge, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Table2, Target } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
+const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
 
 type View = 'forecast' | 'plan' | 'dashboard' | 'ziele' | 'umsatz'
 
@@ -34,10 +35,24 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   plan: { title: 'Quartalsplanung', label: 'Quartalsplanung', icon: CalendarDays },
   dashboard: { title: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
   ziele: { title: 'Ziele', label: 'Ziele', icon: Target },
-  umsatz: { title: 'Umsatzkontrolle', label: 'Umsatzkontrolle', icon: Gauge },
+  umsatz: { title: 'Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
 }
 
-const VIEW_ORDER: View[] = ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz']
+type NavEntry =
+  | { kind: 'leaf'; view: View }
+  | { kind: 'group'; id: string; label: string; icon: typeof Table2; children: View[] }
+
+const NAV: NavEntry[] = [
+  { kind: 'leaf', view: 'ziele' },
+  {
+    kind: 'group',
+    id: 'operative',
+    label: 'Operative Planung',
+    icon: Briefcase,
+    children: ['dashboard', 'forecast', 'plan'],
+  },
+  { kind: 'leaf', view: 'umsatz' },
+]
 
 export default function App() {
   return (
@@ -51,6 +66,9 @@ function Shell() {
   const [view, setView] = useState<View>('forecast')
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1',
+  )
+  const [operativeExpanded, setOperativeExpanded] = useState<boolean>(
+    () => localStorage.getItem(OPERATIVE_EXPANDED_KEY) !== '0',
   )
   const loadForecast = useForecast((s) => s.load)
   const period = useForecast((s) => s.period)
@@ -81,6 +99,10 @@ function Shell() {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
   }, [collapsed])
 
+  useEffect(() => {
+    localStorage.setItem(OPERATIVE_EXPANDED_KEY, operativeExpanded ? '1' : '0')
+  }, [operativeExpanded])
+
   const meta = VIEW_META[view]
 
   return (
@@ -90,6 +112,8 @@ function Shell() {
         onSelect={setView}
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed((v) => !v)}
+        operativeExpanded={operativeExpanded}
+        onToggleOperative={() => setOperativeExpanded((v) => !v)}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -145,11 +169,15 @@ function Sidebar({
   onSelect,
   collapsed,
   onToggleCollapsed,
+  operativeExpanded,
+  onToggleOperative,
 }: {
   view: View
   onSelect: (v: View) => void
   collapsed: boolean
   onToggleCollapsed: () => void
+  operativeExpanded: boolean
+  onToggleOperative: () => void
 }) {
   return (
     <aside
@@ -179,16 +207,46 @@ function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-0.5 p-2">
-        {VIEW_ORDER.map((v) => (
-          <NavItem
-            key={v}
-            icon={VIEW_META[v].icon}
-            label={VIEW_META[v].label}
-            active={v === view}
-            collapsed={collapsed}
-            onClick={() => onSelect(v)}
-          />
-        ))}
+        {NAV.map((entry) => {
+          if (entry.kind === 'leaf') {
+            return (
+              <NavItem
+                key={entry.view}
+                icon={VIEW_META[entry.view].icon}
+                label={VIEW_META[entry.view].label}
+                active={entry.view === view}
+                collapsed={collapsed}
+                onClick={() => onSelect(entry.view)}
+              />
+            )
+          }
+          const childActive = entry.children.includes(view)
+          const expanded = operativeExpanded || collapsed
+          return (
+            <div key={entry.id}>
+              <NavGroupHeader
+                icon={entry.icon}
+                label={entry.label}
+                expanded={expanded}
+                collapsed={collapsed}
+                childActive={childActive}
+                onToggle={onToggleOperative}
+              />
+              {expanded &&
+                entry.children.map((childView) => (
+                  <NavItem
+                    key={childView}
+                    icon={VIEW_META[childView].icon}
+                    label={VIEW_META[childView].label}
+                    active={childView === view}
+                    collapsed={collapsed}
+                    nested={!collapsed}
+                    onClick={() => onSelect(childView)}
+                  />
+                ))}
+            </div>
+          )
+        })}
       </nav>
 
       <div className="space-y-0.5 border-t p-2">
@@ -233,12 +291,14 @@ function NavItem({
   label,
   active,
   collapsed,
+  nested,
   onClick,
 }: {
   icon: typeof Table2
   label: string
   active: boolean
   collapsed: boolean
+  nested?: boolean
   onClick: () => void
 }) {
   return (
@@ -247,7 +307,7 @@ function NavItem({
       title={collapsed ? label : undefined}
       className={cn(
         'flex w-full items-center gap-2 rounded-md py-2 text-sm font-medium transition-colors',
-        collapsed ? 'justify-center px-2' : 'px-3',
+        collapsed ? 'justify-center px-2' : nested ? 'pl-7 pr-3' : 'px-3',
         active
           ? 'bg-foreground text-background'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -255,6 +315,54 @@ function NavItem({
     >
       <Icon className="h-4 w-4" />
       {!collapsed && label}
+    </button>
+  )
+}
+
+function NavGroupHeader({
+  icon: Icon,
+  label,
+  expanded,
+  collapsed,
+  childActive,
+  onToggle,
+}: {
+  icon: typeof Table2
+  label: string
+  expanded: boolean
+  collapsed: boolean
+  childActive: boolean
+  onToggle: () => void
+}) {
+  if (collapsed) {
+    return (
+      <div
+        title={label}
+        className={cn(
+          'flex w-full items-center justify-center rounded-md px-2 py-2 text-sm font-medium',
+          childActive ? 'text-foreground' : 'text-muted-foreground',
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+    )
+  }
+  return (
+    <button
+      onClick={onToggle}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        childActive ? 'text-foreground' : 'text-muted-foreground',
+        'hover:bg-accent hover:text-foreground',
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      <span className="flex-1 text-left">{label}</span>
+      {expanded ? (
+        <ChevronDown className="h-3.5 w-3.5" />
+      ) : (
+        <ChevronRight className="h-3.5 w-3.5" />
+      )}
     </button>
   )
 }
