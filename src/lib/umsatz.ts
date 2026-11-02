@@ -6,6 +6,11 @@ export const MONTH_LABELS = [
 
 export const QUARTER_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'] as const
 
+// Calendar quarter for a given date (defaults to today). Returns 'Q1'..'Q4'.
+export function currentCalendarQuarter(date: Date = new Date()): 'Q1' | 'Q2' | 'Q3' | 'Q4' {
+  return QUARTER_LABELS[Math.floor(date.getMonth() / 3)]
+}
+
 // Column indices for quarter boundaries so we can lay out a 12-month grid with
 // Q totals inlined after Mar/Jun/Sep/Dec.
 export const QUARTER_END_MONTH_INDEX = [2, 5, 8, 11] as const

@@ -2,8 +2,10 @@ import { create } from 'zustand'
 import type { Period, Quarter } from './types'
 import { fetchPeriod } from './api'
 import { QUARTERS } from './lib/analytics'
+import { currentCalendarQuarter } from './lib/umsatz'
 
 const CURRENT_YEAR = new Date().getFullYear()
+const CURRENT_QUARTER: Quarter = currentCalendarQuarter()
 
 type Status = 'idle' | 'loading' | 'loaded' | 'error'
 
@@ -20,7 +22,7 @@ type State = {
 
 export const useDashboard = create<State>()((set, get) => ({
   year: CURRENT_YEAR,
-  quarter: 'Q1',
+  quarter: CURRENT_QUARTER,
   periods: {},
   status: 'idle',
   error: null,

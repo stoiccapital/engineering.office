@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import type { Period, ProjectRow, Quarter, RiskFlag } from './types'
 import { fetchPeriod, savePeriod } from './api'
+import { currentCalendarQuarter } from './lib/umsatz'
 
 const CURRENT_YEAR = new Date().getFullYear()
+const CURRENT_QUARTER: Quarter = currentCalendarQuarter()
 
 function emptyRow(): ProjectRow {
   return {
@@ -68,7 +70,7 @@ function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
 
 export const useForecast = create<State>()((set, get) => ({
   year: CURRENT_YEAR,
-  quarter: 'Q1',
+  quarter: CURRENT_QUARTER,
   period: null,
   status: 'idle',
   error: null,

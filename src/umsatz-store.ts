@@ -3,8 +3,10 @@ import type { MonthValues, Umsatzkontrolle, UmsatzTeam } from './types'
 import { emptyMonthValues } from './types'
 import { fetchUmsatz, saveUmsatz } from './api'
 import { defaultUmsatz } from './lib/seeds'
+import { currentCalendarQuarter } from './lib/umsatz'
 
 const CURRENT_YEAR = new Date().getFullYear()
+const CURRENT_QUARTER = currentCalendarQuarter()
 
 export type MetricKey = 'forecast' | 'rechnungen' | 'ziel'
 
@@ -61,7 +63,7 @@ function withMonth(values: MonthValues, index: number, value: number | null): Mo
 
 export const useUmsatz = create<State>()((set, get) => ({
   year: CURRENT_YEAR,
-  quarter: 'all',
+  quarter: CURRENT_QUARTER,
   data: null,
   status: 'idle',
   error: null,
