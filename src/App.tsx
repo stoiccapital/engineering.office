@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { PeriodSwitcher } from '@/components/PeriodSwitcher'
 import { KPIStrip } from '@/components/KPIStrip'
 import { ForecastTable } from '@/components/ForecastTable'
 import { AuthGate } from '@/components/AuthGate'
@@ -7,15 +6,13 @@ import { SaveStatus } from '@/components/SaveStatus'
 import { PlanSaveStatus } from '@/components/PlanSaveStatus'
 import { ZieleSaveStatus } from '@/components/ZieleSaveStatus'
 import { UmsatzSaveStatus } from '@/components/UmsatzSaveStatus'
-import { UmsatzQuarterSwitcher } from '@/components/UmsatzQuarterSwitcher'
-import { YearSwitcher } from '@/components/YearSwitcher'
-import { QuarterSwitcher } from '@/components/QuarterSwitcher'
 import { PlanTabs } from '@/components/PlanTabs'
 import { ImportDialog } from '@/components/ImportDialog'
 import { Dashboard } from '@/components/Dashboard'
-import { DashboardPeriodSwitcher } from '@/components/DashboardPeriodSwitcher'
 import { Ziele } from '@/components/Ziele'
 import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
+import { PeriodPicker, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
+import { useDashboard } from '@/dashboard-store'
 import { LoadingCard } from '@/components/ui/loading-card'
 import { Logo } from '@/components/Logo'
 import { useForecast } from '@/store'
@@ -131,15 +128,7 @@ function Shell() {
               {view === 'plan' && <PlanSaveStatus />}
               {view === 'ziele' && <ZieleSaveStatus />}
               {view === 'umsatz' && <UmsatzSaveStatus />}
-              {view === 'forecast' && <PeriodSwitcher />}
-              {view === 'plan' && (
-                <>
-                  <QuarterSwitcher />
-                  <YearSwitcher />
-                </>
-              )}
-              {view === 'dashboard' && <DashboardPeriodSwitcher />}
-              {view === 'umsatz' && <UmsatzQuarterSwitcher />}
+              <ViewPeriodPicker view={view} />
               {view === 'forecast' && <ImportDialog />}
             </div>
           </div>
@@ -285,6 +274,89 @@ function Sidebar({
         </button>
       </div>
     </aside>
+  )
+}
+
+function ViewPeriodPicker({ view }: { view: View }) {
+  switch (view) {
+    case 'ziele':
+      return <ZielePicker />
+    case 'dashboard':
+      return <DashboardPicker />
+    case 'forecast':
+      return <ForecastPicker />
+    case 'plan':
+      return <PlanPicker />
+    case 'umsatz':
+      return <UmsatzPicker />
+  }
+}
+
+function ZielePicker() {
+  const year = useZiele((s) => s.year)
+  const setYear = useZiele((s) => s.setYear)
+  return <PeriodPicker year={year} onYearChange={setYear} />
+}
+
+function DashboardPicker() {
+  const year = useDashboard((s) => s.year)
+  const quarter = useDashboard((s) => s.quarter)
+  const setYear = useDashboard((s) => s.setYear)
+  const setQuarter = useDashboard((s) => s.setQuarter)
+  return (
+    <PeriodPicker
+      year={year}
+      onYearChange={setYear}
+      quarter={quarter}
+      onQuarterChange={(q) => setQuarter(q as Quarter)}
+      includeJahr={false}
+    />
+  )
+}
+
+function ForecastPicker() {
+  const year = useForecast((s) => s.year)
+  const quarter = useForecast((s) => s.quarter)
+  const setYear = useForecast((s) => s.setYear)
+  const setQuarter = useForecast((s) => s.setQuarter)
+  return (
+    <PeriodPicker
+      year={year}
+      onYearChange={setYear}
+      quarter={quarter}
+      onQuarterChange={(q) => setQuarter(q as Quarter)}
+      includeJahr={false}
+    />
+  )
+}
+
+function PlanPicker() {
+  const year = usePlan((s) => s.year)
+  const quarter = usePlan((s) => s.quarter)
+  const setYear = usePlan((s) => s.setYear)
+  const setQuarter = usePlan((s) => s.setQuarter)
+  return (
+    <PeriodPicker
+      year={year}
+      onYearChange={setYear}
+      quarter={quarter as QuarterOrAll}
+      onQuarterChange={(q) => setQuarter(q === 'all' ? 'all' : (q as Quarter))}
+    />
+  )
+}
+
+function UmsatzPicker() {
+  const year = useUmsatz((s) => s.year)
+  const quarter = useUmsatz((s) => s.quarter)
+  const setYear = useUmsatz((s) => s.setYear)
+  const setQuarter = useUmsatz((s) => s.setQuarter)
+  return (
+    <PeriodPicker
+      year={year}
+      onYearChange={setYear}
+      quarter={quarter}
+      onQuarterChange={setQuarter}
+    />
   )
 }
 
