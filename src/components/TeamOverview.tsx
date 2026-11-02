@@ -12,7 +12,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 
 const LOOKAHEAD_WEEKS = 6
-const TODO_PREVIEW = 3
 
 const STATUS_BADGE: Record<PlanStatus, string> = {
   abstimmen: 'bg-amber-100 text-amber-900',
@@ -214,8 +213,6 @@ function WeekCell({
   todos: WeekTodo[]
 }) {
   const openTodos = todos.filter((t) => !t.done)
-  const preview = openTodos.slice(0, TODO_PREVIEW)
-  const overflow = openTodos.length - preview.length
 
   if (!status && todos.length === 0) {
     return <div className="text-xs text-muted-foreground/50">—</div>
@@ -235,7 +232,7 @@ function WeekCell({
       )}
       {openTodos.length > 0 ? (
         <ul className="space-y-1">
-          {preview.map((todo) => (
+          {openTodos.map((todo) => (
             <li
               key={todo.id}
               className="flex items-start gap-1.5 text-xs leading-snug text-foreground"
@@ -246,9 +243,6 @@ function WeekCell({
               </span>
             </li>
           ))}
-          {overflow > 0 && (
-            <li className="pl-3 text-[11px] text-muted-foreground">+{overflow} weitere</li>
-          )}
         </ul>
       ) : todos.length > 0 ? (
         <div className="text-[11px] text-muted-foreground">Alle Aufgaben erledigt</div>
