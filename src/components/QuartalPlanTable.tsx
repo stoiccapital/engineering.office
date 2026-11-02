@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { Maximize2, Minimize2, Plus, X } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | 'purple' | null
 
@@ -284,15 +285,15 @@ function TodoRow({
   return (
     <div
       className={cn(
-        'group flex items-start gap-1.5 rounded px-1 py-0.5',
+        'group flex items-start gap-2 rounded px-1.5 py-0.5',
         tone ? TONE_CLASSES[tone] : 'hover:bg-muted',
       )}
     >
-      <input
-        type="checkbox"
+      <Checkbox
         checked={todo.done}
-        onChange={(e) => onUpdate({ done: e.target.checked })}
-        className="mt-1 h-3.5 w-3.5 shrink-0 cursor-pointer accent-foreground"
+        onChange={(done) => onUpdate({ done })}
+        className="mt-0.5"
+        aria-label={todo.text || 'Aufgabe'}
       />
       <textarea
         value={todo.text}
