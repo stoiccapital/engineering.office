@@ -5,8 +5,10 @@ import type {
   Quarter,
   ProjectRow,
   WeekTodo,
+  Employee,
   Ziele,
   Umsatzkontrolle,
+  RechnungenData,
 } from './types'
 import { defaultUmsatz, defaultZiele } from './lib/seeds'
 
@@ -117,24 +119,43 @@ function seedPeriod(year: number, quarter: Quarter): Period {
 }
 
 function seedPlan(year: number): QuartalPlan {
-  const employees = ['M. Merkin', 'T. Völker', 'A. Kowalski', 'K. Nowak', 'J. Wiśniewski']
+  const employees: Employee[] = [
+    { id: crypto.randomUUID(), name: 'M. Merkin',    branch: 'de' },
+    { id: crypto.randomUUID(), name: 'T. Völker',    branch: 'de' },
+    { id: crypto.randomUUID(), name: 'A. Kowalski',  branch: 'pl' },
+    { id: crypto.randomUUID(), name: 'K. Nowak',     branch: 'pl' },
+    { id: crypto.randomUUID(), name: 'J. Wiśniewski',branch: 'pl' },
+  ]
   const cells: Record<string, PlanStatus> = {}
   const todos: Record<string, WeekTodo[]> = {}
   const w = currentIsoWeek()
   todos[`0:${w}`] = [
-    { id: crypto.randomUUID(), text: 'Aufgabe: Prüfbericht A4 fertigstellen', done: false },
-    { id: crypto.randomUUID(), text: 'Abstimmen mit Bauleitung Köln', done: false },
+    { id: crypto.randomUUID(), text: 'Aufgabe: Prüfbericht A4 fertigstellen', state: 'inProgress' },
+    { id: crypto.randomUUID(), text: 'Abstimmen mit Bauleitung Köln', state: 'offen' },
   ]
   todos[`1:${w}`] = [
-    { id: crypto.randomUUID(), text: 'Aufgabe: Statik 26D002 Kickoff', done: false },
-    { id: crypto.randomUUID(), text: 'Rechnung 26D001 — Teil 2', done: true },
+    { id: crypto.randomUUID(), text: 'Aufgabe: Statik 26D002 Kickoff', state: 'offen' },
+    { id: crypto.randomUUID(), text: 'Rechnung 26D001 — Teil 2', state: 'erledigt' },
   ]
-  todos[`2:${w + 1}`] = [{ id: crypto.randomUUID(), text: 'Urlaub Mallorca', done: false }]
+  todos[`2:${w + 1}`] = [{ id: crypto.randomUUID(), text: 'Urlaub Mallorca', state: 'offen', days: [1, 2] }]
   todos[`3:${w}`] = [
-    { id: crypto.randomUUID(), text: 'Abstimmen Prüfstatik mit Dezernat', done: false },
+    { id: crypto.randomUUID(), text: 'Abstimmen Prüfstatik mit Dezernat', state: 'inProgress' },
   ]
-  todos[`4:${w + 2}`] = [{ id: crypto.randomUUID(), text: 'Urlaub Zakopane', done: false }]
+  todos[`4:${w + 2}`] = [{ id: crypto.randomUUID(), text: 'Urlaub Zakopane', state: 'offen' }]
   return { year, employees, cells, todos }
+}
+
+function seedRechnungen(year: number): RechnungenData {
+  const d = (m: number, day: number) => `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return {
+    year,
+    rows: [
+      { id: crypto.randomUUID(), nr: 'R-2026-001', datum: d(1, 15), kunde: 'Autobahn GmbH',       projekt: 'A4 Brückenprüfung',  netto: 92000, ustPct: 19, status: 'bezahlt',  faellig: d(2, 15), bezahltAm: d(2, 10), notiz: '' },
+      { id: crypto.randomUUID(), nr: 'R-2026-002', datum: d(2, 5),  kunde: 'Stadtwerke Düsseldorf', projekt: 'Umspannwerk Reisholz', netto: 48000, ustPct: 19, status: 'offen',    faellig: d(3, 7),  bezahltAm: '', notiz: 'Erste Teilrechnung' },
+      { id: crypto.randomUUID(), nr: 'R-2026-003', datum: d(2, 20), kunde: 'Hafen Krefeld',          projekt: 'Kaimauer-Sanierung',  netto: 96500, ustPct: 19, status: 'bezahlt',  faellig: d(3, 22), bezahltAm: d(3, 18), notiz: '' },
+      { id: crypto.randomUUID(), nr: 'R-2026-004', datum: d(3, 10), kunde: 'Essen-Nord Grund',       projekt: 'Gewerbepark',         netto: 36000, ustPct: 19, status: 'mahnung',  faellig: d(4, 10), bezahltAm: '', notiz: '1. Mahnung versendet' },
+    ],
+  }
 }
 
 function currentIsoWeek(): number {
@@ -151,6 +172,7 @@ const periods = new Map<string, Period>()
 const plans = new Map<number, QuartalPlan>()
 const ziele = new Map<number, Ziele>()
 const umsatz = new Map<number, Umsatzkontrolle>()
+const rechnungen = new Map<number, RechnungenData>()
 let logo: string | null = null
 
 export const mock = {
@@ -205,5 +227,16 @@ export const mock = {
   },
   setUmsatz(year: number, value: Umsatzkontrolle) {
     umsatz.set(year, value)
+  },
+  rechnungen(year: number): RechnungenData {
+    let r = rechnungen.get(year)
+    if (!r) {
+      r = seedRechnungen(year)
+      rechnungen.set(year, r)
+    }
+    return r
+  },
+  setRechnungen(year: number, value: RechnungenData) {
+    rechnungen.set(year, value)
   },
 }

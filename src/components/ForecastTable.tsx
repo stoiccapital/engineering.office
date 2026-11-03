@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Trash2, Plus, Lock, Unlock } from 'lucide-react'
+import { Trash2, Plus, Lock, Unlock, Flame } from 'lucide-react'
 import { useForecast } from '@/store'
 import { derive } from '@/types'
 import type { ProjectRow } from '@/types'
@@ -9,10 +9,12 @@ import { FlagToggle } from './FlagToggle'
 import { fmtEUR } from '@/lib/format'
 import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
+import { cn } from '@/lib/utils'
 
 type ColGroup = { label: string; span: number; leading?: boolean }
 
 const groups: ColGroup[] = [
+  { label: '', span: 1 },
   { label: 'Projekt', span: 5 },
   { label: 'Forecast', span: 5, leading: true },
   { label: 'Abgerechnet', span: 4, leading: true },
@@ -70,6 +72,7 @@ export function ForecastTable() {
       <div className="w-full max-h-[calc(100vh-320px)] overflow-auto">
         <table className="w-full min-w-[1800px] border-collapse text-sm">
           <colgroup>
+            <col className="w-12" /> {/* PRIO */}
             <col className="w-14" /> {/* PL DE */}
             <col className="w-14" /> {/* PL PL */}
             <col className="min-w-[360px]" /> {/* Projektname */}
@@ -100,6 +103,7 @@ export function ForecastTable() {
               ))}
             </tr>
             <tr className="border-b bg-muted">
+              <Th>PRIO</Th>
               <Th>PL DE</Th>
               <Th>PL PLN</Th>
               <Th>Projektname</Th>
@@ -122,7 +126,7 @@ export function ForecastTable() {
             {filteredRows.length === 0 && (
               <tr>
                 <td
-                  colSpan={15}
+                  colSpan={16}
                   className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   Keine Projekte für diese Auswahl.
@@ -141,7 +145,7 @@ export function ForecastTable() {
             ))}
             {!locked && pmFilter === 'all' && (
               <tr>
-                <td colSpan={19} className="p-0">
+                <td colSpan={16} className="p-0">
                   <button
                     onClick={addRow}
                     className="flex w-full items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -192,6 +196,9 @@ function Row({
   const ro = locked
   return (
     <tr className="border-b last:border-b-0 hover:bg-accent">
+      <Td>
+        <PrioCell row={row} onUpdate={onUpdate} readOnly={ro} />
+      </Td>
       <Td>
         <TextCell value={row.projektleiterDE} onChange={(v) => onUpdate({ projektleiterDE: v })} placeholder="…" readOnly={ro} />
       </Td>
@@ -265,6 +272,55 @@ function Row({
         )}
       </Td>
     </tr>
+  )
+}
+
+function PrioCell({
+  row,
+  onUpdate,
+  readOnly,
+}: {
+  row: ProjectRow
+  onUpdate: (patch: Partial<ProjectRow>) => void
+  readOnly: boolean
+}) {
+  const prio = !!row.prio
+  const overtime = !!row.prioAllowOvertime
+  const togglePrio = () => onUpdate({ prio: !prio, prioAllowOvertime: !prio ? overtime : false })
+  const toggleOvertime = () => onUpdate({ prioAllowOvertime: !overtime })
+  return (
+    <div className="flex items-center justify-center gap-1 px-1 py-1.5">
+      <button
+        onClick={togglePrio}
+        disabled={readOnly}
+        title={prio ? 'PRIO entfernen' : 'Als PRIO markieren'}
+        className={cn(
+          'inline-flex h-6 w-6 items-center justify-center rounded transition-colors',
+          prio
+            ? 'bg-destructive/10 text-destructive hover:bg-destructive/15'
+            : 'text-muted-foreground/40 hover:bg-accent hover:text-foreground',
+          readOnly && 'cursor-not-allowed opacity-50',
+        )}
+      >
+        <Flame className="h-3.5 w-3.5" />
+      </button>
+      {prio && (
+        <button
+          onClick={toggleOvertime}
+          disabled={readOnly}
+          title={overtime ? 'Überstunden deaktivieren' : 'Projektleiter lässt Überstunden zu'}
+          className={cn(
+            'rounded px-1 py-0.5 font-mono text-[9px] font-semibold transition-colors',
+            overtime
+              ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+              : 'text-muted-foreground/40 hover:bg-accent hover:text-foreground',
+            readOnly && 'cursor-not-allowed opacity-50',
+          )}
+        >
+          ÜS
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -405,7 +461,7 @@ function TotalsRow({
   const rowCls = highlight ? 'border-t-2 border-foreground/20 font-semibold' : ''
   return (
     <tr className={`border-t ${rowCls}`}>
-      <td colSpan={5} className="px-3 py-2 text-xs font-medium text-muted-foreground">
+      <td colSpan={6} className="px-3 py-2 text-xs font-medium text-muted-foreground">
         {label}
       </td>
       <TotCell v={totals.forecastDE} className="border-l" />

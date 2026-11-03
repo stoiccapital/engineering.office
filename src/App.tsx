@@ -6,11 +6,13 @@ import { SaveStatus } from '@/components/SaveStatus'
 import { PlanSaveStatus } from '@/components/PlanSaveStatus'
 import { ZieleSaveStatus } from '@/components/ZieleSaveStatus'
 import { UmsatzSaveStatus } from '@/components/UmsatzSaveStatus'
+import { RechnungenSaveStatus } from '@/components/RechnungenSaveStatus'
 import { PlanTabs } from '@/components/PlanTabs'
 import { ImportDialog } from '@/components/ImportDialog'
 import { Dashboard } from '@/components/Dashboard'
 import { Ziele } from '@/components/Ziele'
 import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
+import { Rechnungen } from '@/components/Rechnungen'
 import { PeriodPicker, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
 import { UserMenu } from '@/components/ui/user-menu'
 import { CommandPalette } from '@/components/ui/command-palette'
@@ -20,13 +22,14 @@ import { useForecast } from '@/store'
 import { usePlan } from '@/plan-store'
 import { useZiele } from '@/ziele-store'
 import { useUmsatz } from '@/umsatz-store'
+import { useRechnungen } from '@/rechnungen-store'
 import { cn } from '@/lib/utils'
-import { Briefcase, CalendarDays, ChevronDown, ChevronRight, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Table2, Target } from 'lucide-react'
+import { Briefcase, CalendarDays, ChevronDown, ChevronRight, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Table2, Target } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
 
-type View = 'forecast' | 'plan' | 'dashboard' | 'ziele' | 'umsatz'
+type View = 'forecast' | 'plan' | 'dashboard' | 'ziele' | 'umsatz' | 'rechnungen'
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
   forecast: { title: 'Forecast', label: 'Forecast', icon: Table2 },
@@ -34,6 +37,7 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   dashboard: { title: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
   ziele: { title: 'Ziele', label: 'Ziele', icon: Target },
   umsatz: { title: 'Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
+  rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
 }
 
 type NavEntry =
@@ -50,6 +54,7 @@ const NAV: NavEntry[] = [
     children: ['dashboard', 'forecast', 'plan'],
   },
   { kind: 'leaf', view: 'umsatz' },
+  { kind: 'leaf', view: 'rechnungen' },
 ]
 
 export default function App() {
@@ -76,6 +81,8 @@ function Shell() {
   const ziele = useZiele((s) => s.ziele)
   const loadUmsatz = useUmsatz((s) => s.load)
   const umsatz = useUmsatz((s) => s.data)
+  const loadRechnungen = useRechnungen((s) => s.load)
+  const rechnungen = useRechnungen((s) => s.data)
 
   useEffect(() => {
     void loadForecast()
@@ -92,6 +99,10 @@ function Shell() {
   useEffect(() => {
     if (view === 'umsatz' && !umsatz) void loadUmsatz()
   }, [view, umsatz, loadUmsatz])
+
+  useEffect(() => {
+    if (view === 'rechnungen' && !rechnungen) void loadRechnungen()
+  }, [view, rechnungen, loadRechnungen])
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
@@ -125,6 +136,7 @@ function Shell() {
               {view === 'plan' && <PlanSaveStatus />}
               {view === 'ziele' && <ZieleSaveStatus />}
               {view === 'umsatz' && <UmsatzSaveStatus />}
+              {view === 'rechnungen' && <RechnungenSaveStatus />}
               <ViewPeriodPicker view={view} />
               {view === 'forecast' && <ImportDialog />}
             </div>
@@ -146,6 +158,7 @@ function Shell() {
           {view === 'dashboard' && <Dashboard />}
           {view === 'ziele' && <Ziele />}
           {view === 'umsatz' && <Umsatzkontrolle />}
+          {view === 'rechnungen' && <Rechnungen />}
         </main>
       </div>
     </div>
@@ -262,6 +275,8 @@ function ViewPeriodPicker({ view }: { view: View }) {
       return <PlanPicker />
     case 'umsatz':
       return <UmsatzPicker />
+    case 'rechnungen':
+      return <RechnungenPicker />
   }
 }
 
@@ -316,6 +331,12 @@ function PlanPicker() {
       onQuarterChange={(q) => setQuarter(q === 'all' ? 'all' : (q as Quarter))}
     />
   )
+}
+
+function RechnungenPicker() {
+  const year = useRechnungen((s) => s.year)
+  const setYear = useRechnungen((s) => s.setYear)
+  return <PeriodPicker year={year} onYearChange={setYear} />
 }
 
 function UmsatzPicker() {

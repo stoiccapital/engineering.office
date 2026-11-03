@@ -15,6 +15,8 @@ export type ProjectRow = {
   abgerechnetPL: number | null
   leistungsstandDE: number | null // 0..1
   leistungsstandPL: number | null // 0..1
+  prio?: boolean
+  prioAllowOvertime?: boolean
 }
 
 export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4'
@@ -35,16 +37,75 @@ export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
   abgabe: 'Abgabe',
 }
 
-export type WeekTodo = { id: string; text: string; done: boolean }
+export type TodoState = 'offen' | 'inProgress' | 'erledigt'
+export const TODO_STATES: TodoState[] = ['offen', 'inProgress', 'erledigt']
+export const TODO_STATE_LABELS: Record<TodoState, string> = {
+  offen: 'Offen',
+  inProgress: 'In Bearbeitung',
+  erledigt: 'Erledigt',
+}
+export function nextTodoState(s: TodoState): TodoState {
+  const i = TODO_STATES.indexOf(s)
+  return TODO_STATES[(i + 1) % TODO_STATES.length]
+}
+
+export type WeekTodo = {
+  id: string
+  text: string
+  state: TodoState
+  // Only used when the todo represents Urlaub. 1..5 = Mo..Fr. Empty/undefined = whole week.
+  days?: number[]
+}
 
 export const MAX_TODOS_PER_WEEK = 10
 
+export type Branch = 'de' | 'pl'
+
+export type Employee = {
+  id: string
+  name: string
+  branch: Branch
+}
+
 export type QuartalPlan = {
   year: number
-  employees: string[]
+  employees: Employee[]
   cells: Record<string, PlanStatus>
   // Key `${empIndex}:${week}` -> todos for that employee/week cell.
   todos?: Record<string, WeekTodo[]>
+}
+
+// Legacy shapes stored before this migration landed.
+type LegacyTodo = { id: string; text: string; done?: boolean; state?: TodoState; days?: number[] }
+type LegacyPlan = Omit<QuartalPlan, 'employees' | 'todos'> & {
+  employees: Array<string | Employee>
+  todos?: Record<string, LegacyTodo[]>
+}
+
+function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+export function migratePlan(input: QuartalPlan | LegacyPlan | null | undefined): QuartalPlan | null {
+  if (!input) return null
+  const employees: Employee[] = (input.employees ?? []).map((e) =>
+    typeof e === 'string' ? { id: newId(), name: e, branch: 'de' as Branch } : {
+      id: e.id ?? newId(),
+      name: e.name,
+      branch: (e.branch ?? 'de') as Branch,
+    },
+  )
+  const todos: Record<string, WeekTodo[]> = {}
+  for (const [k, list] of Object.entries(input.todos ?? {})) {
+    todos[k] = ((list as LegacyTodo[] | undefined) ?? []).map((t: LegacyTodo) => ({
+      id: t.id,
+      text: t.text,
+      state: t.state ?? (t.done ? 'erledigt' : 'offen'),
+      days: t.days,
+    }))
+  }
+  return { year: input.year, employees, cells: input.cells ?? {}, todos }
 }
 
 export type ZielePersonRole = 'team' | 'ausschreibung' | 'verwaltung'
@@ -95,6 +156,42 @@ export type Umsatzkontrolle = {
 
 export function emptyMonthValues(): MonthValues {
   return Array.from({ length: 12 }, () => null)
+}
+
+// --- Rechnungen (invoices) ------------------------------------------------
+
+export type RechnungStatus = 'offen' | 'bezahlt' | 'mahnung' | 'storniert'
+export const RECHNUNG_STATUSES: RechnungStatus[] = ['offen', 'bezahlt', 'mahnung', 'storniert']
+export const RECHNUNG_STATUS_LABELS: Record<RechnungStatus, string> = {
+  offen: 'Offen',
+  bezahlt: 'Bezahlt',
+  mahnung: 'Mahnung',
+  storniert: 'Storniert',
+}
+
+export type Rechnung = {
+  id: string
+  nr: string           // Rechnungsnummer
+  datum: string        // ISO YYYY-MM-DD
+  kunde: string
+  projekt: string
+  netto: number | null
+  ustPct: number | null // default 19
+  status: RechnungStatus
+  faellig: string      // ISO YYYY-MM-DD, Zahlungsziel
+  bezahltAm: string    // ISO YYYY-MM-DD
+  notiz: string
+}
+
+export type RechnungenData = {
+  year: number
+  rows: Rechnung[]
+}
+
+export function bruttoOf(r: Rechnung): number | null {
+  if (r.netto === null) return null
+  const u = r.ustPct ?? 19
+  return Math.round(r.netto * (1 + u / 100) * 100) / 100
 }
 
 // Derived values per row

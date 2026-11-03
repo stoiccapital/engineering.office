@@ -110,10 +110,15 @@ export function TeamOverview() {
             </tr>
           </thead>
           <tbody>
-            {plan.employees.map((name, empIndex) => (
-              <tr key={empIndex} className="border-b last:border-b-0">
+            {plan.employees.map((emp, empIndex) => (
+              <tr key={emp.id} className="border-b last:border-b-0">
                 <td className="sticky left-0 z-10 min-w-[180px] border-r bg-background px-3 py-3 align-top">
-                  <div className="text-sm font-semibold">{name || 'Unbenannt'}</div>
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <span>{emp.name || 'Unbenannt'}</span>
+                    <span className="rounded border bg-muted/60 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
+                      {emp.branch}
+                    </span>
+                  </div>
                 </td>
                 {weeks.map(({ week }) => {
                   const key = cellKey(empIndex, week)
@@ -212,7 +217,7 @@ function WeekCell({
   status: PlanStatus | undefined
   todos: WeekTodo[]
 }) {
-  const openTodos = todos.filter((t) => !t.done)
+  const openTodos = todos.filter((t) => t.state !== 'erledigt')
 
   if (!status && todos.length === 0) {
     return <div className="text-xs text-muted-foreground/50">—</div>

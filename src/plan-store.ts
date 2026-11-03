@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { PlanStatus, QuartalPlan, WeekTodo } from './types'
-import { MAX_TODOS_PER_WEEK } from './types'
+import type { Branch, Employee, PlanStatus, QuartalPlan, WeekTodo } from './types'
+import { MAX_TODOS_PER_WEEK, migratePlan } from './types'
 import { fetchPlan, savePlan } from './api'
 import { currentISOWeek, quarterOfISOWeek, type QuarterLabel } from './lib/iso-week'
 
@@ -12,11 +12,24 @@ const INITIAL_QUARTER: QuarterLabel = (() => {
 
 export type QuarterView = 'all' | QuarterLabel
 
+function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+}
+
 function emptyPlan(year: number): QuartalPlan {
   return {
     year,
-    employees: ['Mitarbeiter 1', 'Mitarbeiter 2', 'Mitarbeiter 3', 'Mitarbeiter 4'],
+    employees: [
+      { id: newId(), name: 'Mitarbeiter 1', branch: 'de' },
+      { id: newId(), name: 'Mitarbeiter 2', branch: 'de' },
+      { id: newId(), name: 'Mitarbeiter 3', branch: 'pl' },
+      { id: newId(), name: 'Mitarbeiter 4', branch: 'pl' },
+    ],
     cells: {},
+    todos: {},
   }
 }
 
@@ -37,7 +50,8 @@ type State = {
   load: () => Promise<void>
   setCell: (empIndex: number, week: number, status: PlanStatus | null) => void
   renameEmployee: (empIndex: number, name: string) => void
-  addEmployee: () => void
+  setEmployeeBranch: (empIndex: number, branch: Branch) => void
+  addEmployee: (branch?: Branch) => void
   removeEmployee: (empIndex: number) => void
   addTodo: (empIndex: number, week: number) => void
   updateTodo: (
@@ -85,7 +99,8 @@ export const usePlan = create<State>()((set, get) => ({
     set({ status: 'loading', error: null })
     try {
       const data = await fetchPlan(s.year)
-      set({ plan: data ?? emptyPlan(s.year), status: 'saved' })
+      const migrated = migratePlan(data as never) ?? emptyPlan(s.year)
+      set({ plan: migrated, status: 'saved' })
     } catch (e) {
       set({ status: 'error', error: (e as Error).message })
     }
@@ -105,15 +120,28 @@ export const usePlan = create<State>()((set, get) => ({
   renameEmployee: (empIndex, name) => {
     const s = get()
     if (!s.plan) return
-    const employees = s.plan.employees.map((e, i) => (i === empIndex ? name : e))
+    const employees = s.plan.employees.map((e, i) => (i === empIndex ? { ...e, name } : e))
     set({ plan: { ...s.plan, employees } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
-  addEmployee: () => {
+  setEmployeeBranch: (empIndex, branch) => {
     const s = get()
     if (!s.plan) return
-    const employees = [...s.plan.employees, `Mitarbeiter ${s.plan.employees.length + 1}`]
+    const employees = s.plan.employees.map((e, i) => (i === empIndex ? { ...e, branch } : e))
+    set({ plan: { ...s.plan, employees } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  addEmployee: (branch = 'de') => {
+    const s = get()
+    if (!s.plan) return
+    const newEmp: Employee = {
+      id: newId(),
+      name: `Mitarbeiter ${s.plan.employees.length + 1}`,
+      branch,
+    }
+    const employees = [...s.plan.employees, newEmp]
     set({ plan: { ...s.plan, employees } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
@@ -150,7 +178,7 @@ export const usePlan = create<State>()((set, get) => ({
     const k = cellKey(empIndex, week)
     const current = s.plan.todos?.[k] ?? []
     if (current.length >= MAX_TODOS_PER_WEEK) return
-    const todo: WeekTodo = { id: newId(), text: '', done: false }
+    const todo: WeekTodo = { id: newId(), text: '', state: 'offen' }
     const todos = { ...(s.plan.todos ?? {}), [k]: [...current, todo] }
     set({ plan: { ...s.plan, todos } })
     scheduleSave(get, (p) => set(p as Partial<State>))
@@ -180,10 +208,3 @@ export const usePlan = create<State>()((set, get) => ({
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 }))
-
-function newId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-}
