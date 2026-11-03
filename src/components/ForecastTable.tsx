@@ -9,6 +9,7 @@ import { FlagToggle } from './FlagToggle'
 import { fmtEUR } from '@/lib/format'
 import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
+import { Num } from '@/components/ui/num'
 import { cn } from '@/lib/utils'
 
 type ColGroup = { label: string; span: number; leading?: boolean }
@@ -52,8 +53,16 @@ export function ForecastTable() {
 
   const subtitle = period
     ? pmFilter === 'all'
-      ? `${rows.length} Zeilen · ${period.year} ${period.quarter}`
-      : `${filteredRows.length} von ${rows.length} Zeilen · ${period.year} ${period.quarter}`
+      ? (
+          <>
+            <Num>{rows.length}</Num> Zeilen · <Num>{period.year}</Num> <Num>{period.quarter}</Num>
+          </>
+        )
+      : (
+          <>
+            <Num>{filteredRows.length}</Num> von <Num>{rows.length}</Num> Zeilen · <Num>{period.year}</Num> <Num>{period.quarter}</Num>
+          </>
+        )
     : undefined
 
   return (

@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Section } from '@/components/ui/section'
+import { Num } from '@/components/ui/num'
 
 const LOOKAHEAD_WEEKS = 6
 
@@ -54,9 +55,12 @@ export function TeamOverview() {
   const canGoForward = startWeek + LOOKAHEAD_WEEKS - 1 < totalWeeks
   const atToday = todayWeek !== null && weeks.some((w) => w.week === todayWeek) && offset === 0
 
-  const subtitle = `${plan.employees.length} Mitarbeiter · KW ${weeks[0]?.week ?? '—'}–${
-    weeks[weeks.length - 1]?.week ?? '—'
-  }`
+  const subtitle = (
+    <>
+      <Num>{plan.employees.length}</Num> Mitarbeiter · KW{' '}
+      <Num>{weeks[0]?.week ?? '—'}</Num>–<Num>{weeks[weeks.length - 1]?.week ?? '—'}</Num>
+    </>
+  )
 
   return (
     <Section

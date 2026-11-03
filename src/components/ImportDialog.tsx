@@ -4,6 +4,7 @@ import { Download, Upload, X } from 'lucide-react'
 import { useForecast } from '@/store'
 import { parseCSV, parseXLSX, buildTemplateCSV, type ParseResult } from '@/lib/import'
 import type { ProjectRow } from '@/types'
+import { Num } from '@/components/ui/num'
 
 type Phase = 'pick' | 'preview' | 'importing' | 'done' | 'error'
 
@@ -128,7 +129,7 @@ export function ImportDialog() {
               <div className="py-8 text-center">
                 <div className="text-sm font-medium">Import abgeschlossen</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {result.rows.length} Zeilen übernommen und gespeichert.
+                  <Num>{result.rows.length}</Num> Zeilen übernommen und gespeichert.
                 </div>
               </div>
             )}
@@ -166,7 +167,7 @@ export function ImportDialog() {
                   onClick={confirmImport}
                   className="rounded-md bg-foreground px-4 py-1.5 text-sm font-medium text-background hover:bg-foreground/90"
                 >
-                  {result.rows.length} Zeilen importieren
+                  <Num>{result.rows.length}</Num> Zeilen importieren
                 </button>
               </>
             )}
@@ -292,8 +293,12 @@ function PreviewPhase({ filename, result }: { filename: string; result: ParseRes
         <div>
           <span className="font-mono font-semibold">{filename}</span>
           <span className="ml-2 text-muted-foreground">
-            {result.rows.length} Zeilen
-            {result.skipped > 0 && `, ${result.skipped} übersprungen`}
+            <Num>{result.rows.length}</Num> Zeilen
+            {result.skipped > 0 && (
+              <>
+                , <Num>{result.skipped}</Num> übersprungen
+              </>
+            )}
           </span>
         </div>
       </div>

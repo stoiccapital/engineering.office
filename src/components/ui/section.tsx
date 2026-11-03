@@ -9,8 +9,8 @@ export function Section({
   className,
   children,
 }: {
-  title?: string
-  subtitle?: string
+  title?: React.ReactNode
+  subtitle?: React.ReactNode
   action?: React.ReactNode
   footer?: React.ReactNode
   padded?: boolean

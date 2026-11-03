@@ -9,6 +9,7 @@ import {
   type RechnungStatus,
 } from '@/types'
 import { Section } from '@/components/ui/section'
+import { Num } from '@/components/ui/num'
 import { NumCell } from './NumCell'
 import { TextCell } from './TextCell'
 import { fmtEUR } from '@/lib/format'
@@ -46,7 +47,11 @@ export function Rechnungen() {
     return { netto, brutto, offenNetto, bezahltNetto }
   }, [rows])
 
-  const subtitle = data ? `${rows.length} Rechnungen · ${data.year}` : undefined
+  const subtitle = data ? (
+    <>
+      <Num>{rows.length}</Num> Rechnungen · <Num>{data.year}</Num>
+    </>
+  ) : undefined
 
   return (
     <Section
@@ -231,7 +236,7 @@ function DateCell({ value, onChange }: { value: string; onChange: (v: string) =>
       type="date"
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded bg-transparent px-2 py-1.5 text-sm outline-none focus:bg-accent/60"
+      className="w-full rounded bg-transparent px-2 py-1.5 font-mono text-sm tabular-nums outline-none focus:bg-accent/60"
     />
   )
 }

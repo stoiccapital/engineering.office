@@ -19,20 +19,16 @@ export function KPICard({
       <div className="mt-1 flex items-baseline gap-1">
         <span
           className={cn(
-            'text-xl font-semibold',
+            'font-mono tabular-nums text-xl font-semibold',
             tone === 'danger' && 'text-destructive',
           )}
-          style={{ fontFeatureSettings: '"tnum"' }}
         >
           {value || '—'}
         </span>
         {unit && value && <span className="text-xs text-muted-foreground">{unit}</span>}
       </div>
       {sub && (
-        <div
-          className="mt-0.5 text-xs text-muted-foreground"
-          style={{ fontFeatureSettings: '"tnum"' }}
-        >
+        <div className="mt-0.5 font-mono tabular-nums text-xs text-muted-foreground">
           {sub}
         </div>
       )}

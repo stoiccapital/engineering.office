@@ -49,7 +49,7 @@ export function PeriodPicker({
             className,
           )}
         >
-          <span className="font-medium" style={{ fontFeatureSettings: '"tnum"' }}>
+          <span className="font-mono tabular-nums font-medium">
             {triggerLabel}
           </span>
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -70,7 +70,7 @@ export function PeriodPicker({
               >
                 ←
               </button>
-              <span className="text-sm font-semibold" style={{ fontFeatureSettings: '"tnum"' }}>
+              <span className="font-mono tabular-nums text-sm font-semibold">
                 {year}
               </span>
               <button

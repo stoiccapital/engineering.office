@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 import { Circle, CircleDot, CircleCheck, Flame, Maximize2, Minimize2, Plus, X } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
+import { Num } from '@/components/ui/num'
 
 type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | 'purple' | null
 
@@ -123,8 +124,18 @@ export function QuartalPlanTable() {
   const todoCount = plan.todos
     ? Object.values(plan.todos).reduce((sum, list) => sum + list.length, 0)
     : 0
-  const title = quarter === 'all' ? `Jahresplan ${year}` : `${quarter} ${year}`
-  const subtitle = `${plan.employees.length} Mitarbeiter (${deEmployees.length} DE · ${plEmployees.length} PL) · ${weekRows.length} Wochen · ${todoCount} Aufgaben`
+  const title = (
+    <>
+      {quarter === 'all' ? 'Jahresplan ' : <><Num>{quarter}</Num>{' '}</>}
+      <Num>{year}</Num>
+    </>
+  )
+  const subtitle = (
+    <>
+      <Num>{plan.employees.length}</Num> Mitarbeiter (<Num>{deEmployees.length}</Num> DE · <Num>{plEmployees.length}</Num> PL) ·{' '}
+      <Num>{weekRows.length}</Num> Wochen · <Num>{todoCount}</Num> Aufgaben
+    </>
+  )
 
   return (
     <div
