@@ -1,4 +1,14 @@
-import type { MonthValues } from '@/types'
+import type {
+  MonthValues,
+  Umsatzkontrolle,
+  UmsatzTeam,
+  UmsatzTeamView,
+  Ziele,
+  ZieleBranch,
+  ZieleTeam,
+} from '@/types'
+import { emptyMonthValues } from '@/types'
+import { teamFTE } from '@/ziele-store'
 
 export const MONTH_LABELS = [
   'Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
@@ -52,4 +62,76 @@ export function cumulativeMonthValues(values: MonthValues): MonthValues {
     out.push(acc)
   }
   return out
+}
+
+// Flat monthly target from annual Umsatzziel: (teamFTE × umsatzProFTE) ÷ 12.
+export function monthlyZielFromZiele(team: ZieleTeam, branch: ZieleBranch): MonthValues {
+  const annual = teamFTE(team) * branch.umsatzProFTE
+  if (annual === 0) return emptyMonthValues()
+  const monthly = annual / 12
+  return Array.from({ length: 12 }, () => monthly)
+}
+
+// Merge Ziele (source of teams + targets) with Umsatzkontrolle (forecast + rechnungen).
+// Teams come from Ziele; operational numbers are matched by id (post-migration).
+export function mergeUmsatz(
+  ziele: Ziele | null,
+  umsatz: Umsatzkontrolle | null,
+): UmsatzTeamView[] {
+  if (!ziele) return []
+  const umsatzById = new Map<string, UmsatzTeam>()
+  for (const t of umsatz?.teams ?? []) umsatzById.set(t.id, t)
+  const views: UmsatzTeamView[] = []
+  for (const branch of ziele.branches) {
+    for (const team of branch.teams) {
+      const u = umsatzById.get(team.id)
+      views.push({
+        id: team.id,
+        name: team.name,
+        branch: branch.id,
+        fte: teamFTE(team),
+        forecast: u?.forecast ?? emptyMonthValues(),
+        rechnungen: u?.rechnungen ?? emptyMonthValues(),
+        ziel: monthlyZielFromZiele(team, branch),
+      })
+    }
+  }
+  return views
+}
+
+// One-time migration: legacy UmsatzTeam carried its own name/branch/fte/ziel.
+// Match by normalized name to a Ziele team and rewrite its id. Drop unmatched.
+type LegacyUmsatzTeam = UmsatzTeam & { name?: string; branch?: string; fte?: number; ziel?: MonthValues }
+
+export function migrateUmsatz(raw: Umsatzkontrolle | null, ziele: Ziele | null): Umsatzkontrolle | null {
+  if (!raw) return raw
+  if (!ziele) return raw
+  const zieleById = new Set<string>()
+  const zieleByName = new Map<string, string>()
+  for (const b of ziele.branches) {
+    for (const t of b.teams) {
+      zieleById.add(t.id)
+      zieleByName.set(normalizeName(t.name), t.id)
+    }
+  }
+  const migrated: UmsatzTeam[] = []
+  const seen = new Set<string>()
+  for (const raw_ of raw.teams) {
+    const t = raw_ as LegacyUmsatzTeam
+    let targetId: string | null = null
+    if (zieleById.has(t.id)) targetId = t.id
+    else if (t.name) targetId = zieleByName.get(normalizeName(t.name)) ?? null
+    if (!targetId || seen.has(targetId)) continue
+    seen.add(targetId)
+    migrated.push({
+      id: targetId,
+      forecast: t.forecast,
+      rechnungen: t.rechnungen,
+    })
+  }
+  return { year: raw.year, teams: migrated }
+}
+
+function normalizeName(s: string): string {
+  return s.trim().toLowerCase()
 }

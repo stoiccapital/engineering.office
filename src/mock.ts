@@ -9,7 +9,9 @@ import type {
   Ziele,
   Umsatzkontrolle,
   RechnungenData,
+  AccessConfig,
 } from './types'
+import { emptyAccessConfig } from './types'
 import { defaultUmsatz, defaultZiele } from './lib/seeds'
 
 const YEAR = new Date().getFullYear()
@@ -174,6 +176,18 @@ const ziele = new Map<number, Ziele>()
 const umsatz = new Map<number, Umsatzkontrolle>()
 const rechnungen = new Map<number, RechnungenData>()
 let logo: string | null = null
+let access: AccessConfig | null = (() => {
+  const cfg = emptyAccessConfig()
+  cfg.roles = [
+    {
+      id: 'dev-admin',
+      name: 'Admin (dev)',
+      password: 'admin',
+      modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'settings'],
+    },
+  ]
+  return cfg
+})()
 
 export const mock = {
   isDev: (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV === true,
@@ -238,5 +252,11 @@ export const mock = {
   },
   setRechnungen(year: number, value: RechnungenData) {
     rechnungen.set(year, value)
+  },
+  access(): AccessConfig | null {
+    return access
+  },
+  setAccess(value: AccessConfig) {
+    access = value
   },
 }

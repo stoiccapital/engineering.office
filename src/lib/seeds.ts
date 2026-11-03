@@ -1,10 +1,4 @@
-import type {
-  MonthValues,
-  Umsatzkontrolle,
-  UmsatzTeam,
-  Ziele,
-  ZielePerson,
-} from '@/types'
+import type { Umsatzkontrolle, Ziele, ZielePerson } from '@/types'
 
 function person(name: string, fte: number, role?: ZielePerson['role']): ZielePerson {
   return { id: crypto.randomUUID(), name, fte, role }
@@ -106,59 +100,9 @@ export function defaultZiele(year: number): Ziele {
   }
 }
 
-function monthly(values: (number | null)[]): MonthValues {
-  const out: MonthValues = Array.from({ length: 12 }, () => null)
-  for (let i = 0; i < 12 && i < values.length; i++) out[i] = values[i]
-  return out
-}
-
-function umsatzTeam(
-  name: string,
-  branch: UmsatzTeam['branch'],
-  fte: number,
-  forecast: (number | null)[],
-  rechnungen: (number | null)[],
-  ziel: (number | null)[],
-): UmsatzTeam {
-  return {
-    id: crypto.randomUUID(),
-    name,
-    branch,
-    fte,
-    forecast: monthly(forecast),
-    rechnungen: monthly(rechnungen),
-    ziel: monthly(ziel),
-  }
-}
-
+// Teams, FTE, and ziel are now owned by Ziele. defaultUmsatz starts empty;
+// the merge layer lights up every Ziele team with zero operational data until
+// the PM fills in Forecast / Rechnungen.
 export function defaultUmsatz(year: number): Umsatzkontrolle {
-  return {
-    year,
-    teams: [
-      umsatzTeam(
-        'Team MNZ',
-        'de',
-        6.2,
-        [103000, 103000, 103000, 62700, 62700, 62700, 103000, 103000, 103000, 166667, 166667, 166667],
-        [89071, 141241, 188730, 84305, 101277, 179204, 153261, 143840, 204382, null, null, null],
-        [104000, 104000, 104000, 104000, 104000, 104000, 109333, 109333, 109333, 109333, 109333, 109333],
-      ),
-      umsatzTeam(
-        'Team Multitask',
-        'pl',
-        4,
-        [40000, 40000, 40000, 44633, 44633, 44633, 40000, 40000, 40000, 60667, 60667, 60667],
-        [40575, 41148, 65849, 97339, 21830, 25873, 58849, 46277, 36435, null, null, null],
-        [41067, 41067, 41067, 41067, 41067, 41067, 41067, 41067, 41067, 41067, 41067, 41067],
-      ),
-      umsatzTeam(
-        'Team ToDo',
-        'pl',
-        7,
-        [60000, 60000, 60000, 121667, 121667, 121667, 60000, 60000, 60000, 24667, 24667, 24667],
-        [61476, 67190, 138575, 50362, 40130, 116323, 116849, 34425, 174179, null, null, null],
-        [67317, 67317, 67317, 67317, 67317, 67317, 67317, 67317, 67317, 67317, 67317, 67317],
-      ),
-    ],
-  }
+  return { year, teams: [] }
 }

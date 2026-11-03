@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { ChevronRight, Crop, Image, ImagePlus, LogOut, Moon, Replace, Sun, Trash2 } from 'lucide-react'
+import { ChevronRight, Crop, Image, ImagePlus, LogOut, Moon, Replace, Sun, Trash2, UserCog } from 'lucide-react'
 import { clearToken } from '@/api'
 import { LogoMark } from '@/components/Logo'
 import { useLogo } from '@/logo-store'
+import { useAccess, isAdmin } from '@/access-store'
 import { LogoEditor } from '@/components/ui/logo-editor'
 import { cn } from '@/lib/utils'
 
@@ -24,9 +25,14 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
   const uploadLogo = useLogo((s) => s.upload)
   const removeLogo = useLogo((s) => s.remove)
   const logoStatus = useLogo((s) => s.status)
+  const currentRole = useAccess((s) => s.currentRole)
+  const signOut = useAccess((s) => s.signOut)
+  const admin = isAdmin(currentRole)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorSrc, setEditorSrc] = useState<string | null>(null)
+
+  const switchRole = () => signOut()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -145,6 +151,22 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
                 </DropdownMenu.SubContent>
               </DropdownMenu.Portal>
             </DropdownMenu.Sub>
+            <DropdownMenu.Separator className="my-1 h-px bg-border" />
+            {currentRole && (
+              <div className="px-2 py-1.5">
+                <div className="truncate text-sm font-medium">{currentRole.name}</div>
+                {admin && (
+                  <div className="truncate text-[11px] text-muted-foreground">Admin</div>
+                )}
+              </div>
+            )}
+            <DropdownMenu.Item
+              onSelect={switchRole}
+              className="flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
+            >
+              <UserCog className="h-4 w-4 text-muted-foreground" />
+              <span className="flex-1">Rolle wechseln</span>
+            </DropdownMenu.Item>
             <DropdownMenu.Separator className="my-1 h-px bg-border" />
             <DropdownMenu.Item
               onSelect={toggleTheme}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { KPIStrip } from '@/components/KPIStrip'
 import { ForecastTable } from '@/components/ForecastTable'
 import { AuthGate } from '@/components/AuthGate'
@@ -13,6 +13,8 @@ import { Dashboard } from '@/components/Dashboard'
 import { Ziele } from '@/components/Ziele'
 import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
 import { Rechnungen } from '@/components/Rechnungen'
+import { Settings } from '@/components/Settings'
+import { UserPicker } from '@/components/UserPicker'
 import { PeriodPicker, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
 import { UserMenu } from '@/components/ui/user-menu'
 import { CommandPalette } from '@/components/ui/command-palette'
@@ -23,13 +25,15 @@ import { usePlan } from '@/plan-store'
 import { useZiele } from '@/ziele-store'
 import { useUmsatz } from '@/umsatz-store'
 import { useRechnungen } from '@/rechnungen-store'
+import { useAccess, allowedModules } from '@/access-store'
+import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Briefcase, CalendarDays, ChevronDown, ChevronRight, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Table2, Target } from 'lucide-react'
+import { Briefcase, CalendarDays, ChevronDown, ChevronRight, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Table2, Target } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
 
-type View = 'forecast' | 'plan' | 'dashboard' | 'ziele' | 'umsatz' | 'rechnungen'
+type View = ModuleId
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
   forecast: { title: 'Forecast', label: 'Forecast', icon: Table2 },
@@ -38,6 +42,7 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ziele: { title: 'Ziele', label: 'Ziele', icon: Target },
   umsatz: { title: 'Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
+  settings: { title: 'Einstellungen', label: 'Einstellungen', icon: SettingsIcon },
 }
 
 type NavEntry =
@@ -55,18 +60,67 @@ const NAV: NavEntry[] = [
   },
   { kind: 'leaf', view: 'umsatz' },
   { kind: 'leaf', view: 'rechnungen' },
+  { kind: 'leaf', view: 'settings' },
 ]
+
+function filterNav(entries: NavEntry[], allowed: Set<View>): NavEntry[] {
+  const out: NavEntry[] = []
+  for (const e of entries) {
+    if (e.kind === 'leaf') {
+      if (allowed.has(e.view)) out.push(e)
+    } else {
+      const children = e.children.filter((c) => allowed.has(c))
+      if (children.length) out.push({ ...e, children })
+    }
+  }
+  return out
+}
 
 export default function App() {
   return (
     <AuthGate>
-      <Shell />
+      <AccessGate>
+        <Shell />
+      </AccessGate>
     </AuthGate>
   )
 }
 
+function AccessGate({ children }: { children: React.ReactNode }) {
+  const status = useAccess((s) => s.status)
+  const load = useAccess((s) => s.load)
+  const currentRole = useAccess((s) => s.currentRole)
+
+  useEffect(() => {
+    if (status === 'idle') void load()
+  }, [status, load])
+
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+        Lade…
+      </div>
+    )
+  }
+
+  if (!currentRole) return <UserPicker />
+  return <>{children}</>
+}
+
 function Shell() {
-  const [view, setView] = useState<View>('forecast')
+  const currentRole = useAccess((s) => s.currentRole)
+  const allowed = useMemo(() => allowedModules(currentRole), [currentRole])
+  const nav = useMemo(() => filterNav(NAV, allowed), [allowed])
+
+  const firstAllowed: View = allowed.has('ziele')
+    ? 'ziele'
+    : ((Array.from(allowed)[0] as View) ?? 'forecast')
+
+  const [view, setView] = useState<View>(firstAllowed)
+
+  useEffect(() => {
+    if (!allowed.has(view)) setView(firstAllowed)
+  }, [view, allowed, firstAllowed])
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1',
   )
@@ -116,9 +170,10 @@ function Shell() {
 
   return (
     <>
-    <CommandPalette onNavigate={setView} />
+    <CommandPalette onNavigate={(v) => setView(v as View)} />
     <div className="flex min-h-screen bg-muted/30">
       <Sidebar
+        nav={nav}
         view={view}
         onSelect={setView}
         collapsed={collapsed}
@@ -159,6 +214,7 @@ function Shell() {
           {view === 'ziele' && <Ziele />}
           {view === 'umsatz' && <Umsatzkontrolle />}
           {view === 'rechnungen' && <Rechnungen />}
+          {view === 'settings' && <Settings />}
         </main>
       </div>
     </div>
@@ -167,6 +223,7 @@ function Shell() {
 }
 
 function Sidebar({
+  nav,
   view,
   onSelect,
   collapsed,
@@ -174,6 +231,7 @@ function Sidebar({
   operativeExpanded,
   onToggleOperative,
 }: {
+  nav: NavEntry[]
   view: View
   onSelect: (v: View) => void
   collapsed: boolean
@@ -198,7 +256,7 @@ function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-0.5 p-2">
-        {NAV.map((entry) => {
+        {nav.map((entry) => {
           if (entry.kind === 'leaf') {
             return (
               <NavItem
@@ -277,6 +335,8 @@ function ViewPeriodPicker({ view }: { view: View }) {
       return <UmsatzPicker />
     case 'rechnungen':
       return <RechnungenPicker />
+    case 'settings':
+      return null
   }
 }
 

@@ -1,16 +1,17 @@
-import { Fragment, useMemo } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Fragment, useEffect, useMemo } from 'react'
 import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { NumCell } from './NumCell'
 import { LoadingCard } from '@/components/ui/loading-card'
 import { useUmsatz, type MetricKey, type QuarterView } from '@/umsatz-store'
-import type { MonthValues, UmsatzBranch, UmsatzTeam } from '@/types'
+import { useZiele } from '@/ziele-store'
+import type { MonthValues, UmsatzBranch, UmsatzTeamView } from '@/types'
 import {
   MONTH_LABELS,
   QUARTER_LABELS,
   addMonthValues,
   cumulativeMonthValues,
+  mergeUmsatz,
   quarterSum,
   subMonthValues,
   totalSum,
@@ -21,9 +22,21 @@ import { cn } from '@/lib/utils'
 export function Umsatzkontrolle() {
   const data = useUmsatz((s) => s.data)
   const quarter = useUmsatz((s) => s.quarter)
-  const addTeam = useUmsatz((s) => s.addTeam)
+  const umsatzYear = useUmsatz((s) => s.year)
 
-  const teams = data?.teams ?? EMPTY_TEAMS
+  const ziele = useZiele((s) => s.ziele)
+  const zieleYear = useZiele((s) => s.year)
+  const setZieleYear = useZiele((s) => s.setYear)
+  const loadZiele = useZiele((s) => s.load)
+
+  // Zielkontrolle year drives Ziele year — teams and targets must come from the same year.
+  useEffect(() => {
+    if (zieleYear !== umsatzYear) setZieleYear(umsatzYear)
+    else if (!ziele) void loadZiele()
+  }, [umsatzYear, zieleYear, ziele, setZieleYear, loadZiele])
+
+  const teams = useMemo(() => mergeUmsatz(ziele, data), [ziele, data])
+
   const forecastTotal = useMemo(() => sumMetric(teams, 'forecast'), [teams])
   const rechnungenTotal = useMemo(() => sumMetric(teams, 'rechnungen'), [teams])
   const zielTotal = useMemo(() => sumMetric(teams, 'ziel'), [teams])
@@ -46,91 +59,103 @@ export function Umsatzkontrolle() {
 
   const filter = useMemo(() => quarterFilter(quarter), [quarter])
 
-  if (!data) return <LoadingCard>Lade Umsatzkontrolle…</LoadingCard>
+  if (!data || !ziele) return <LoadingCard>Lade Zielkontrolle…</LoadingCard>
 
   return (
     <div className="space-y-6">
+      <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        Teams, FTE und Zielvorgaben werden in <strong className="font-medium text-foreground">Ziele</strong> verwaltet.
+        Hier werden nur <strong className="font-medium text-foreground">Forecast</strong> und
+        <strong className="font-medium text-foreground"> Rechnungen</strong> gepflegt.
+      </div>
+
       <Section
         title="Zielkontrolle"
         subtitle={`${teams.length} Teams · ${fmtDecimal(totalFte, 2)} FTE gesamt`}
         padded={false}
-        action={
-          <button
-            onClick={addTeam}
-            className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Team
-          </button>
-        }
       >
         <div className="space-y-6 p-4">
-          <TeamsConfig teams={teams} />
-          <MetricTable title="Forecast" metric="forecast" teams={teams} totals={forecastTotal} editable filter={filter} />
-          <MetricTable
-            title="Gestellte Rechnungen"
-            metric="rechnungen"
-            teams={teams}
-            totals={rechnungenTotal}
-            editable
-            filter={filter}
-            trailing={(t) => <RechnungenTrailing team={t} visibleMonths={filter.months} />}
-            trailingTotalLabel="FTE Σ"
-            trailingTotal={
-              <RechnungenTotalTrailing
+          {teams.length === 0 ? (
+            <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
+              Keine Teams in Ziele für {umsatzYear}. Lege Teams in Ziele an, um Daten hier zu pflegen.
+            </div>
+          ) : (
+            <>
+              <TeamsOverview teams={teams} />
+              <MetricTable
+                title="Forecast"
+                metric="forecast"
                 teams={teams}
-                total={visibleSum(rechnungenTotal, filter.months)}
+                totals={forecastTotal}
+                editable
+                filter={filter}
               />
-            }
-          />
-          <MetricTable title="Zielvorgaben" metric="ziel" teams={teams} totals={zielTotal} editable filter={filter} />
-          <DerivedMetricTable
-            title="Differenz (Rg. − Ziel)"
-            teams={teams.map((t, i) => ({ name: t.name, values: diffByTeam[i].values, branch: t.branch }))}
-            totals={diffTotal}
-            colorDeltas
-            filter={filter}
-          />
-          <div className="mt-4 border-t pt-6">
-            <PufferRows deValues={pufferDE} plValues={pufferPL} filter={filter} />
-          </div>
+              <MetricTable
+                title="Gestellte Rechnungen"
+                metric="rechnungen"
+                teams={teams}
+                totals={rechnungenTotal}
+                editable
+                filter={filter}
+                trailing={(t) => <RechnungenTrailing team={t} visibleMonths={filter.months} />}
+                trailingTotalLabel="FTE Σ"
+                trailingTotal={
+                  <RechnungenTotalTrailing
+                    teams={teams}
+                    total={visibleSum(rechnungenTotal, filter.months)}
+                  />
+                }
+              />
+              <ZielvorgabenTable teams={teams} totals={zielTotal} filter={filter} />
+              <DerivedMetricTable
+                title="Differenz (Rg. − Ziel)"
+                teams={teams.map((t, i) => ({ name: t.name, values: diffByTeam[i].values, branch: t.branch }))}
+                totals={diffTotal}
+                colorDeltas
+                filter={filter}
+              />
+              <div className="mt-4 border-t pt-6">
+                <PufferRows deValues={pufferDE} plValues={pufferPL} filter={filter} />
+              </div>
+            </>
+          )}
         </div>
       </Section>
 
-      <Section
-        title="Forecast Kontrolle"
-        padded={false}
-        action={
-          <InfoTooltip>
-            <div className="space-y-2">
-              <div className="font-medium">Farbkodierung</div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-                <span className="text-muted-foreground">Forecast überschritten (&gt; 20 k)</span>
+      {teams.length > 0 && (
+        <Section
+          title="Forecast Kontrolle"
+          padded={false}
+          action={
+            <InfoTooltip>
+              <div className="space-y-2">
+                <div className="font-medium">Farbkodierung</div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                  <span className="text-muted-foreground">Forecast überschritten (&gt; 20 k)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+                  <span className="text-muted-foreground">Forecast unterschritten (&lt; −20 k)</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
-                <span className="text-muted-foreground">Forecast unterschritten (&lt; −20 k)</span>
-              </div>
-            </div>
-          </InfoTooltip>
-        }
-      >
-        <div className="p-4">
-          <DerivedMetricTable
-            title="Abweichung Forecast (Rg. − Forecast)"
-            teams={teams.map((t, i) => ({ name: t.name, values: abwFcByTeam[i].values, branch: t.branch }))}
-            totals={abwFcTotal}
-            colorDeltas
-            filter={filter}
-          />
-        </div>
-      </Section>
+            </InfoTooltip>
+          }
+        >
+          <div className="p-4">
+            <DerivedMetricTable
+              title="Abweichung Forecast (Rg. − Forecast)"
+              teams={teams.map((t, i) => ({ name: t.name, values: abwFcByTeam[i].values, branch: t.branch }))}
+              totals={abwFcTotal}
+              colorDeltas
+              filter={filter}
+            />
+          </div>
+        </Section>
+      )}
     </div>
   )
 }
-
-const EMPTY_TEAMS: UmsatzTeam[] = []
 
 type QuarterFilter = {
   months: readonly number[]
@@ -150,14 +175,16 @@ function visibleSum(values: MonthValues, months: readonly number[]): number {
   return months.reduce<number>((s, i) => s + (values[i] ?? 0), 0)
 }
 
-function sumMetric(teams: UmsatzTeam[], metric: MetricKey): MonthValues {
+type SummableMetric = 'forecast' | 'rechnungen' | 'ziel'
+
+function sumMetric(teams: UmsatzTeamView[], metric: SummableMetric): MonthValues {
   let out: MonthValues = Array.from({ length: 12 }, () => null)
   for (const t of teams) out = addMonthValues(out, t[metric])
   return out
 }
 
 function branchCumulative(
-  diffs: { team: UmsatzTeam; values: MonthValues }[],
+  diffs: { team: UmsatzTeamView; values: MonthValues }[],
   branch: UmsatzBranch,
 ): MonthValues {
   let combined: MonthValues = Array.from({ length: 12 }, () => null)
@@ -168,57 +195,25 @@ function branchCumulative(
   return cumulativeMonthValues(combined)
 }
 
-function TeamsConfig({ teams }: { teams: UmsatzTeam[] }) {
-  const updateTeam = useUmsatz((s) => s.updateTeam)
-  const removeTeam = useUmsatz((s) => s.removeTeam)
+function TeamsOverview({ teams }: { teams: UmsatzTeamView[] }) {
   return (
     <div>
-      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">Teams</div>
+      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">Teams aus Ziele</div>
       <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="border-b bg-muted/20">
-            <th className="px-2 py-1.5 text-left text-xs font-medium text-muted-foreground">Team</th>
-            <th className="w-24 px-2 py-1.5 text-left text-xs font-medium text-muted-foreground">NL</th>
-            <th className="num w-24 px-2 py-1.5 text-right text-xs font-medium text-muted-foreground">FTE</th>
-            <th className="w-8" />
+          <tr className="border-b bg-muted/20 text-xs font-medium text-muted-foreground">
+            <th className="px-2 py-1.5 text-left">Team</th>
+            <th className="w-24 px-2 py-1.5 text-left">NL</th>
+            <th className="num w-24 px-2 py-1.5 text-right">FTE</th>
           </tr>
         </thead>
         <tbody>
           {teams.map((t) => (
-            <tr key={t.id} className="group border-b last:border-b-0">
-              <td>
-                <input
-                  value={t.name}
-                  onChange={(e) => updateTeam(t.id, { name: e.target.value })}
-                  className="w-full bg-transparent px-2 py-1.5 text-sm font-medium outline-none focus:bg-accent/60"
-                />
-              </td>
-              <td className="px-2">
-                <select
-                  value={t.branch}
-                  onChange={(e) => updateTeam(t.id, { branch: e.target.value as UmsatzBranch })}
-                  className="w-full rounded border bg-card px-1.5 py-1 text-xs outline-none"
-                >
-                  <option value="de">NL DE</option>
-                  <option value="pl">NL PL</option>
-                </select>
-              </td>
-              <td>
-                <NumCell
-                  value={t.fte}
-                  onChange={(v) => updateTeam(t.id, { fte: v ?? 0 })}
-                  decimals={2}
-                  className="text-right"
-                />
-              </td>
-              <td className="w-8 pr-1">
-                <button
-                  onClick={() => removeTeam(t.id)}
-                  className="rounded p-1 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                  title="Team entfernen"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+            <tr key={t.id} className="border-b last:border-b-0">
+              <td className="px-2 py-1.5 text-sm font-medium">{t.name}</td>
+              <td className="px-2 py-1.5 text-xs text-muted-foreground">NL {t.branch.toUpperCase()}</td>
+              <td className="num px-2 py-1.5 text-right font-mono text-sm tabular-nums">
+                {fmtDecimal(t.fte, 2)}
               </td>
             </tr>
           ))}
@@ -241,11 +236,11 @@ function MetricTable({
 }: {
   title: string
   metric: MetricKey
-  teams: UmsatzTeam[]
+  teams: UmsatzTeamView[]
   totals: MonthValues
   editable?: boolean
   filter: QuarterFilter
-  trailing?: (team: UmsatzTeam) => React.ReactNode
+  trailing?: (team: UmsatzTeamView) => React.ReactNode
   trailingTotalLabel?: string
   trailingTotal?: React.ReactNode
 }) {
@@ -278,6 +273,44 @@ function MetricTable({
               <TeamNameCell name={`Gesamt ${title}`} />
               <MonthRow values={totals} filter={filter} />
               {trailingTotal && <td className="border-l">{trailingTotal}</td>}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function ZielvorgabenTable({
+  teams,
+  totals,
+  filter,
+}: {
+  teams: UmsatzTeamView[]
+  totals: MonthValues
+  filter: QuarterFilter
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 px-1 py-2">
+        <div className="text-xs font-medium text-muted-foreground">Zielvorgaben</div>
+        <span className="rounded border bg-muted/40 px-1.5 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
+          aus Ziele
+        </span>
+      </div>
+      <div className="overflow-auto">
+        <table className="w-full border-collapse text-sm">
+          <HeaderRow filter={filter} />
+          <tbody>
+            {teams.map((team) => (
+              <tr key={team.id} className="border-b last:border-b-0">
+                <TeamNameCell name={team.name} />
+                <MonthRow values={team.ziel} filter={filter} />
+              </tr>
+            ))}
+            <tr className="border-t-2 border-foreground/20 font-semibold">
+              <TeamNameCell name="Gesamt Zielvorgaben" />
+              <MonthRow values={totals} filter={filter} />
             </tr>
           </tbody>
         </table>
@@ -487,7 +520,7 @@ function RechnungenTrailing({
   team,
   visibleMonths,
 }: {
-  team: UmsatzTeam
+  team: UmsatzTeamView
   visibleMonths: readonly number[]
 }) {
   const summe = visibleSum(team.rechnungen, visibleMonths)
@@ -502,7 +535,7 @@ function RechnungenTrailing({
   )
 }
 
-function RechnungenTotalTrailing({ teams, total }: { teams: UmsatzTeam[]; total: number }) {
+function RechnungenTotalTrailing({ teams, total }: { teams: UmsatzTeamView[]; total: number }) {
   const fte = teams.reduce((s, t) => s + (t.fte || 0), 0)
   const perFte = fte > 0 ? total / fte : null
   return (

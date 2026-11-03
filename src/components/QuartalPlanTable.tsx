@@ -465,6 +465,39 @@ function TodoRow({
         </button>
       </div>
       {isUrlaub && <UrlaubDayPicker days={todo.days ?? []} onChange={(days) => onUpdate({ days })} />}
+      {!isUrlaub && (
+        <ProgressRow
+          value={todo.progress ?? 0}
+          onChange={(progress) => onUpdate({ progress })}
+        />
+      )}
+    </div>
+  )
+}
+
+function ProgressRow({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (v: number) => void
+}) {
+  const clamped = Math.max(0, Math.min(100, Math.round(value)))
+  return (
+    <div className="ml-6 flex items-center gap-2 pt-0.5">
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={clamped}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-1 flex-1 cursor-pointer appearance-none rounded bg-muted accent-foreground"
+        title={`${clamped} %`}
+      />
+      <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
+        {clamped} %
+      </span>
     </div>
   )
 }

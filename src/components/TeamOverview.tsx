@@ -241,17 +241,25 @@ function WeekCell({
       )}
       {openTodos.length > 0 ? (
         <ul className="space-y-1">
-          {openTodos.map((todo) => (
-            <li
-              key={todo.id}
-              className="flex items-start gap-1.5 text-xs leading-snug text-foreground"
-            >
-              <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-foreground/60" />
-              <span className="min-w-0 flex-1 break-words">
-                {todo.text || <em className="text-muted-foreground/60">unbenannt</em>}
-              </span>
-            </li>
-          ))}
+          {openTodos.map((todo) => {
+            const isUrlaub = todo.text.toLowerCase().includes('urlaub')
+            return (
+              <li
+                key={todo.id}
+                className="flex items-start gap-1.5 text-xs leading-snug text-foreground"
+              >
+                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-foreground/60" />
+                <span className="min-w-0 flex-1 break-words">
+                  {todo.text || <em className="text-muted-foreground/60">unbenannt</em>}
+                </span>
+                {!isUrlaub && typeof todo.progress === 'number' && (
+                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                    {Math.max(0, Math.min(100, Math.round(todo.progress)))} %
+                  </span>
+                )}
+              </li>
+            )
+          })}
         </ul>
       ) : todos.length > 0 ? (
         <div className="text-[11px] text-muted-foreground">Alle Aufgaben erledigt</div>

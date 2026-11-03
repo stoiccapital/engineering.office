@@ -55,6 +55,8 @@ export type WeekTodo = {
   state: TodoState
   // Only used when the todo represents Urlaub. 1..5 = Mo..Fr. Empty/undefined = whole week.
   days?: number[]
+  // 0..100, used on "Aufgabe"-type todos so the PM sees how far along.
+  progress?: number
 }
 
 export const MAX_TODOS_PER_WEEK = 10
@@ -76,7 +78,7 @@ export type QuartalPlan = {
 }
 
 // Legacy shapes stored before this migration landed.
-type LegacyTodo = { id: string; text: string; done?: boolean; state?: TodoState; days?: number[] }
+type LegacyTodo = { id: string; text: string; done?: boolean; state?: TodoState; days?: number[]; progress?: number }
 type LegacyPlan = Omit<QuartalPlan, 'employees' | 'todos'> & {
   employees: Array<string | Employee>
   todos?: Record<string, LegacyTodo[]>
@@ -103,6 +105,7 @@ export function migratePlan(input: QuartalPlan | LegacyPlan | null | undefined):
       text: t.text,
       state: t.state ?? (t.done ? 'erledigt' : 'offen'),
       days: t.days,
+      progress: t.progress,
     }))
   }
   return { year: input.year, employees, cells: input.cells ?? {}, todos }
@@ -139,7 +142,21 @@ export type Ziele = {
 export type UmsatzBranch = 'de' | 'pl'
 export type MonthValues = (number | null)[] // length 12, Jan..Dez
 
+// Storage shape: only the operational data that Zielkontrolle owns.
+// Team name, branch, fte, and ziel are derived from Ziele at render time.
 export type UmsatzTeam = {
+  id: string // matches ZieleTeam.id after migration
+  forecast: MonthValues
+  rechnungen: MonthValues
+}
+
+export type Umsatzkontrolle = {
+  year: number
+  teams: UmsatzTeam[]
+}
+
+// Render-time view produced by merging Ziele + Umsatzkontrolle.
+export type UmsatzTeamView = {
   id: string
   name: string
   branch: UmsatzBranch
@@ -147,11 +164,6 @@ export type UmsatzTeam = {
   forecast: MonthValues
   rechnungen: MonthValues
   ziel: MonthValues
-}
-
-export type Umsatzkontrolle = {
-  year: number
-  teams: UmsatzTeam[]
 }
 
 export function emptyMonthValues(): MonthValues {
@@ -192,6 +204,63 @@ export function bruttoOf(r: Rechnung): number | null {
   if (r.netto === null) return null
   const u = r.ustPct ?? 19
   return Math.round(r.netto * (1 + u / 100) * 100) / 100
+}
+
+// --- Access control (role-based: role name + password → modules) ----------
+
+export type ModuleId =
+  | 'dashboard'
+  | 'forecast'
+  | 'plan'
+  | 'ziele'
+  | 'umsatz'
+  | 'rechnungen'
+  | 'settings'
+
+export const MODULES: ModuleId[] = [
+  'ziele',
+  'dashboard',
+  'forecast',
+  'plan',
+  'umsatz',
+  'rechnungen',
+  'settings',
+]
+
+export const MODULE_LABELS: Record<ModuleId, string> = {
+  dashboard: 'Dashboard',
+  forecast: 'Forecast',
+  plan: 'Quartalsplanung',
+  ziele: 'Ziele',
+  umsatz: 'Zielkontrolle',
+  rechnungen: 'Rechnungen',
+  settings: 'Einstellungen',
+}
+
+export type Role = {
+  id: string
+  name: string
+  password: string
+  modules: ModuleId[]
+}
+
+export type AccessConfig = {
+  roles: Role[]
+}
+
+// Preset role names the admin starts with (they can rename/delete/add).
+export const PRESET_ROLE_NAMES = [
+  'GF und Teamleiter',
+  'Verwaltung',
+  'Projektleiter',
+  'Projektingenieur',
+  'Konstrukteur',
+  'Azubis',
+  'Werkstudenten',
+] as const
+
+export function emptyAccessConfig(): AccessConfig {
+  return { roles: [] }
 }
 
 // Derived values per row

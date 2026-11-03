@@ -306,6 +306,8 @@ function ProjectsSubTable({ g }: { g: PMGroup }) {
             <SubTh className="w-24 text-left">Proj. Nr.</SubTh>
             <SubTh className="text-left">Projektname</SubTh>
             <SubTh className="w-20 text-left">Seite</SubTh>
+            <SubTh className="num w-32">Abgerechnet</SubTh>
+            <SubTh className="num w-20">Rechn.-Stand</SubTh>
             <SubTh className="num w-32">Forecast</SubTh>
             <SubTh className="w-12 text-center">Flag</SubTh>
           </tr>
@@ -324,17 +326,36 @@ function ProjectSubRow({ p }: { p: import('@/lib/analytics').PMProject }) {
   const d = derive(p.row)
   const deB = d.forecastDEBereinigt ?? 0
   const pl = p.row.forecastPL ?? 0
+  const abgDeB = d.abgerechnetDEBereinigt ?? 0
+  const abgPl = p.row.abgerechnetPL ?? 0
 
   let forecastDisplay: React.ReactNode
-  if (p.side === 'DE') forecastDisplay = <span>{fmtEUR(deB) || '—'}</span>
-  else if (p.side === 'PL') forecastDisplay = <span>{fmtEUR(pl) || '—'}</span>
-  else
+  let abgDisplay: React.ReactNode
+  let standPct: number | null
+  if (p.side === 'DE') {
+    forecastDisplay = <span>{fmtEUR(deB) || '—'}</span>
+    abgDisplay = <span>{fmtEUR(abgDeB) || '—'}</span>
+    standPct = deB > 0 ? abgDeB / deB : null
+  } else if (p.side === 'PL') {
+    forecastDisplay = <span>{fmtEUR(pl) || '—'}</span>
+    abgDisplay = <span>{fmtEUR(abgPl) || '—'}</span>
+    standPct = pl > 0 ? abgPl / pl : null
+  } else {
     forecastDisplay = (
       <span>
         <span className="text-muted-foreground">DE</span> {fmtEUR(deB) || '—'}{' '}
         <span className="ml-2 text-muted-foreground">PL</span> {fmtEUR(pl) || '—'}
       </span>
     )
+    abgDisplay = (
+      <span>
+        <span className="text-muted-foreground">DE</span> {fmtEUR(abgDeB) || '—'}{' '}
+        <span className="ml-2 text-muted-foreground">PL</span> {fmtEUR(abgPl) || '—'}
+      </span>
+    )
+    const totalFc = deB + pl
+    standPct = totalFc > 0 ? (abgDeB + abgPl) / totalFc : null
+  }
 
   const flag =
     p.side === 'DE' ? p.row.flagDE : p.side === 'PL' ? p.row.flagPL : null
@@ -346,6 +367,10 @@ function ProjectSubRow({ p }: { p: import('@/lib/analytics').PMProject }) {
         {p.row.projektname || <span className="text-muted-foreground">—</span>}
       </td>
       <td className="px-2 py-1.5 text-muted-foreground">{p.side}</td>
+      <td className="num px-2 py-1.5 text-muted-foreground">{abgDisplay}</td>
+      <td className="num px-2 py-1.5 text-muted-foreground">
+        {standPct === null ? <span className="text-muted-foreground/40">—</span> : fmtPct(standPct)}
+      </td>
       <td className="num px-2 py-1.5">{forecastDisplay}</td>
       <td className="px-2 py-1.5 text-center">
         {flag ? (

@@ -1,14 +1,14 @@
 import { create } from 'zustand'
 import type { MonthValues, Umsatzkontrolle, UmsatzTeam } from './types'
 import { emptyMonthValues } from './types'
-import { fetchUmsatz, saveUmsatz } from './api'
+import { fetchUmsatz, saveUmsatz, fetchZiele } from './api'
 import { defaultUmsatz } from './lib/seeds'
-import { currentCalendarQuarter } from './lib/umsatz'
+import { currentCalendarQuarter, migrateUmsatz } from './lib/umsatz'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const CURRENT_QUARTER = currentCalendarQuarter()
 
-export type MetricKey = 'forecast' | 'rechnungen' | 'ziel'
+export type MetricKey = 'forecast' | 'rechnungen'
 
 export type QuarterView = 'all' | 'Q1' | 'Q2' | 'Q3' | 'Q4'
 
@@ -23,12 +23,6 @@ type State = {
   setYear: (y: number) => void
   setQuarter: (q: QuarterView) => void
   load: () => Promise<void>
-  addTeam: () => void
-  removeTeam: (id: string) => void
-  updateTeam: (
-    id: string,
-    patch: Partial<Pick<UmsatzTeam, 'name' | 'branch' | 'fte'>>,
-  ) => void
   updateCell: (teamId: string, metric: MetricKey, monthIndex: number, value: number | null) => void
 }
 
@@ -49,16 +43,20 @@ function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
   }, 500)
 }
 
-function newId(): string {
-  return typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-}
-
 function withMonth(values: MonthValues, index: number, value: number | null): MonthValues {
   const next = values.slice()
   next[index] = value
   return next
+}
+
+function ensureTeam(data: Umsatzkontrolle, teamId: string): UmsatzTeam {
+  const existing = data.teams.find((t) => t.id === teamId)
+  if (existing) return existing
+  return {
+    id: teamId,
+    forecast: emptyMonthValues(),
+    rechnungen: emptyMonthValues(),
+  }
 }
 
 export const useUmsatz = create<State>()((set, get) => ({
@@ -79,59 +77,23 @@ export const useUmsatz = create<State>()((set, get) => ({
     const s = get()
     set({ status: 'loading', error: null })
     try {
-      const data = await fetchUmsatz(s.year)
-      set({ data: data ?? defaultUmsatz(s.year), status: 'saved' })
+      const [raw, ziele] = await Promise.all([fetchUmsatz(s.year), fetchZiele(s.year)])
+      const data = migrateUmsatz(raw ?? defaultUmsatz(s.year), ziele)
+      set({ data, status: 'saved' })
     } catch (e) {
       set({ status: 'error', error: (e as Error).message })
     }
   },
 
-  addTeam: () => {
-    const s = get()
-    if (!s.data) return
-    const team: UmsatzTeam = {
-      id: newId(),
-      name: `Team ${s.data.teams.length + 1}`,
-      branch: 'de',
-      fte: 1,
-      forecast: emptyMonthValues(),
-      rechnungen: emptyMonthValues(),
-      ziel: emptyMonthValues(),
-    }
-    set({ data: { ...s.data, teams: [...s.data.teams, team] } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
-  },
-
-  removeTeam: (id) => {
-    const s = get()
-    if (!s.data) return
-    set({ data: { ...s.data, teams: s.data.teams.filter((t) => t.id !== id) } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
-  },
-
-  updateTeam: (id, patch) => {
-    const s = get()
-    if (!s.data) return
-    set({
-      data: {
-        ...s.data,
-        teams: s.data.teams.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-      },
-    })
-    scheduleSave(get, (p) => set(p as Partial<State>))
-  },
-
   updateCell: (teamId, metric, monthIndex, value) => {
     const s = get()
     if (!s.data) return
-    set({
-      data: {
-        ...s.data,
-        teams: s.data.teams.map((t) =>
-          t.id === teamId ? { ...t, [metric]: withMonth(t[metric], monthIndex, value) } : t,
-        ),
-      },
-    })
+    const base = ensureTeam(s.data, teamId)
+    const updated: UmsatzTeam = { ...base, [metric]: withMonth(base[metric], monthIndex, value) }
+    const teams = s.data.teams.some((t) => t.id === teamId)
+      ? s.data.teams.map((t) => (t.id === teamId ? updated : t))
+      : [...s.data.teams, updated]
+    set({ data: { ...s.data, teams } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 }))
