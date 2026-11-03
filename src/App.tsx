@@ -184,7 +184,7 @@ function Shell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="bg-background">
-          <div className="flex items-center justify-between gap-4 px-6 py-4">
+          <div className="flex min-h-[62px] items-center justify-between gap-4 px-6 py-4">
             <h1 className="text-base font-semibold">{meta.title}</h1>
             <div className="flex items-center gap-4">
               {view === 'forecast' && <SaveStatus />}
