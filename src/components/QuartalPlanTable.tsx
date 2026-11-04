@@ -2,7 +2,6 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { usePlan, cellKey } from '@/plan-store'
 import { useForecast } from '@/store'
 import {
-  MAX_TODOS_PER_WEEK,
   type Branch,
   type Employee,
   type ProjectRow,
@@ -16,7 +15,7 @@ import {
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
-import { Flame, Maximize2, Minimize2, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Flame, Maximize2, Minimize2, Plus, X } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { Num } from '@/components/ui/num'
@@ -367,8 +366,10 @@ function WeekTodosCell({
   onUpdate: (id: string, patch: Partial<Omit<WeekTodo, 'id'>>) => void
   onRemove: (id: string) => void
 }) {
-  const atLimit = todos.length >= MAX_TODOS_PER_WEEK
   const empty = todos.length === 0
+  const [collapsed, setCollapsed] = useState(false)
+  const collapsible = todos.length >= 2
+  const isCollapsed = collapsible && collapsed
   return (
     <div
       className={cn(
@@ -376,30 +377,38 @@ function WeekTodosCell({
         empty && !locked && 'border-l-2 border-red-400/50',
       )}
     >
-      {todos.map((todo) => (
-        <TodoRow
-          key={todo.id}
-          todo={todo}
-          onUpdate={(patch) => onUpdate(todo.id, patch)}
-          onRemove={() => onRemove(todo.id)}
-        />
-      ))}
-      {!locked && (
+      {collapsible && (
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="flex items-center gap-1 self-start rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          title={isCollapsed ? 'Aufgaben einblenden' : 'Aufgaben ausblenden'}
+        >
+          {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          <Num>{todos.length}</Num> Aufgaben
+        </button>
+      )}
+      {!isCollapsed &&
+        todos.map((todo) => (
+          <TodoRow
+            key={todo.id}
+            todo={todo}
+            onUpdate={(patch) => onUpdate(todo.id, patch)}
+            onRemove={() => onRemove(todo.id)}
+          />
+        ))}
+      {!locked && !isCollapsed && (
         <button
           onClick={onAdd}
-          disabled={atLimit}
           className={cn(
             'flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all',
-            atLimit && 'cursor-not-allowed text-muted-foreground/40',
-            !atLimit && empty && 'text-red-500/70 hover:text-red-600',
-            !atLimit &&
-              !empty &&
+            empty && 'text-red-500/70 hover:text-red-600',
+            !empty &&
               'rounded border border-dashed text-muted-foreground hover:bg-accent hover:text-foreground',
           )}
-          title={atLimit ? `Max. ${MAX_TODOS_PER_WEEK} Aufgaben pro Woche` : 'Aufgabe hinzufügen'}
+          title="Aufgabe hinzufügen"
         >
           <Plus className="h-3 w-3" />
-          {atLimit ? `${todos.length}/${MAX_TODOS_PER_WEEK}` : 'Aufgabe'}
+          Aufgabe
         </button>
       )}
     </div>

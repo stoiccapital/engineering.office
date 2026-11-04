@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Branch, Employee, PlanStatus, QuartalPlan, WeekTodo } from './types'
-import { MAX_TODOS_PER_WEEK, migratePlan } from './types'
+import { migratePlan } from './types'
 import { fetchPlan, savePlan } from './api'
 import { currentISOWeek, quarterOfISOWeek, type QuarterLabel } from './lib/iso-week'
 
@@ -177,7 +177,6 @@ export const usePlan = create<State>()((set, get) => ({
     if (!s.plan) return
     const k = cellKey(empIndex, week)
     const current = s.plan.todos?.[k] ?? []
-    if (current.length >= MAX_TODOS_PER_WEEK) return
     const todo: WeekTodo = { id: newId(), text: '', state: 'offen' }
     const todos = { ...(s.plan.todos ?? {}), [k]: [...current, todo] }
     set({ plan: { ...s.plan, todos } })

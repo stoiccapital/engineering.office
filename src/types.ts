@@ -59,8 +59,6 @@ export type WeekTodo = {
   progress?: number
 }
 
-export const MAX_TODOS_PER_WEEK = 10
-
 export type Branch = 'de' | 'pl'
 
 export type Employee = {
