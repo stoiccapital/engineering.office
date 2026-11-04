@@ -6,9 +6,7 @@ import {
   type Branch,
   type Employee,
   type ProjectRow,
-  type TodoState,
   type WeekTodo,
-  nextTodoState,
 } from '@/types'
 import {
   MONTH_LABELS_DE,
@@ -18,7 +16,7 @@ import {
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
-import { Circle, CircleDot, CircleCheck, Flame, Maximize2, Minimize2, Plus, X } from 'lucide-react'
+import { Flame, Maximize2, Minimize2, Plus, X } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { Num } from '@/components/ui/num'
@@ -408,28 +406,6 @@ function WeekTodosCell({
   )
 }
 
-function StateCycle({ state, onChange }: { state: TodoState; onChange: (s: TodoState) => void }) {
-  const Icon = state === 'erledigt' ? CircleCheck : state === 'inProgress' ? CircleDot : Circle
-  const title =
-    state === 'erledigt' ? 'Erledigt' : state === 'inProgress' ? 'In Bearbeitung' : 'Offen'
-  return (
-    <button
-      type="button"
-      aria-label={title}
-      title={`${title} — klicken zum Weiterschalten`}
-      onClick={() => onChange(nextTodoState(state))}
-      className={cn(
-        'mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded transition-colors',
-        state === 'erledigt' && 'text-emerald-600',
-        state === 'inProgress' && 'text-amber-600',
-        state === 'offen' && 'text-muted-foreground/60 hover:text-foreground',
-      )}
-    >
-      <Icon className="h-4 w-4" strokeWidth={state === 'offen' ? 1.5 : 2} />
-    </button>
-  )
-}
-
 function TodoRow({
   todo,
   onUpdate,
@@ -444,7 +420,6 @@ function TodoRow({
   return (
     <div className={cn('group flex flex-col gap-0.5 rounded px-1.5 py-0.5', tone ? TONE_CLASSES[tone] : 'hover:bg-muted')}>
       <div className="flex items-start gap-2">
-        <StateCycle state={todo.state} onChange={(s) => onUpdate({ state: s })} />
         <textarea
           value={todo.text}
           onChange={(e) => onUpdate({ text: e.target.value })}
@@ -548,23 +523,9 @@ function PlanLegend() {
             </div>
           ))}
         </div>
-        <div className="space-y-1 border-t pt-2 text-[11px]">
-          <div className="font-medium">Status</div>
-          <div className="flex items-center gap-2">
-            <Circle className="h-3.5 w-3.5 text-muted-foreground/60" />
-            <span>Offen</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CircleDot className="h-3.5 w-3.5 text-amber-600" />
-            <span>In Bearbeitung</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CircleCheck className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Erledigt</span>
-          </div>
-        </div>
-        <div className="pt-1 text-muted-foreground">
+        <div className="border-t pt-2 text-muted-foreground">
           Zeile färbt sich automatisch anhand des Schlüsselworts. Abgelaufene Wochen sind gesperrt.
+          Status und Fortschritt werden in der Übersicht gepflegt.
         </div>
       </div>
     </InfoTooltip>

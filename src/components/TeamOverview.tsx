@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { usePlan, cellKey } from '@/plan-store'
 import { PLAN_STATUS_LABELS, type PlanStatus, type WeekTodo } from '@/types'
 import {
@@ -11,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
+import { StateCycle } from '@/components/ui/state-cycle'
 
 const LOOKAHEAD_WEEKS = 6
 
@@ -226,10 +228,35 @@ function WeekCell({
   week: number
 }) {
   const updateTodo = usePlan((s) => s.updateTodo)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
   const openTodos = todos.filter((t) => t.state !== 'erledigt')
+  const confirmTodo = confirmId ? openTodos.find((t) => t.id === confirmId) ?? null : null
 
   if (!status && todos.length === 0) {
     return <div className="text-xs text-muted-foreground/50">—</div>
+  }
+
+  function handleProgress(todo: WeekTodo, progress: number) {
+    if (progress >= 100) {
+      // Park at 100 % but keep it visible until the user confirms.
+      updateTodo(empIndex, week, todo.id, { progress: 100, state: 'inProgress' })
+      setConfirmId(todo.id)
+      return
+    }
+    updateTodo(empIndex, week, todo.id, {
+      progress,
+      state: progress > 0 ? 'inProgress' : 'offen',
+    })
+  }
+
+  function confirmDone() {
+    if (!confirmTodo) return
+    updateTodo(empIndex, week, confirmTodo.id, { state: 'erledigt' })
+    setConfirmId(null)
+  }
+
+  function cancelDone() {
+    setConfirmId(null)
   }
 
   return (
@@ -251,7 +278,7 @@ function WeekCell({
             return (
               <li key={todo.id} className="space-y-0.5 text-xs leading-snug text-foreground">
                 <div className="flex items-start gap-1.5">
-                  <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-foreground/60" />
+                  {!isUrlaub && <StateCycle state={todo.state} />}
                   <span className="min-w-0 flex-1 break-words">
                     {todo.text || <em className="text-muted-foreground/60">unbenannt</em>}
                   </span>
@@ -259,9 +286,7 @@ function WeekCell({
                 {!isUrlaub && (
                   <ProgressSlider
                     value={todo.progress ?? 0}
-                    onChange={(progress) =>
-                      updateTodo(empIndex, week, todo.id, { progress })
-                    }
+                    onChange={(progress) => handleProgress(todo, progress)}
                   />
                 )}
               </li>
@@ -271,7 +296,55 @@ function WeekCell({
       ) : todos.length > 0 ? (
         <div className="text-[11px] text-muted-foreground">Alle Aufgaben erledigt</div>
       ) : null}
+
+      <ConfirmDoneDialog
+        todo={confirmTodo}
+        onConfirm={confirmDone}
+        onCancel={cancelDone}
+      />
     </div>
+  )
+}
+
+function ConfirmDoneDialog({
+  todo,
+  onConfirm,
+  onCancel,
+}: {
+  todo: WeekTodo | null
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <Dialog.Root open={!!todo} onOpenChange={(open) => !open && onCancel()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
+          <div className="border-b px-5 py-4">
+            <Dialog.Title className="text-sm font-semibold">
+              Aufgabe als erledigt markieren?
+            </Dialog.Title>
+            <Dialog.Description className="mt-1 text-xs text-muted-foreground">
+              „{todo?.text || 'Aufgabe'}" verschwindet aus der Übersicht.
+            </Dialog.Description>
+          </div>
+          <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3">
+            <button
+              onClick={onCancel}
+              className="rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={onConfirm}
+              className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:bg-foreground/90"
+            >
+              Erledigt
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 
