@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { useAccess } from '@/access-store'
-import { MODULES, MODULE_LABELS, PRESET_ROLE_NAMES, type ModuleId } from '@/types'
+import { MODULES, MODULE_LABELS, PRESET_ROLES, type ModuleId, type RolePreset } from '@/types'
 import { cn } from '@/lib/utils'
 
 export function Settings() {
@@ -24,7 +24,14 @@ export function Settings() {
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
 
   const existingNames = new Set(roles.map((r) => r.name.toLowerCase()))
-  const presetSuggestions = PRESET_ROLE_NAMES.filter((n) => !existingNames.has(n.toLowerCase()))
+  const presetSuggestions: RolePreset[] = PRESET_ROLES.filter(
+    (p) => !existingNames.has(p.name.toLowerCase()),
+  )
+
+  function applyPreset(preset: RolePreset) {
+    setNewName(preset.name)
+    setNewModules(new Set(preset.modules))
+  }
 
   const canAdd = newName.trim().length > 0 && newPassword.length > 0
 
@@ -98,11 +105,12 @@ export function Settings() {
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {presetSuggestions.map((p) => (
                     <button
-                      key={p}
-                      onClick={() => setNewName(p)}
+                      key={p.name}
+                      onClick={() => applyPreset(p)}
                       className="rounded border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                      title={`Modulvorlage: ${p.modules.map((m) => MODULE_LABELS[m]).join(', ')}`}
                     >
-                      {p}
+                      {p.name}
                     </button>
                   ))}
                 </div>

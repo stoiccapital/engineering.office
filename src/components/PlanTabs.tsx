@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { QuartalPlanTable } from '@/components/QuartalPlanTable'
 import { TeamOverview } from '@/components/TeamOverview'
+import { useAccess } from '@/access-store'
 import { cn } from '@/lib/utils'
 import { LayoutGrid, Users } from 'lucide-react'
 
@@ -12,7 +13,14 @@ const TABS: ReadonlyArray<{ value: Tab; label: string; icon: typeof LayoutGrid }
 ]
 
 export function PlanTabs() {
-  const [tab, setTab] = useState<Tab>('plan')
+  const currentRole = useAccess((s) => s.currentRole)
+  const canEdit = currentRole?.modules.includes('plan') ?? false
+
+  const [tab, setTab] = useState<Tab>(canEdit ? 'plan' : 'overview')
+
+  // Overview-only roles: skip the tab bar entirely, show just TeamOverview.
+  if (!canEdit) return <TeamOverview />
+
   return (
     <div className="space-y-4">
       <div className="inline-flex items-center gap-0.5 rounded-md border bg-card p-1">

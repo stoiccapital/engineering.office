@@ -183,7 +183,7 @@ let access: AccessConfig | null = (() => {
       id: 'dev-admin',
       name: 'Admin (dev)',
       password: 'admin',
-      modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'settings'],
+      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele', 'umsatz', 'rechnungen', 'settings'],
     },
   ]
   return cfg

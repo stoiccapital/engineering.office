@@ -212,6 +212,7 @@ export type ModuleId =
   | 'dashboard'
   | 'forecast'
   | 'plan'
+  | 'plan_overview'
   | 'ziele'
   | 'umsatz'
   | 'rechnungen'
@@ -222,6 +223,7 @@ export const MODULES: ModuleId[] = [
   'dashboard',
   'forecast',
   'plan',
+  'plan_overview',
   'umsatz',
   'rechnungen',
   'settings',
@@ -231,6 +233,7 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
   dashboard: 'Dashboard',
   forecast: 'Forecast',
   plan: 'Quartalsplanung',
+  plan_overview: 'Quartalsplanung (nur Übersicht)',
   ziele: 'Ziele',
   umsatz: 'Zielkontrolle',
   rechnungen: 'Rechnungen',
@@ -248,16 +251,32 @@ export type AccessConfig = {
   roles: Role[]
 }
 
-// Preset role names the admin starts with (they can rename/delete/add).
-export const PRESET_ROLE_NAMES = [
-  'GF und Teamleiter',
-  'Verwaltung',
-  'Projektleiter',
-  'Projektingenieur',
-  'Konstrukteur',
-  'Azubis',
-  'Werkstudenten',
-] as const
+// Preset role templates the admin starts with (name + sensible default modules).
+// They can rename / delete / add new. Admin picks these by clicking a chip in
+// the new-role form and the module checkboxes auto-fill.
+export type RolePreset = { name: string; modules: ModuleId[] }
+
+export const PRESET_ROLES: RolePreset[] = [
+  {
+    name: 'GF und Teamleiter',
+    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'settings'],
+  },
+  {
+    name: 'Verwaltung',
+    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen'],
+  },
+  {
+    name: 'Projektleiter',
+    modules: ['dashboard', 'forecast', 'plan', 'rechnungen'],
+  },
+  { name: 'Projektingenieur', modules: ['plan_overview'] },
+  { name: 'Konstrukteur', modules: ['plan_overview'] },
+  { name: 'Azubis', modules: ['plan_overview'] },
+  { name: 'Werkstudenten', modules: ['plan_overview'] },
+]
+
+// Legacy export some callers still use for the name list only.
+export const PRESET_ROLE_NAMES = PRESET_ROLES.map((p) => p.name)
 
 export function emptyAccessConfig(): AccessConfig {
   return { roles: [] }

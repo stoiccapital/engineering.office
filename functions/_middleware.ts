@@ -28,7 +28,9 @@ function accessForPath(pathname: string): Access | null {
   if (pathname.startsWith('/api/period/')) {
     return { get: ['dashboard', 'forecast'], put: ['forecast'] }
   }
-  if (pathname.startsWith('/api/plan/')) return { get: ['plan'], put: ['plan'] }
+  if (pathname.startsWith('/api/plan/')) {
+    return { get: ['plan', 'plan_overview'], put: ['plan'] }
+  }
   if (pathname.startsWith('/api/ziele/')) {
     return { get: ['ziele', 'umsatz'], put: ['ziele'] }
   }

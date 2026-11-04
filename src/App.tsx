@@ -33,7 +33,9 @@ import { Briefcase, CalendarDays, ChevronDown, ChevronRight, FileText, Gauge, La
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
 
-type View = ModuleId
+// plan_overview isn't a separate nav entry — it collapses into 'plan' view
+// but with the overview-only tab inside PlanTabs.
+type View = Exclude<ModuleId, 'plan_overview'>
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
   forecast: { title: 'Forecast', label: 'Forecast', icon: Table2 },
@@ -109,7 +111,16 @@ function AccessGate({ children }: { children: React.ReactNode }) {
 
 function Shell() {
   const currentRole = useAccess((s) => s.currentRole)
-  const allowed = useMemo(() => allowedModules(currentRole), [currentRole])
+  const allowed = useMemo(() => {
+    const base = allowedModules(currentRole)
+    const views = new Set<View>()
+    for (const m of base) {
+      // 'plan_overview' grants the Plan sidebar entry (read-only Übersicht).
+      if (m === 'plan_overview') views.add('plan')
+      else views.add(m)
+    }
+    return views
+  }, [currentRole])
   const nav = useMemo(() => filterNav(NAV, allowed), [allowed])
 
   const firstAllowed: View = allowed.has('ziele')

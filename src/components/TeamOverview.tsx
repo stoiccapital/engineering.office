@@ -137,7 +137,7 @@ export function TeamOverview() {
                         isToday && 'bg-primary/5',
                       )}
                     >
-                      <WeekCell status={status} todos={todos} />
+                      <WeekCell status={status} todos={todos} empIndex={empIndex} week={week} />
                     </td>
                   )
                 })}
@@ -217,10 +217,15 @@ function WindowNav({
 function WeekCell({
   status,
   todos,
+  empIndex,
+  week,
 }: {
   status: PlanStatus | undefined
   todos: WeekTodo[]
+  empIndex: number
+  week: number
 }) {
+  const updateTodo = usePlan((s) => s.updateTodo)
   const openTodos = todos.filter((t) => t.state !== 'erledigt')
 
   if (!status && todos.length === 0) {
@@ -240,22 +245,24 @@ function WeekCell({
         </span>
       )}
       {openTodos.length > 0 ? (
-        <ul className="space-y-1">
+        <ul className="space-y-2">
           {openTodos.map((todo) => {
             const isUrlaub = todo.text.toLowerCase().includes('urlaub')
             return (
-              <li
-                key={todo.id}
-                className="flex items-start gap-1.5 text-xs leading-snug text-foreground"
-              >
-                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-foreground/60" />
-                <span className="min-w-0 flex-1 break-words">
-                  {todo.text || <em className="text-muted-foreground/60">unbenannt</em>}
-                </span>
-                {!isUrlaub && typeof todo.progress === 'number' && (
-                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
-                    {Math.max(0, Math.min(100, Math.round(todo.progress)))} %
+              <li key={todo.id} className="space-y-0.5 text-xs leading-snug text-foreground">
+                <div className="flex items-start gap-1.5">
+                  <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-foreground/60" />
+                  <span className="min-w-0 flex-1 break-words">
+                    {todo.text || <em className="text-muted-foreground/60">unbenannt</em>}
                   </span>
+                </div>
+                {!isUrlaub && (
+                  <ProgressSlider
+                    value={todo.progress ?? 0}
+                    onChange={(progress) =>
+                      updateTodo(empIndex, week, todo.id, { progress })
+                    }
+                  />
                 )}
               </li>
             )
@@ -264,6 +271,33 @@ function WeekCell({
       ) : todos.length > 0 ? (
         <div className="text-[11px] text-muted-foreground">Alle Aufgaben erledigt</div>
       ) : null}
+    </div>
+  )
+}
+
+function ProgressSlider({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (v: number) => void
+}) {
+  const clamped = Math.max(0, Math.min(100, Math.round(value)))
+  return (
+    <div className="ml-4 flex items-center gap-2 pt-0.5">
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={clamped}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-1 flex-1 cursor-pointer appearance-none rounded bg-muted accent-foreground"
+        title={`${clamped} %`}
+      />
+      <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
+        {clamped} %
+      </span>
     </div>
   )
 }

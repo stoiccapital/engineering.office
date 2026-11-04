@@ -34,6 +34,7 @@ export function UserPicker() {
         'dashboard',
         'forecast',
         'plan',
+        'plan_overview',
         'ziele',
         'umsatz',
         'rechnungen',
