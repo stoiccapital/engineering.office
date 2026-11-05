@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useMemo } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { NumCell } from './NumCell'
@@ -196,29 +197,56 @@ function branchCumulative(
 }
 
 function TeamsOverview({ teams }: { teams: UmsatzTeamView[] }) {
+  const [collapsed, setCollapsed] = useState(false)
+  const totalFte = teams.reduce((s, t) => s + (t.fte || 0), 0)
   return (
     <div>
-      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">Teams aus Ziele</div>
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b bg-muted/20 text-xs font-medium text-muted-foreground">
-            <th className="px-2 py-1.5 text-left">Team</th>
-            <th className="w-24 px-2 py-1.5 text-left">NL</th>
-            <th className="num w-24 px-2 py-1.5 text-right">FTE</th>
-          </tr>
-        </thead>
-        <tbody>
-          {teams.map((t) => (
-            <tr key={t.id} className="border-b last:border-b-0">
-              <td className="px-2 py-1.5 text-sm font-medium">{t.name}</td>
-              <td className="px-2 py-1.5 text-xs text-muted-foreground">NL {t.branch.toUpperCase()}</td>
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex w-full items-center gap-1 rounded px-1 py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        aria-expanded={!collapsed}
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5" />
+        )}
+        <span>Teams aus Ziele</span>
+        <span className="ml-auto font-mono tabular-nums">
+          {teams.length} Teams · {fmtDecimal(totalFte, 2)} FTE
+        </span>
+      </button>
+      {!collapsed && (
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b bg-muted/20 text-xs font-medium text-muted-foreground">
+              <th className="px-2 py-1.5 text-left">Team</th>
+              <th className="w-24 px-2 py-1.5 text-left">NL</th>
+              <th className="num w-24 px-2 py-1.5 text-right">FTE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {teams.map((t) => (
+              <tr key={t.id} className="border-b last:border-b-0">
+                <td className="px-2 py-1.5 text-sm font-medium">{t.name}</td>
+                <td className="px-2 py-1.5 text-xs text-muted-foreground">NL {t.branch.toUpperCase()}</td>
+                <td className="num px-2 py-1.5 text-right font-mono text-sm tabular-nums">
+                  {fmtDecimal(t.fte, 2)}
+                </td>
+              </tr>
+            ))}
+            <tr className="border-t-2 border-foreground/20 font-semibold">
+              <td className="px-2 py-1.5 text-sm">Σ Gesamt</td>
+              <td className="px-2 py-1.5 text-xs text-muted-foreground">
+                {teams.length} Teams
+              </td>
               <td className="num px-2 py-1.5 text-right font-mono text-sm tabular-nums">
-                {fmtDecimal(t.fte, 2)}
+                {fmtDecimal(totalFte, 2)}
               </td>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      )}
     </div>
   )
 }
