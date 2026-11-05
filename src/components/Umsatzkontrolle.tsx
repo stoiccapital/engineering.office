@@ -196,9 +196,20 @@ function branchCumulative(
   return cumulativeMonthValues(combined)
 }
 
-function TeamsOverview({ teams }: { teams: UmsatzTeamView[] }) {
-  const [collapsed, setCollapsed] = useState(false)
-  const totalFte = teams.reduce((s, t) => s + (t.fte || 0), 0)
+function CollapsibleBlock({
+  title,
+  badge,
+  summary,
+  defaultOpen = true,
+  children,
+}: {
+  title: React.ReactNode
+  badge?: React.ReactNode
+  summary?: React.ReactNode
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [collapsed, setCollapsed] = useState(!defaultOpen)
   return (
     <div>
       <button
@@ -211,43 +222,60 @@ function TeamsOverview({ teams }: { teams: UmsatzTeamView[] }) {
         ) : (
           <ChevronDown className="h-3.5 w-3.5" />
         )}
-        <span>Teams aus Ziele</span>
-        <span className="ml-auto font-mono tabular-nums">
-          {teams.length} Teams · {fmtDecimal(totalFte, 2)} FTE
-        </span>
+        <span>{title}</span>
+        {badge && <span className="ml-1">{badge}</span>}
+        {summary && (
+          <span className="ml-auto font-mono tabular-nums text-muted-foreground">
+            {summary}
+          </span>
+        )}
       </button>
-      {!collapsed && (
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b bg-muted/20 text-xs font-medium text-muted-foreground">
-              <th className="px-2 py-1.5 text-left">Team</th>
-              <th className="w-24 px-2 py-1.5 text-left">NL</th>
-              <th className="num w-24 px-2 py-1.5 text-right">FTE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teams.map((t) => (
-              <tr key={t.id} className="border-b last:border-b-0">
-                <td className="px-2 py-1.5 text-sm font-medium">{t.name}</td>
-                <td className="px-2 py-1.5 text-xs text-muted-foreground">NL {t.branch.toUpperCase()}</td>
-                <td className="num px-2 py-1.5 text-right font-mono text-sm tabular-nums">
-                  {fmtDecimal(t.fte, 2)}
-                </td>
-              </tr>
-            ))}
-            <tr className="border-t-2 border-foreground/20 font-semibold">
-              <td className="px-2 py-1.5 text-sm">Σ Gesamt</td>
-              <td className="px-2 py-1.5 text-xs text-muted-foreground">
-                {teams.length} Teams
-              </td>
-              <td className="num px-2 py-1.5 text-right font-mono text-sm tabular-nums">
-                {fmtDecimal(totalFte, 2)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      )}
+      {!collapsed && <div className="overflow-auto">{children}</div>}
     </div>
+  )
+}
+
+function TeamsOverview({ teams }: { teams: UmsatzTeamView[] }) {
+  const totalFte = teams.reduce((s, t) => s + (t.fte || 0), 0)
+  return (
+    <CollapsibleBlock
+      title="Teams aus Ziele"
+      summary={
+        <>
+          {teams.length} Teams · {fmtDecimal(totalFte, 2)} FTE
+        </>
+      }
+    >
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b bg-muted/20 text-xs font-medium text-muted-foreground">
+            <th className="px-2 py-1.5 text-left">Team</th>
+            <th className="w-24 px-2 py-1.5 text-left">NL</th>
+            <th className="num w-24 px-2 py-1.5 text-right">FTE</th>
+          </tr>
+        </thead>
+        <tbody>
+          {teams.map((t) => (
+            <tr key={t.id} className="border-b last:border-b-0">
+              <td className="px-2 py-1.5 text-sm font-medium">{t.name}</td>
+              <td className="px-2 py-1.5 text-xs text-muted-foreground">NL {t.branch.toUpperCase()}</td>
+              <td className="num px-2 py-1.5 text-right font-mono text-sm tabular-nums">
+                {fmtDecimal(t.fte, 2)}
+              </td>
+            </tr>
+          ))}
+          <tr className="border-t-2 border-foreground/20 font-semibold">
+            <td className="px-2 py-1.5 text-sm">Σ Gesamt</td>
+            <td className="px-2 py-1.5 text-xs text-muted-foreground">
+              {teams.length} Teams
+            </td>
+            <td className="num px-2 py-1.5 text-right font-mono text-sm tabular-nums">
+              {fmtDecimal(totalFte, 2)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </CollapsibleBlock>
   )
 }
 
@@ -274,38 +302,33 @@ function MetricTable({
 }) {
   const updateCell = useUmsatz((s) => s.updateCell)
   return (
-    <div>
-      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">
-        {title}
-      </div>
-      <div className="overflow-auto">
-        <table className="w-full border-collapse text-sm">
-          <HeaderRow filter={filter} trailing={trailing ? trailingTotalLabel : undefined} />
-          <tbody>
-            {teams.map((team) => (
-              <tr key={team.id} className="border-b last:border-b-0 hover:bg-accent">
-                <TeamNameCell name={team.name} />
-                <MonthRow
-                  values={team[metric]}
-                  filter={filter}
-                  onChange={
-                    editable
-                      ? (idx, v) => updateCell(team.id, metric, idx, v)
-                      : undefined
-                  }
-                />
-                {trailing && <td className="border-l">{trailing(team)}</td>}
-              </tr>
-            ))}
-            <tr className="border-t-2 border-foreground/20 font-semibold">
-              <TeamNameCell name={`Gesamt ${title}`} />
-              <MonthRow values={totals} filter={filter} />
-              {trailingTotal && <td className="border-l">{trailingTotal}</td>}
+    <CollapsibleBlock title={title}>
+      <table className="w-full border-collapse text-sm">
+        <HeaderRow filter={filter} trailing={trailing ? trailingTotalLabel : undefined} />
+        <tbody>
+          {teams.map((team) => (
+            <tr key={team.id} className="border-b last:border-b-0 hover:bg-accent">
+              <TeamNameCell name={team.name} />
+              <MonthRow
+                values={team[metric]}
+                filter={filter}
+                onChange={
+                  editable
+                    ? (idx, v) => updateCell(team.id, metric, idx, v)
+                    : undefined
+                }
+              />
+              {trailing && <td className="border-l">{trailing(team)}</td>}
             </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+          ))}
+          <tr className="border-t-2 border-foreground/20 font-semibold">
+            <TeamNameCell name={`Gesamt ${title}`} />
+            <MonthRow values={totals} filter={filter} />
+            {trailingTotal && <td className="border-l">{trailingTotal}</td>}
+          </tr>
+        </tbody>
+      </table>
+    </CollapsibleBlock>
   )
 }
 
@@ -319,31 +342,30 @@ function ZielvorgabenTable({
   filter: QuarterFilter
 }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 px-1 py-2">
-        <div className="text-xs font-medium text-muted-foreground">Zielvorgaben</div>
+    <CollapsibleBlock
+      title="Zielvorgaben"
+      badge={
         <span className="rounded border bg-muted/40 px-1.5 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
           aus Ziele
         </span>
-      </div>
-      <div className="overflow-auto">
-        <table className="w-full border-collapse text-sm">
-          <HeaderRow filter={filter} />
-          <tbody>
-            {teams.map((team) => (
-              <tr key={team.id} className="border-b last:border-b-0">
-                <TeamNameCell name={team.name} />
-                <MonthRow values={team.ziel} filter={filter} />
-              </tr>
-            ))}
-            <tr className="border-t-2 border-foreground/20 font-semibold">
-              <TeamNameCell name="Gesamt Zielvorgaben" />
-              <MonthRow values={totals} filter={filter} />
+      }
+    >
+      <table className="w-full border-collapse text-sm">
+        <HeaderRow filter={filter} />
+        <tbody>
+          {teams.map((team) => (
+            <tr key={team.id} className="border-b last:border-b-0">
+              <TeamNameCell name={team.name} />
+              <MonthRow values={team.ziel} filter={filter} />
             </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+          ))}
+          <tr className="border-t-2 border-foreground/20 font-semibold">
+            <TeamNameCell name="Gesamt Zielvorgaben" />
+            <MonthRow values={totals} filter={filter} />
+          </tr>
+        </tbody>
+      </table>
+    </CollapsibleBlock>
   )
 }
 
@@ -361,28 +383,23 @@ function DerivedMetricTable({
   filter: QuarterFilter
 }) {
   return (
-    <div>
-      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">
-        {title}
-      </div>
-      <div className="overflow-auto">
-        <table className="w-full border-collapse text-sm">
-          <HeaderRow filter={filter} />
-          <tbody>
-            {teams.map((team, i) => (
-              <tr key={i} className="border-b last:border-b-0">
-                <TeamNameCell name={`Δ${team.name}`} />
-                <MonthRow values={team.values} filter={filter} colorDeltas={colorDeltas} />
-              </tr>
-            ))}
-            <tr className="border-t-2 border-foreground/20 font-semibold">
-              <TeamNameCell name="Σ Differenz" />
-              <MonthRow values={totals} filter={filter} colorDeltas={colorDeltas} />
+    <CollapsibleBlock title={title}>
+      <table className="w-full border-collapse text-sm">
+        <HeaderRow filter={filter} />
+        <tbody>
+          {teams.map((team, i) => (
+            <tr key={i} className="border-b last:border-b-0">
+              <TeamNameCell name={`Δ${team.name}`} />
+              <MonthRow values={team.values} filter={filter} colorDeltas={colorDeltas} />
             </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+          ))}
+          <tr className="border-t-2 border-foreground/20 font-semibold">
+            <TeamNameCell name="Σ Differenz" />
+            <MonthRow values={totals} filter={filter} colorDeltas={colorDeltas} />
+          </tr>
+        </tbody>
+      </table>
+    </CollapsibleBlock>
   )
 }
 
@@ -396,26 +413,21 @@ function PufferRows({
   filter: QuarterFilter
 }) {
   return (
-    <div>
-      <div className="px-1 py-2 text-xs font-medium text-muted-foreground">
-        Verbleibender Puffer (kumuliert)
-      </div>
-      <div className="overflow-auto">
-        <table className="w-full border-collapse text-sm">
-          <HeaderRow filter={filter} />
-          <tbody>
-            <tr className="border-b hover:bg-accent">
-              <TeamNameCell name="Puffer NL DE" />
-              <MonthRow values={deValues} filter={filter} colorDeltas />
-            </tr>
-            <tr className="hover:bg-accent">
-              <TeamNameCell name="Puffer NL PL" />
-              <MonthRow values={plValues} filter={filter} colorDeltas />
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <CollapsibleBlock title="Verbleibender Puffer (kumuliert)">
+      <table className="w-full border-collapse text-sm">
+        <HeaderRow filter={filter} />
+        <tbody>
+          <tr className="border-b hover:bg-accent">
+            <TeamNameCell name="Puffer NL DE" />
+            <MonthRow values={deValues} filter={filter} colorDeltas />
+          </tr>
+          <tr className="hover:bg-accent">
+            <TeamNameCell name="Puffer NL PL" />
+            <MonthRow values={plValues} filter={filter} colorDeltas />
+          </tr>
+        </tbody>
+      </table>
+    </CollapsibleBlock>
   )
 }
 
