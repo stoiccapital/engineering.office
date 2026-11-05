@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useDashboard } from '@/dashboard-store'
 import {
+  computeAbgerechnetMetrics,
   computeSixMetrics,
   groupByProjektleiter,
   listProjectsForPM,
+  type AbgerechnetMetrics,
   type PMGroup,
   type SixMetrics,
 } from '@/lib/analytics'
@@ -31,6 +33,7 @@ export function Dashboard() {
   const current = periods[quarter] ?? null
   const rows = current?.rows ?? []
   const totals = useMemo(() => computeSixMetrics(rows), [rows])
+  const abgerechnet = useMemo(() => computeAbgerechnetMetrics(rows), [rows])
   const groups = useMemo(() => groupByProjektleiter(current), [current])
 
   const gesamt = totals.deBereinigtSumme + totals.plSumme
@@ -83,12 +86,32 @@ export function Dashboard() {
         />
       </KPIGrid>
 
+      <KPIGrid cols={3}>
+        <KPICard
+          label="Abgerechnet DE"
+          value={fmtEUR(abgerechnet.abgerechnetDE)}
+          unit="€"
+          sub={shareOf(abgerechnet.abgerechnetDE, totals.deBereinigtSumme)}
+        />
+        <KPICard
+          label="Abgerechnet PL"
+          value={fmtEUR(abgerechnet.abgerechnetPL)}
+          unit="€"
+          sub={shareOf(abgerechnet.abgerechnetPL, totals.plSumme)}
+        />
+        <KPICard
+          label="Noch nicht umgesetzter Forecast"
+          value={fmtEUR(abgerechnet.nochOffenForecast)}
+          unit="€"
+        />
+      </KPIGrid>
+
       <Section
         title="Projektleiter"
         subtitle={`${groups.length} ${groups.length === 1 ? 'Eintrag' : 'Einträge'} · sortiert nach Gesamt`}
         padded={false}
       >
-        <PMTable groups={groups} companyGesamt={gesamt} totals={totals} />
+        <PMTable groups={groups} totals={totals} abgerechnet={abgerechnet} />
       </Section>
     </>
   )
@@ -149,12 +172,12 @@ function HeroCard({
 
 function PMTable({
   groups,
-  companyGesamt,
   totals,
+  abgerechnet,
 }: {
   groups: PMGroup[]
-  companyGesamt: number
   totals: SixMetrics
+  abgerechnet: AbgerechnetMetrics
 }) {
   const [open, setOpen] = useState<Set<string>>(new Set())
 
@@ -188,9 +211,9 @@ function PMTable({
             <Th className="num border-l">PL Σ</Th>
             <Th className="num">PL wahr.</Th>
             <Th className="num">PL krit.</Th>
-            <Th className="num border-l">Gesamt</Th>
-            <Th className="num">% Ges.</Th>
-            <Th className="num">% krit.</Th>
+            <Th className="num border-l">Abger. DE</Th>
+            <Th className="num">Abger. PL</Th>
+            <Th className="num">Offen</Th>
           </tr>
         </thead>
         <tbody>
@@ -198,14 +221,13 @@ function PMTable({
             <PMRow
               key={g.name}
               g={g}
-              companyGesamt={companyGesamt}
               isOpen={open.has(g.name)}
               onToggle={() => toggle(g.name)}
             />
           ))}
         </tbody>
         <tfoot className="border-t">
-          <TotalsRow totals={totals} companyGesamt={companyGesamt} />
+          <TotalsRow totals={totals} abgerechnet={abgerechnet} />
         </tfoot>
       </table>
     </div>
@@ -214,19 +236,17 @@ function PMTable({
 
 function PMRow({
   g,
-  companyGesamt,
   isOpen,
   onToggle,
 }: {
   g: PMGroup
-  companyGesamt: number
   isOpen: boolean
   onToggle: () => void
 }) {
   const m = g.metrics
+  const a = g.abgerechnet
   const gesamt = m.deBereinigtSumme + m.plSumme
   const kritisch = m.deBereinigtKritisch + m.plKritisch
-  const shareGesamt = companyGesamt > 0 ? gesamt / companyGesamt : null
   const shareKritisch = gesamt > 0 ? kritisch / gesamt : null
   const atRisk = shareKritisch !== null && shareKritisch > KRIT_HIGH
   const isUnassigned = g.name === 'Ohne Zuordnung'
@@ -261,9 +281,9 @@ function PMRow({
         <NumTd v={m.plSumme} className="border-l" />
         <NumTd v={m.plWahrscheinlich} dim />
         <NumTd v={m.plKritisch} />
-        <NumTd v={gesamt} className="border-l" bold />
-        <NumTd v={shareGesamt} format="pct" dim />
-        <NumTd v={shareKritisch} format="pct" tone={atRisk ? 'danger' : undefined} />
+        <NumTd v={a.abgerechnetDE} className="border-l" />
+        <NumTd v={a.abgerechnetPL} />
+        <NumTd v={a.nochOffenForecast} />
       </tr>
       {isOpen && (
         <tr className="border-b bg-muted/20">
@@ -410,13 +430,11 @@ function SubTh({
 
 function TotalsRow({
   totals,
-  companyGesamt,
+  abgerechnet,
 }: {
   totals: SixMetrics
-  companyGesamt: number
+  abgerechnet: AbgerechnetMetrics
 }) {
-  const kritisch = totals.deBereinigtKritisch + totals.plKritisch
-  const shareKritisch = companyGesamt > 0 ? kritisch / companyGesamt : null
   return (
     <tr className="border-t-2 border-foreground/20 font-semibold">
       <td className="px-3 py-2 text-xs text-muted-foreground">
@@ -429,13 +447,9 @@ function TotalsRow({
       <NumTd v={totals.plSumme} className="border-l" />
       <NumTd v={totals.plWahrscheinlich} dim />
       <NumTd v={totals.plKritisch} />
-      <NumTd v={companyGesamt} className="border-l" bold />
-      <NumTd v={1} format="pct" dim />
-      <NumTd
-        v={shareKritisch}
-        format="pct"
-        tone={shareKritisch !== null && shareKritisch > KRIT_HIGH ? 'danger' : undefined}
-      />
+      <NumTd v={abgerechnet.abgerechnetDE} className="border-l" />
+      <NumTd v={abgerechnet.abgerechnetPL} />
+      <NumTd v={abgerechnet.nochOffenForecast} />
     </tr>
   )
 }

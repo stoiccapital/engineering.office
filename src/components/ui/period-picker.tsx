@@ -5,14 +5,19 @@ import { cn } from '@/lib/utils'
 
 export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4'
 export type QuarterOrAll = Quarter | 'all'
+export type Halbjahr = 'H1' | 'H2'
+export type HalbjahrOrAll = Halbjahr | 'all'
 
 const QUARTERS: Quarter[] = ['Q1', 'Q2', 'Q3', 'Q4']
+const HALBJAHRE: Halbjahr[] = ['H1', 'H2']
 
 type Props = {
   year?: number
   onYearChange?: (year: number) => void
   quarter?: QuarterOrAll
   onQuarterChange?: (q: QuarterOrAll) => void
+  halbjahr?: HalbjahrOrAll
+  onHalbjahrChange?: (h: HalbjahrOrAll) => void
   includeJahr?: boolean
   className?: string
 }
@@ -22,23 +27,33 @@ export function PeriodPicker({
   onYearChange,
   quarter,
   onQuarterChange,
+  halbjahr,
+  onHalbjahrChange,
   includeJahr = true,
   className,
 }: Props) {
   const [open, setOpen] = useState(false)
   const showYear = year !== undefined && onYearChange
   const showQuarter = quarter !== undefined && onQuarterChange
+  const showHalbjahr = halbjahr !== undefined && onHalbjahrChange
 
-  if (!showYear && !showQuarter) return null
+  if (!showYear && !showQuarter && !showHalbjahr) return null
 
+  const periodLabel = showQuarter
+    ? quarter === 'all'
+      ? 'Jahr'
+      : quarter
+    : showHalbjahr
+      ? halbjahr === 'all'
+        ? 'Jahr'
+        : halbjahr
+      : null
   const triggerLabel =
-    showQuarter && showYear
-      ? `${quarter === 'all' ? 'Jahr' : quarter} ${year}`
+    periodLabel && showYear
+      ? `${periodLabel} ${year}`
       : showYear
         ? String(year)
-        : quarter === 'all'
-          ? 'Jahr'
-          : String(quarter)
+        : (periodLabel ?? '')
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -102,6 +117,33 @@ export function PeriodPicker({
                   active={quarter === 'all'}
                   onClick={() => {
                     onQuarterChange!('all')
+                    setOpen(false)
+                  }}
+                  wide
+                />
+              )}
+            </div>
+          )}
+
+          {showHalbjahr && (
+            <div className="grid grid-cols-2 gap-1">
+              {HALBJAHRE.map((h) => (
+                <QuarterChoice
+                  key={h}
+                  label={h}
+                  active={halbjahr === h}
+                  onClick={() => {
+                    onHalbjahrChange!(h)
+                    setOpen(false)
+                  }}
+                />
+              ))}
+              {includeJahr && (
+                <QuarterChoice
+                  label="Jahr"
+                  active={halbjahr === 'all'}
+                  onClick={() => {
+                    onHalbjahrChange!('all')
                     setOpen(false)
                   }}
                   wide

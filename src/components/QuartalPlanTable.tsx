@@ -144,6 +144,7 @@ export function QuartalPlanTable() {
         subtitle={subtitle}
         padded={false}
         className={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
+        contentClassName={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
         action={
           <div className="flex items-center gap-1">
             <PlanLegend />
@@ -168,7 +169,7 @@ export function QuartalPlanTable() {
             forecastLabel={`${forecastQuarter} ${forecastYear}`}
           />
         )}
-        <div className={cn('overflow-auto', isFullscreen && 'max-h-[calc(100vh-220px)]')}>
+        <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 z-20 bg-muted">
               {/* Team label row */}

@@ -64,12 +64,15 @@ export function cumulativeMonthValues(values: MonthValues): MonthValues {
   return out
 }
 
-// Flat monthly target from annual Umsatzziel: (teamFTE × umsatzProFTE) ÷ 12.
+// Monthly target from Ziele: H1 months (Jan–Jun) use the H1 rate, H2 months
+// (Jul–Dez) use the H2 rate. Keeps month-by-month target in step with the
+// half-year split on the Ziele page.
 export function monthlyZielFromZiele(team: ZieleTeam, branch: ZieleBranch): MonthValues {
-  const annual = teamFTE(team) * branch.umsatzProFTE
-  if (annual === 0) return emptyMonthValues()
-  const monthly = annual / 12
-  return Array.from({ length: 12 }, () => monthly)
+  const fte = teamFTE(team)
+  const h1Monthly = (fte * (branch.umsatzProFTE.h1 ?? 0)) / 6
+  const h2Monthly = (fte * (branch.umsatzProFTE.h2 ?? 0)) / 6
+  if (h1Monthly === 0 && h2Monthly === 0) return emptyMonthValues()
+  return Array.from({ length: 12 }, (_, i) => (i < 6 ? h1Monthly : h2Monthly))
 }
 
 // Merge Ziele (source of teams + targets) with Umsatzkontrolle (forecast + rechnungen).

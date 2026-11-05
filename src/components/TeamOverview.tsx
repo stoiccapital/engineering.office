@@ -238,7 +238,7 @@ function WeekCell({
 
   function handleProgress(todo: WeekTodo, progress: number) {
     if (progress >= 100) {
-      // Park at 100 % but keep it visible until the user confirms.
+      // Park at 100 % but keep it visible until the user confirms sending it off for validation.
       updateTodo(empIndex, week, todo.id, { progress: 100, state: 'inProgress' })
       setConfirmId(todo.id)
       return
@@ -249,14 +249,27 @@ function WeekCell({
     })
   }
 
-  function confirmDone() {
+  function confirmSubmit() {
     if (!confirmTodo) return
-    updateTodo(empIndex, week, confirmTodo.id, { state: 'erledigt' })
+    // Submit to PM for validation; clear any previous rejection reason.
+    updateTodo(empIndex, week, confirmTodo.id, {
+      state: 'zurFreigabe',
+      progress: 100,
+      rejectReason: undefined,
+    })
     setConfirmId(null)
   }
 
-  function cancelDone() {
+  function cancelSubmit() {
     setConfirmId(null)
+  }
+
+  function resubmit(todo: WeekTodo) {
+    updateTodo(empIndex, week, todo.id, {
+      state: 'zurFreigabe',
+      progress: 100,
+      rejectReason: undefined,
+    })
   }
 
   return (
@@ -275,6 +288,8 @@ function WeekCell({
         <ul className="space-y-2">
           {openTodos.map((todo) => {
             const isUrlaub = todo.text.toLowerCase().includes('urlaub')
+            const pending = todo.state === 'zurFreigabe'
+            const rejected = todo.state === 'inProgress' && !!todo.rejectReason
             return (
               <li key={todo.id} className="space-y-0.5 text-xs leading-snug text-foreground">
                 <div className="flex items-start gap-1.5">
@@ -283,11 +298,38 @@ function WeekCell({
                     {todo.text || <em className="text-muted-foreground/60">unbenannt</em>}
                   </span>
                 </div>
+                {pending && (
+                  <div className="ml-4">
+                    <span className="inline-flex items-center rounded bg-violet-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-violet-900">
+                      In Prüfung
+                    </span>
+                  </div>
+                )}
                 {!isUrlaub && (
                   <ProgressSlider
                     value={todo.progress ?? 0}
+                    disabled={pending}
                     onChange={(progress) => handleProgress(todo, progress)}
                   />
+                )}
+                {rejected && (
+                  <div className="ml-4 mt-1 flex items-start gap-2 rounded border border-destructive/30 bg-destructive/5 px-2 py-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-destructive">
+                        Abgelehnt
+                      </div>
+                      <div className="mt-0.5 break-words text-[11px] text-foreground">
+                        {todo.rejectReason}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => resubmit(todo)}
+                      className="shrink-0 rounded-md border border-destructive/40 bg-background px-2 py-1 text-[10px] font-medium text-destructive hover:bg-destructive/10"
+                      title="Erneut zur Freigabe senden"
+                    >
+                      Erneut senden
+                    </button>
+                  </div>
                 )}
               </li>
             )
@@ -297,16 +339,16 @@ function WeekCell({
         <div className="text-[11px] text-muted-foreground">Alle Aufgaben erledigt</div>
       ) : null}
 
-      <ConfirmDoneDialog
+      <ConfirmSubmitDialog
         todo={confirmTodo}
-        onConfirm={confirmDone}
-        onCancel={cancelDone}
+        onConfirm={confirmSubmit}
+        onCancel={cancelSubmit}
       />
     </div>
   )
 }
 
-function ConfirmDoneDialog({
+function ConfirmSubmitDialog({
   todo,
   onConfirm,
   onCancel,
@@ -322,10 +364,10 @@ function ConfirmDoneDialog({
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
           <div className="border-b px-5 py-4">
             <Dialog.Title className="text-sm font-semibold">
-              Aufgabe als erledigt markieren?
+              Zur Freigabe senden?
             </Dialog.Title>
             <Dialog.Description className="mt-1 text-xs text-muted-foreground">
-              „{todo?.text || 'Aufgabe'}" verschwindet aus der Übersicht.
+              „{todo?.text || 'Aufgabe'}" geht an den Projektleiter. Nach Freigabe gilt die Aufgabe als erledigt.
             </Dialog.Description>
           </div>
           <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3">
@@ -339,7 +381,7 @@ function ConfirmDoneDialog({
               onClick={onConfirm}
               className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:bg-foreground/90"
             >
-              Erledigt
+              Zur Freigabe senden
             </button>
           </div>
         </Dialog.Content>
@@ -351,9 +393,11 @@ function ConfirmDoneDialog({
 function ProgressSlider({
   value,
   onChange,
+  disabled,
 }: {
   value: number
   onChange: (v: number) => void
+  disabled?: boolean
 }) {
   const clamped = Math.max(0, Math.min(100, Math.round(value)))
   return (
@@ -364,9 +408,13 @@ function ProgressSlider({
         max={100}
         step={5}
         value={clamped}
+        disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1 flex-1 cursor-pointer appearance-none rounded bg-muted accent-foreground"
-        title={`${clamped} %`}
+        className={cn(
+          'h-1 flex-1 appearance-none rounded bg-muted accent-foreground',
+          disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+        )}
+        title={disabled ? 'In Prüfung' : `${clamped} %`}
       />
       <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
         {clamped} %

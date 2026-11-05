@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
-import { CalendarDays, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Target } from 'lucide-react'
+import { CalendarDays, CheckSquare, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Target } from 'lucide-react'
 import { clearToken } from '@/api'
 import { cn } from '@/lib/utils'
 
-type View = 'forecast' | 'plan' | 'dashboard' | 'ziele' | 'umsatz'
+type View = 'forecast' | 'plan' | 'freigaben' | 'dashboard' | 'ziele' | 'umsatz'
 
 type Props = {
   onNavigate: (view: View) => void
@@ -15,6 +15,7 @@ const ITEMS: { view: View; label: string; keywords: string; icon: typeof Table2 
   { view: 'dashboard', label: 'Dashboard', keywords: 'dashboard kpi forecast überblick', icon: LayoutDashboard },
   { view: 'forecast', label: 'Forecast', keywords: 'forecast projekte abgerechnet quartal', icon: Table2 },
   { view: 'plan', label: 'Quartalsplanung', keywords: 'plan quartalsplanung aufgaben mitarbeiter kw', icon: CalendarDays },
+  { view: 'freigaben', label: 'Freigaben', keywords: 'freigaben validierung erledigt aufgaben pm', icon: CheckSquare },
   { view: 'umsatz', label: 'Zielkontrolle', keywords: 'umsatz zielkontrolle rechnungen puffer', icon: Gauge },
 ]
 

@@ -37,11 +37,12 @@ export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
   abgabe: 'Abgabe',
 }
 
-export type TodoState = 'offen' | 'inProgress' | 'erledigt'
-export const TODO_STATES: TodoState[] = ['offen', 'inProgress', 'erledigt']
+export type TodoState = 'offen' | 'inProgress' | 'zurFreigabe' | 'erledigt'
+export const TODO_STATES: TodoState[] = ['offen', 'inProgress', 'zurFreigabe', 'erledigt']
 export const TODO_STATE_LABELS: Record<TodoState, string> = {
   offen: 'Offen',
   inProgress: 'In Bearbeitung',
+  zurFreigabe: 'Zur Freigabe',
   erledigt: 'Erledigt',
 }
 export function nextTodoState(s: TodoState): TodoState {
@@ -57,6 +58,9 @@ export type WeekTodo = {
   days?: number[]
   // 0..100, used on "Aufgabe"-type todos so the PM sees how far along.
   progress?: number
+  // Reason supplied by the PM when rejecting a Zur-Freigabe submission.
+  // Present on an inProgress todo means the last submission was rejected.
+  rejectReason?: string
 }
 
 export type Branch = 'de' | 'pl'
@@ -124,10 +128,17 @@ export type ZieleTeam = {
   people: ZielePerson[]
 }
 
+// Half-year split: PMs often expect different revenue-per-FTE in H1 vs H2.
+// Legacy flat `umsatzProFTE: number` → halved onto both halves at migration time.
+export type UmsatzProFTE = {
+  h1: number
+  h2: number
+}
+
 export type ZieleBranch = {
   id: 'de' | 'pl'
   label: string
-  umsatzProFTE: number
+  umsatzProFTE: UmsatzProFTE
   ruhendePct: number // 0..1
   teams: ZieleTeam[]
 }
@@ -135,6 +146,32 @@ export type ZieleBranch = {
 export type Ziele = {
   year: number
   branches: ZieleBranch[]
+  // Locked prevents further edits. Any ziele-module role can lock;
+  // only plan-module roles (PMs) may unlock.
+  locked?: boolean
+  lockedAt?: string // ISO timestamp
+  lockedBy?: string // role name for the banner
+}
+
+// Legacy shape stored before the H1/H2 split landed.
+type LegacyZieleBranch = Omit<ZieleBranch, 'umsatzProFTE'> & {
+  umsatzProFTE: number | UmsatzProFTE
+}
+type LegacyZiele = Omit<Ziele, 'branches'> & { branches: LegacyZieleBranch[] }
+
+export function migrateZiele(input: Ziele | LegacyZiele | null | undefined): Ziele | null {
+  if (!input) return null
+  const branches: ZieleBranch[] = input.branches.map((b) => {
+    const u = b.umsatzProFTE
+    const umsatzProFTE: UmsatzProFTE =
+      typeof u === 'number' ? { h1: u / 2, h2: u / 2 } : { h1: u.h1 ?? 0, h2: u.h2 ?? 0 }
+    return { ...b, umsatzProFTE }
+  })
+  return { ...input, branches }
+}
+
+export function annualUmsatzProFTE(u: UmsatzProFTE): number {
+  return (u.h1 ?? 0) + (u.h2 ?? 0)
 }
 
 export type UmsatzBranch = 'de' | 'pl'

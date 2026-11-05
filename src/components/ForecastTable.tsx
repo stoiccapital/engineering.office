@@ -118,15 +118,15 @@ export function ForecastTable() {
               <Th>Projektname</Th>
               <Th>Proj. Nr.</Th>
               <Th>Leistung in Worten</Th>
-              <Th className="num border-l">Forecast DE</Th>
+              <Th className="num border-l">Forecast gesamt</Th>
               <Th>k/w</Th>
               <Th className="num">Forecast PL</Th>
               <Th>k/w</Th>
-              <Th className="num text-muted-foreground">DE bereinigt</Th>
-              <Th className="num border-l">Abgerechnet DE</Th>
+              <Th className="num text-muted-foreground">Forecast DE</Th>
+              <Th className="num border-l">Abgerechnet gesamt</Th>
               <Th className="num">Abgerechnet PL</Th>
-              <Th className="num text-muted-foreground">Abg. bereinigt</Th>
-              <Th className="num text-muted-foreground">Noch offen DE</Th>
+              <Th className="num text-muted-foreground">Abgerechnet DE</Th>
+              <Th className="num text-muted-foreground">Noch nicht umgesetzter Forecast</Th>
               <Th></Th>
             </tr>
           </thead>

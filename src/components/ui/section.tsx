@@ -7,6 +7,7 @@ export function Section({
   footer,
   padded = true,
   className,
+  contentClassName,
   children,
 }: {
   title?: React.ReactNode
@@ -15,6 +16,7 @@ export function Section({
   footer?: React.ReactNode
   padded?: boolean
   className?: string
+  contentClassName?: string
   children: React.ReactNode
 }) {
   const hasHeader = Boolean(title || action)
@@ -31,7 +33,7 @@ export function Section({
           {action && <div className="shrink-0">{action}</div>}
         </div>
       )}
-      <div className={cn(padded && 'p-4')}>{children}</div>
+      <div className={cn(padded && 'p-4', contentClassName)}>{children}</div>
       {footer && <div className="border-t px-4 py-3">{footer}</div>}
     </section>
   )

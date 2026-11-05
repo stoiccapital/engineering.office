@@ -8,6 +8,7 @@ import { ZieleSaveStatus } from '@/components/ZieleSaveStatus'
 import { UmsatzSaveStatus } from '@/components/UmsatzSaveStatus'
 import { RechnungenSaveStatus } from '@/components/RechnungenSaveStatus'
 import { PlanTabs } from '@/components/PlanTabs'
+import { Freigaben } from '@/components/Freigaben'
 import { ImportDialog } from '@/components/ImportDialog'
 import { Dashboard } from '@/components/Dashboard'
 import { Ziele } from '@/components/Ziele'
@@ -15,7 +16,7 @@ import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
 import { Rechnungen } from '@/components/Rechnungen'
 import { Settings } from '@/components/Settings'
 import { UserPicker } from '@/components/UserPicker'
-import { PeriodPicker, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
+import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
 import { UserMenu } from '@/components/ui/user-menu'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { useDashboard } from '@/dashboard-store'
@@ -28,18 +29,20 @@ import { useRechnungen } from '@/rechnungen-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Briefcase, CalendarDays, ChevronDown, ChevronRight, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Table2, Target } from 'lucide-react'
+import { Briefcase, CalendarDays, CheckSquare, ChevronDown, ChevronRight, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Table2, Target } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
 
 // plan_overview isn't a separate nav entry — it collapses into 'plan' view
 // but with the overview-only tab inside PlanTabs.
-type View = Exclude<ModuleId, 'plan_overview'>
+// 'freigaben' is a virtual view gated by the 'plan' module (any PM-capable role).
+type View = Exclude<ModuleId, 'plan_overview'> | 'freigaben'
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
   forecast: { title: 'Forecast', label: 'Forecast', icon: Table2 },
   plan: { title: 'Quartalsplanung', label: 'Quartalsplanung', icon: CalendarDays },
+  freigaben: { title: 'Freigaben', label: 'Freigaben', icon: CheckSquare },
   dashboard: { title: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
   ziele: { title: 'Ziele', label: 'Ziele', icon: Target },
   umsatz: { title: 'Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
@@ -58,7 +61,7 @@ const NAV: NavEntry[] = [
     id: 'operative',
     label: 'Operative Planung',
     icon: Briefcase,
-    children: ['dashboard', 'forecast', 'plan'],
+    children: ['dashboard', 'forecast', 'plan', 'freigaben'],
   },
   { kind: 'leaf', view: 'umsatz' },
   { kind: 'leaf', view: 'rechnungen' },
@@ -117,8 +120,10 @@ function Shell() {
     for (const m of base) {
       // 'plan_overview' grants the Plan sidebar entry (read-only Übersicht).
       if (m === 'plan_overview') views.add('plan')
-      else views.add(m)
+      else views.add(m as View)
     }
+    // Any role with full 'plan' edit access can validate submissions.
+    if (base.has('plan')) views.add('freigaben')
     return views
   }, [currentRole])
   const nav = useMemo(() => filterNav(NAV, allowed), [allowed])
@@ -154,8 +159,23 @@ function Shell() {
   }, [loadForecast])
 
   useEffect(() => {
-    if (view === 'plan' && !plan) void loadPlan()
+    if ((view === 'plan' || view === 'freigaben') && !plan) void loadPlan()
   }, [view, plan, loadPlan])
+
+  // Keep the plan loaded for any PM-capable role so the Freigaben badge is live
+  // across all views, not just when the Plan page has been opened.
+  useEffect(() => {
+    if (allowed.has('freigaben') && !plan) void loadPlan()
+  }, [allowed, plan, loadPlan])
+
+  const freigabenCount = useMemo(() => {
+    if (!plan) return 0
+    let n = 0
+    for (const list of Object.values(plan.todos ?? {})) {
+      for (const t of list) if (t.state === 'zurFreigabe') n++
+    }
+    return n
+  }, [plan])
 
   useEffect(() => {
     if (view === 'ziele' && !ziele) void loadZiele()
@@ -191,6 +211,7 @@ function Shell() {
         onToggleCollapsed={() => setCollapsed((v) => !v)}
         operativeExpanded={operativeExpanded}
         onToggleOperative={() => setOperativeExpanded((v) => !v)}
+        freigabenCount={freigabenCount}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -221,6 +242,8 @@ function Shell() {
             ))}
           {view === 'plan' &&
             (plan ? <PlanTabs /> : <LoadingCard>Lade Quartalsplanung…</LoadingCard>)}
+          {view === 'freigaben' &&
+            (plan ? <Freigaben /> : <LoadingCard>Lade Freigaben…</LoadingCard>)}
           {view === 'dashboard' && <Dashboard />}
           {view === 'ziele' && <Ziele />}
           {view === 'umsatz' && <Umsatzkontrolle />}
@@ -241,6 +264,7 @@ function Sidebar({
   onToggleCollapsed,
   operativeExpanded,
   onToggleOperative,
+  freigabenCount,
 }: {
   nav: NavEntry[]
   view: View
@@ -249,6 +273,7 @@ function Sidebar({
   onToggleCollapsed: () => void
   operativeExpanded: boolean
   onToggleOperative: () => void
+  freigabenCount: number
 }) {
   return (
     <aside
@@ -276,6 +301,7 @@ function Sidebar({
                 label={VIEW_META[entry.view].label}
                 active={entry.view === view}
                 collapsed={collapsed}
+                badge={entry.view === 'freigaben' ? freigabenCount : 0}
                 onClick={() => onSelect(entry.view)}
               />
             )
@@ -290,6 +316,9 @@ function Sidebar({
                 expanded={expanded}
                 collapsed={collapsed}
                 childActive={childActive}
+                badge={
+                  entry.children.includes('freigaben' as View) && !expanded ? freigabenCount : 0
+                }
                 onToggle={onToggleOperative}
               />
               {expanded &&
@@ -301,6 +330,7 @@ function Sidebar({
                     active={childView === view}
                     collapsed={collapsed}
                     nested={!collapsed}
+                    badge={childView === 'freigaben' ? freigabenCount : 0}
                     onClick={() => onSelect(childView)}
                   />
                 ))}
@@ -342,6 +372,8 @@ function ViewPeriodPicker({ view }: { view: View }) {
       return <ForecastPicker />
     case 'plan':
       return <PlanPicker />
+    case 'freigaben':
+      return <FreigabenPicker />
     case 'umsatz':
       return <UmsatzPicker />
     case 'rechnungen':
@@ -353,8 +385,21 @@ function ViewPeriodPicker({ view }: { view: View }) {
 
 function ZielePicker() {
   const year = useZiele((s) => s.year)
+  const halbjahr = useZiele((s) => s.halbjahr)
   const setYear = useZiele((s) => s.setYear)
-  return <PeriodPicker year={year} onYearChange={setYear} />
+  const setHalbjahr = useZiele((s) => s.setHalbjahr)
+  const halbjahrOrAll: HalbjahrOrAll =
+    halbjahr === 'h1' ? 'H1' : halbjahr === 'h2' ? 'H2' : 'all'
+  return (
+    <PeriodPicker
+      year={year}
+      onYearChange={setYear}
+      halbjahr={halbjahrOrAll}
+      onHalbjahrChange={(h) =>
+        setHalbjahr(h === 'H1' ? 'h1' : h === 'H2' ? 'h2' : 'all')
+      }
+    />
+  )
 }
 
 function DashboardPicker() {
@@ -404,6 +449,12 @@ function PlanPicker() {
   )
 }
 
+function FreigabenPicker() {
+  const year = usePlan((s) => s.year)
+  const setYear = usePlan((s) => s.setYear)
+  return <PeriodPicker year={year} onYearChange={setYear} />
+}
+
 function RechnungenPicker() {
   const year = useRechnungen((s) => s.year)
   const setYear = useRechnungen((s) => s.setYear)
@@ -431,6 +482,7 @@ function NavItem({
   active,
   collapsed,
   nested,
+  badge = 0,
   onClick,
 }: {
   icon: typeof Table2
@@ -438,14 +490,15 @@ function NavItem({
   active: boolean
   collapsed: boolean
   nested?: boolean
+  badge?: number
   onClick: () => void
 }) {
   return (
     <button
       onClick={onClick}
-      title={collapsed ? label : undefined}
+      title={collapsed ? (badge > 0 ? `${label} (${badge})` : label) : undefined}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md py-1.5 text-[13px] font-medium transition-colors',
+        'relative flex w-full items-center gap-2 rounded-md py-1.5 text-[13px] font-medium transition-colors',
         collapsed ? 'justify-center px-2' : nested ? 'pl-7 pr-3' : 'px-3',
         active
           ? 'bg-accent text-foreground'
@@ -453,7 +506,17 @@ function NavItem({
       )}
     >
       <Icon className="h-4 w-4" />
-      {!collapsed && label}
+      {!collapsed && <span className="flex-1 text-left">{label}</span>}
+      {badge > 0 &&
+        (collapsed ? (
+          <span className="absolute right-1 top-1 inline-flex min-w-[14px] items-center justify-center rounded-full bg-destructive px-1 font-mono text-[9px] font-semibold leading-none text-destructive-foreground">
+            {badge}
+          </span>
+        ) : (
+          <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-none text-destructive-foreground">
+            {badge}
+          </span>
+        ))}
     </button>
   )
 }
@@ -464,6 +527,7 @@ function NavGroupHeader({
   expanded,
   collapsed,
   childActive,
+  badge = 0,
   onToggle,
 }: {
   icon: typeof Table2
@@ -471,18 +535,24 @@ function NavGroupHeader({
   expanded: boolean
   collapsed: boolean
   childActive: boolean
+  badge?: number
   onToggle: () => void
 }) {
   if (collapsed) {
     return (
       <div
-        title={label}
+        title={badge > 0 ? `${label} (${badge})` : label}
         className={cn(
-          'flex w-full items-center justify-center rounded-md px-2 py-1.5 text-[13px] font-medium',
+          'relative flex w-full items-center justify-center rounded-md px-2 py-1.5 text-[13px] font-medium',
           childActive ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
         <Icon className="h-4 w-4" />
+        {badge > 0 && (
+          <span className="absolute right-1 top-1 inline-flex min-w-[14px] items-center justify-center rounded-full bg-destructive px-1 font-mono text-[9px] font-semibold leading-none text-destructive-foreground">
+            {badge}
+          </span>
+        )}
       </div>
     )
   }
@@ -497,6 +567,11 @@ function NavGroupHeader({
     >
       <Icon className="h-4 w-4" />
       <span className="flex-1 text-left">{label}</span>
+      {badge > 0 && (
+        <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-none text-destructive-foreground">
+          {badge}
+        </span>
+      )}
       {expanded ? (
         <ChevronDown className="h-3.5 w-3.5" />
       ) : (

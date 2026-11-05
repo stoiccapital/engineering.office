@@ -11,7 +11,7 @@ export function defaultZiele(year: number): Ziele {
       {
         id: 'de',
         label: 'NL DE',
-        umsatzProFTE: 160_000,
+        umsatzProFTE: { h1: 80_000, h2: 80_000 },
         ruhendePct: 0.4,
         teams: [
           {
@@ -61,7 +61,7 @@ export function defaultZiele(year: number): Ziele {
       {
         id: 'pl',
         label: 'NL PL',
-        umsatzProFTE: 112_000,
+        umsatzProFTE: { h1: 56_000, h2: 56_000 },
         ruhendePct: 0.4,
         teams: [
           {

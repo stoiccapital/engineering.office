@@ -50,10 +50,43 @@ export function computeSixMetrics(rows: ProjectRow[]): SixMetrics {
   return computeSixMetricsSplit(rows, rows)
 }
 
+// Settlement + still-open roll-up used by the Dashboard:
+// - abgerechnetDE = derived DE share (abgerechnetDE − abgerechnetPL)
+// - abgerechnetPL = raw PL invoice total
+// - nochOffenForecast = derived still-open DE (forecastDEBereinigt − abgerechnetDEBereinigt)
+export type AbgerechnetMetrics = {
+  abgerechnetDE: number
+  abgerechnetPL: number
+  nochOffenForecast: number
+}
+
+export function computeAbgerechnetMetricsSplit(
+  deRows: ProjectRow[],
+  plRows: ProjectRow[],
+): AbgerechnetMetrics {
+  let abgerechnetDE = 0
+  let nochOffenForecast = 0
+  for (const r of deRows) {
+    const d = derive(r)
+    abgerechnetDE += d.abgerechnetDEBereinigt ?? 0
+    nochOffenForecast += d.nochOffenDE ?? 0
+  }
+  let abgerechnetPL = 0
+  for (const r of plRows) {
+    abgerechnetPL += r.abgerechnetPL ?? 0
+  }
+  return { abgerechnetDE, abgerechnetPL, nochOffenForecast }
+}
+
+export function computeAbgerechnetMetrics(rows: ProjectRow[]): AbgerechnetMetrics {
+  return computeAbgerechnetMetricsSplit(rows, rows)
+}
+
 export type PMGroup = {
   name: string
   projectCount: number
   metrics: SixMetrics
+  abgerechnet: AbgerechnetMetrics
   deRows: ProjectRow[]
   plRows: ProjectRow[]
 }
@@ -158,6 +191,7 @@ export function groupByProjektleiter(period: Period | null): PMGroup[] {
       name,
       projectCount: projectIds.size,
       metrics: computeSixMetricsSplit(b.deRows, b.plRows),
+      abgerechnet: computeAbgerechnetMetricsSplit(b.deRows, b.plRows),
       deRows: b.deRows,
       plRows: b.plRows,
     })
