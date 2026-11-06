@@ -457,8 +457,17 @@ function FreigabenPicker() {
 
 function RechnungenPicker() {
   const year = useRechnungen((s) => s.year)
+  const month = useRechnungen((s) => s.month)
   const setYear = useRechnungen((s) => s.setYear)
-  return <PeriodPicker year={year} onYearChange={setYear} />
+  const setMonth = useRechnungen((s) => s.setMonth)
+  return (
+    <PeriodPicker
+      year={year}
+      onYearChange={setYear}
+      month={month}
+      onMonthChange={setMonth}
+    />
+  )
 }
 
 function UmsatzPicker() {

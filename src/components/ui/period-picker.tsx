@@ -10,6 +10,10 @@ export type HalbjahrOrAll = Halbjahr | 'all'
 
 const QUARTERS: Quarter[] = ['Q1', 'Q2', 'Q3', 'Q4']
 const HALBJAHRE: Halbjahr[] = ['H1', 'H2']
+const MONTH_LABELS_SHORT = [
+  'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
+] as const
 
 type Props = {
   year?: number
@@ -18,6 +22,8 @@ type Props = {
   onQuarterChange?: (q: QuarterOrAll) => void
   halbjahr?: HalbjahrOrAll
   onHalbjahrChange?: (h: HalbjahrOrAll) => void
+  month?: number // 1..12
+  onMonthChange?: (m: number) => void
   includeJahr?: boolean
   className?: string
 }
@@ -29,6 +35,8 @@ export function PeriodPicker({
   onQuarterChange,
   halbjahr,
   onHalbjahrChange,
+  month,
+  onMonthChange,
   includeJahr = true,
   className,
 }: Props) {
@@ -36,8 +44,9 @@ export function PeriodPicker({
   const showYear = year !== undefined && onYearChange
   const showQuarter = quarter !== undefined && onQuarterChange
   const showHalbjahr = halbjahr !== undefined && onHalbjahrChange
+  const showMonth = month !== undefined && onMonthChange
 
-  if (!showYear && !showQuarter && !showHalbjahr) return null
+  if (!showYear && !showQuarter && !showHalbjahr && !showMonth) return null
 
   const periodLabel = showQuarter
     ? quarter === 'all'
@@ -47,7 +56,9 @@ export function PeriodPicker({
       ? halbjahr === 'all'
         ? 'Jahr'
         : halbjahr
-      : null
+      : showMonth
+        ? MONTH_LABELS_SHORT[month - 1]
+        : null
   const triggerLabel =
     periodLabel && showYear
       ? `${periodLabel} ${year}`
@@ -149,6 +160,22 @@ export function PeriodPicker({
                   wide
                 />
               )}
+            </div>
+          )}
+
+          {showMonth && (
+            <div className="grid grid-cols-4 gap-1">
+              {MONTH_LABELS_SHORT.map((label, i) => (
+                <QuarterChoice
+                  key={label}
+                  label={label}
+                  active={month === i + 1}
+                  onClick={() => {
+                    onMonthChange!(i + 1)
+                    setOpen(false)
+                  }}
+                />
+              ))}
             </div>
           )}
         </Popover.Content>

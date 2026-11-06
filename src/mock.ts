@@ -8,10 +8,14 @@ import type {
   Employee,
   Ziele,
   Umsatzkontrolle,
-  RechnungenData,
+  Rechnungsplan,
   AccessConfig,
 } from './types'
-import { emptyAccessConfig } from './types'
+import {
+  emptyAccessConfig,
+  emptyRechnungsplan,
+  rechnungsplanKey,
+} from './types'
 import { defaultUmsatz, defaultZiele } from './lib/seeds'
 
 const YEAR = new Date().getFullYear()
@@ -147,17 +151,53 @@ function seedPlan(year: number): QuartalPlan {
   return { year, employees, cells, todos }
 }
 
-function seedRechnungen(year: number): RechnungenData {
-  const d = (m: number, day: number) => `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-  return {
-    year,
-    rows: [
-      { id: crypto.randomUUID(), nr: 'R-2026-001', datum: d(1, 15), kunde: 'Autobahn GmbH',       projekt: 'A4 Brückenprüfung',  netto: 92000, ustPct: 19, status: 'bezahlt',  faellig: d(2, 15), bezahltAm: d(2, 10), notiz: '' },
-      { id: crypto.randomUUID(), nr: 'R-2026-002', datum: d(2, 5),  kunde: 'Stadtwerke Düsseldorf', projekt: 'Umspannwerk Reisholz', netto: 48000, ustPct: 19, status: 'offen',    faellig: d(3, 7),  bezahltAm: '', notiz: 'Erste Teilrechnung' },
-      { id: crypto.randomUUID(), nr: 'R-2026-003', datum: d(2, 20), kunde: 'Hafen Krefeld',          projekt: 'Kaimauer-Sanierung',  netto: 96500, ustPct: 19, status: 'bezahlt',  faellig: d(3, 22), bezahltAm: d(3, 18), notiz: '' },
-      { id: crypto.randomUUID(), nr: 'R-2026-004', datum: d(3, 10), kunde: 'Essen-Nord Grund',       projekt: 'Gewerbepark',         netto: 36000, ustPct: 19, status: 'mahnung',  faellig: d(4, 10), bezahltAm: '', notiz: '1. Mahnung versendet' },
-    ],
-  }
+function seedRechnungsplan(year: number, month: number): Rechnungsplan {
+  const plan = emptyRechnungsplan(year, month)
+  plan.rows = [
+    {
+      id: crypto.randomUUID(),
+      projNr: '26D001',
+      projektname: 'A4 Brückenprüfung Köln',
+      pl: 'MuA',
+      deStatus: 'rgGestellt',
+      plBranch: 'ja',
+      hv: { status: 'rgGestellt', datum: `${year}-${String(month).padStart(2, '0')}-10` },
+      nachtraege: [
+        { status: 'aktuell' },
+        { status: 'nichtRelevant' },
+        { status: 'nichtRelevant' },
+        { status: 'nichtRelevant' },
+        { status: 'nichtRelevant' },
+      ],
+      zeithonorar: undefined,
+      rgSummeDE: 92_000,
+      rgSummePL: 18_000,
+      nachtragErbracht: null,
+      notes: { bemerkung1: 'Erste Teilrechnung', bemerkung2: '', fragen: '' },
+    },
+    {
+      id: crypto.randomUUID(),
+      projNr: '26D002',
+      projektname: 'Umspannwerk Reisholz',
+      pl: 'SuJ',
+      deStatus: 'aktuell',
+      plBranch: 'nein',
+      hv: { status: 'aktuell' },
+      nachtraege: [
+        { status: 'aktuell' },
+        { status: 'neu' },
+        { status: 'nichtRelevant' },
+        { status: 'nichtRelevant' },
+        { status: 'nichtRelevant' },
+      ],
+      zeithonorar: undefined,
+      rgSummeDE: null,
+      rgSummePL: null,
+      nachtragErbracht: null,
+      notes: { bemerkung1: '', bemerkung2: '', fragen: 'Wann wird N02 beauftragt?' },
+    },
+  ]
+  return plan
 }
 
 function currentIsoWeek(): number {
@@ -174,7 +214,7 @@ const periods = new Map<string, Period>()
 const plans = new Map<number, QuartalPlan>()
 const ziele = new Map<number, Ziele>()
 const umsatz = new Map<number, Umsatzkontrolle>()
-const rechnungen = new Map<number, RechnungenData>()
+const rechnungsplaene = new Map<string, Rechnungsplan>()
 let logo: string | null = null
 let access: AccessConfig | null = (() => {
   const cfg = emptyAccessConfig()
@@ -242,16 +282,17 @@ export const mock = {
   setUmsatz(year: number, value: Umsatzkontrolle) {
     umsatz.set(year, value)
   },
-  rechnungen(year: number): RechnungenData {
-    let r = rechnungen.get(year)
+  rechnungsplan(year: number, month: number): Rechnungsplan {
+    const key = rechnungsplanKey(year, month)
+    let r = rechnungsplaene.get(key)
     if (!r) {
-      r = seedRechnungen(year)
-      rechnungen.set(year, r)
+      r = seedRechnungsplan(year, month)
+      rechnungsplaene.set(key, r)
     }
     return r
   },
-  setRechnungen(year: number, value: RechnungenData) {
-    rechnungen.set(year, value)
+  setRechnungsplan(year: number, month: number, value: Rechnungsplan) {
+    rechnungsplaene.set(rechnungsplanKey(year, month), value)
   },
   access(): AccessConfig | null {
     return access

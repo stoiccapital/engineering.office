@@ -35,7 +35,7 @@ function accessForPath(pathname: string): Access | null {
     return { get: ['ziele', 'umsatz'], put: ['ziele'] }
   }
   if (pathname.startsWith('/api/umsatz/')) return { get: ['umsatz'], put: ['umsatz'] }
-  if (pathname.startsWith('/api/rechnungen/')) {
+  if (pathname.startsWith('/api/rechnungsplan/')) {
     return { get: ['rechnungen'], put: ['rechnungen'] }
   }
   if (pathname === '/api/settings/access') return { get: ['settings'], put: ['settings'] }

@@ -1,12 +1,15 @@
-import { useMemo } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowDownToLine, Plus, Trash2 } from 'lucide-react'
 import { useRechnungen } from '@/rechnungen-store'
 import {
-  bruttoOf,
-  RECHNUNG_STATUSES,
-  RECHNUNG_STATUS_LABELS,
-  type Rechnung,
-  type RechnungStatus,
+  N_STATUSES,
+  N_STATUS_LABELS,
+  PL_BRANCH_LABELS,
+  PL_BRANCH_STATUSES,
+  type NEntry,
+  type NStatus,
+  type PlBranchStatus,
+  type Rechnungsplan,
 } from '@/types'
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
@@ -15,249 +18,413 @@ import { TextCell } from './TextCell'
 import { fmtEUR } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-const STATUS_CHIP: Record<RechnungStatus, string> = {
-  offen: 'bg-muted text-muted-foreground',
-  bezahlt: 'bg-emerald-100 text-emerald-900',
-  mahnung: 'bg-amber-100 text-amber-900',
-  storniert: 'bg-destructive/10 text-destructive',
+const N_STATUS_CHIP: Record<NStatus, string> = {
+  aktuell: 'bg-sky-100 text-sky-900 border-sky-500/30',
+  nichtRelevant: 'bg-muted text-muted-foreground border-border',
+  neu: 'bg-amber-100 text-amber-900 border-amber-500/30',
+  rgGestellt: 'bg-emerald-100 text-emerald-900 border-emerald-500/30',
+}
+
+const PL_BRANCH_CHIP: Record<PlBranchStatus, string> = {
+  nein: 'bg-muted text-muted-foreground',
+  ja: 'bg-sky-100 text-sky-900',
+  neu: 'bg-amber-100 text-amber-900',
+}
+
+const DE_STATUSES: NStatus[] = ['aktuell', 'neu', 'rgGestellt']
+const DE_STATUS_SHORT: Record<NStatus, string> = {
+  aktuell: 'Aktuell',
+  nichtRelevant: '–',
+  neu: 'Neu',
+  rgGestellt: 'Rg.Gestellt',
 }
 
 export function Rechnungen() {
   const data = useRechnungen((s) => s.data)
   const addRow = useRechnungen((s) => s.addRow)
-  const updateRow = useRechnungen((s) => s.updateRow)
   const removeRow = useRechnungen((s) => s.removeRow)
-  const setStatus = useRechnungen((s) => s.setStatus)
+  const updateRow = useRechnungen((s) => s.updateRow)
+  const updateNote = useRechnungen((s) => s.updateNote)
+  const updateNEntry = useRechnungen((s) => s.updateNEntry)
+  const setNachtragCount = useRechnungen((s) => s.setNachtragCount)
+  const setShowZeithonorar = useRechnungen((s) => s.setShowZeithonorar)
+  const renameNoteColumn = useRechnungen((s) => s.renameNoteColumn)
+  const copyFromPreviousMonth = useRechnungen((s) => s.copyFromPreviousMonth)
 
-  const rows = data?.rows ?? []
+  const totals = useMemo(() => computeTotals(data), [data])
 
-  const totals = useMemo(() => {
-    let netto = 0
-    let brutto = 0
-    let offenNetto = 0
-    let bezahltNetto = 0
-    for (const r of rows) {
-      const n = r.netto ?? 0
-      const b = bruttoOf(r) ?? 0
-      netto += n
-      brutto += b
-      if (r.status === 'bezahlt') bezahltNetto += n
-      else if (r.status !== 'storniert') offenNetto += n
-    }
-    return { netto, brutto, offenNetto, bezahltNetto }
-  }, [rows])
-
-  const subtitle = data ? (
-    <>
-      <Num>{rows.length}</Num> Rechnungen · <Num>{data.year}</Num>
-    </>
-  ) : undefined
+  if (!data) return null
 
   return (
-    <Section
-      title="Rechnungen"
-      subtitle={subtitle}
-      padded={false}
-    >
-      <div className="w-full max-h-[calc(100vh-300px)] overflow-auto">
-        <table className="w-full min-w-[1200px] border-collapse text-sm">
-          <colgroup>
-            <col className="w-28" /> {/* Nr */}
-            <col className="w-28" /> {/* Datum */}
-            <col className="min-w-[180px]" /> {/* Kunde */}
-            <col className="min-w-[200px]" /> {/* Projekt */}
-            <col className="w-28" /> {/* Netto */}
-            <col className="w-16" /> {/* USt% */}
-            <col className="w-28" /> {/* Brutto */}
-            <col className="w-24" /> {/* Status */}
-            <col className="w-28" /> {/* Fällig */}
-            <col className="w-28" /> {/* Bezahlt */}
-            <col className="min-w-[160px]" /> {/* Notiz */}
-            <col className="w-10" />
-          </colgroup>
+    <div className="space-y-6">
+      <MonthToolbar
+        plan={data}
+        onCopyPrevious={() => void copyFromPreviousMonth()}
+        onChangeNachtragCount={setNachtragCount}
+        onToggleZeithonorar={setShowZeithonorar}
+        onRenameNoteColumn={renameNoteColumn}
+      />
 
-          <thead className="sticky top-0 z-20 bg-muted">
-            <tr className="border-b">
-              <Th>Nr.</Th>
-              <Th>Datum</Th>
-              <Th>Kunde</Th>
-              <Th>Projekt</Th>
-              <Th className="num">Netto</Th>
-              <Th className="num">USt %</Th>
-              <Th className="num text-muted-foreground">Brutto</Th>
-              <Th>Status</Th>
-              <Th>Fällig</Th>
-              <Th>Bezahlt am</Th>
-              <Th>Notiz</Th>
-              <Th></Th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {rows.length === 0 && (
+      <Section
+        title="Rechnungsplanung"
+        subtitle={
+          <>
+            <Num>{data.rows.length}</Num> Projekte · DE Σ {fmtEUR(totals.rgSummeDE) || '0'} € · PL Σ{' '}
+            {fmtEUR(totals.rgSummePL) || '0'} €
+          </>
+        }
+        padded={false}
+      >
+        <div className="overflow-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead className="sticky top-0 z-20 bg-muted/60">
+              <tr className="border-b text-xs font-medium text-muted-foreground">
+                <Th className="w-16 text-left">PL</Th>
+                <Th className="w-20 text-left">DE</Th>
+                <Th className="w-20 text-left">Proj. Nr.</Th>
+                <Th className="min-w-[240px] text-left">Projekte</Th>
+                <Th className="w-16 text-left">Lead</Th>
+                <Th className="w-20 text-center">HV</Th>
+                {Array.from({ length: data.nachtragCount }).map((_, i) => (
+                  <Th key={`n${i}`} className="w-20 text-center">
+                    N{String(i + 1).padStart(2, '0')}
+                  </Th>
+                ))}
+                {data.showZeithonorar && <Th className="w-20 text-center">Zeithonorar</Th>}
+                {data.noteColumns.map((n) => (
+                  <Th key={n.id} className="min-w-[160px] text-left">
+                    <EditableColumnLabel
+                      value={n.label}
+                      onChange={(v) => renameNoteColumn(n.id, v)}
+                    />
+                  </Th>
+                ))}
+                <Th className="num w-28 text-right">Σ DE</Th>
+                <Th className="num w-28 text-right">Σ PL</Th>
+                <Th className="num w-28 text-right">Nachträge</Th>
+                <Th className="w-8" />
+              </tr>
+            </thead>
+            <tbody>
+              {data.rows.map((row) => (
+                <tr key={row.id} className="group border-b last:border-b-0 hover:bg-accent/30">
+                  <td className="px-2 py-1">
+                    <PlBranchSelect
+                      value={row.plBranch}
+                      onChange={(v) => updateRow(row.id, { plBranch: v })}
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <DeStatusSelect
+                      value={row.deStatus}
+                      onChange={(v) => updateRow(row.id, { deStatus: v })}
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <TextCell
+                      value={row.projNr}
+                      onChange={(v) => updateRow(row.id, { projNr: v })}
+                      placeholder="24D001"
+                      className="font-mono text-xs"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <TextCell
+                      value={row.projektname}
+                      onChange={(v) => updateRow(row.id, { projektname: v })}
+                      placeholder="Projektname"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <TextCell
+                      value={row.pl}
+                      onChange={(v) => updateRow(row.id, { pl: v })}
+                      placeholder="MuA"
+                      className="font-mono text-xs"
+                    />
+                  </td>
+                  <NEntryCell
+                    entry={row.hv}
+                    onChange={(patch) => updateNEntry(row.id, { kind: 'hv' }, patch)}
+                  />
+                  {row.nachtraege.map((n, i) => (
+                    <NEntryCell
+                      key={`n${i}`}
+                      entry={n}
+                      onChange={(patch) =>
+                        updateNEntry(row.id, { kind: 'nachtrag', index: i }, patch)
+                      }
+                    />
+                  ))}
+                  {data.showZeithonorar && (
+                    <NEntryCell
+                      entry={row.zeithonorar ?? { status: 'nichtRelevant' }}
+                      onChange={(patch) => updateNEntry(row.id, { kind: 'zeithonorar' }, patch)}
+                    />
+                  )}
+                  {data.noteColumns.map((n) => (
+                    <td key={n.id} className="px-2 py-1 align-top">
+                      <TextCell
+                        value={row.notes[n.id] ?? ''}
+                        onChange={(v) => updateNote(row.id, n.id, v)}
+                        placeholder="…"
+                        multiline
+                      />
+                    </td>
+                  ))}
+                  <td className="px-1 py-1">
+                    <NumCell
+                      value={row.rgSummeDE}
+                      onChange={(v) => updateRow(row.id, { rgSummeDE: v })}
+                      className="text-right"
+                    />
+                  </td>
+                  <td className="px-1 py-1">
+                    <NumCell
+                      value={row.rgSummePL}
+                      onChange={(v) => updateRow(row.id, { rgSummePL: v })}
+                      className="text-right"
+                    />
+                  </td>
+                  <td className="px-1 py-1">
+                    <NumCell
+                      value={row.nachtragErbracht}
+                      onChange={(v) => updateRow(row.id, { nachtragErbracht: v })}
+                      className="text-right"
+                    />
+                  </td>
+                  <td className="px-1 py-1 text-right">
+                    <button
+                      onClick={() => removeRow(row.id)}
+                      className="rounded p-1 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                      title="Zeile löschen"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-xs text-muted-foreground">
-                  Noch keine Rechnungen. Füge eine hinzu.
+                <td colSpan={totalColSpan(data)} className="p-0">
+                  <button
+                    onClick={addRow}
+                    className="flex w-full items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Projekt hinzufügen
+                  </button>
                 </td>
               </tr>
-            )}
-            {rows.map((row) => (
-              <Row
-                key={row.id}
-                row={row}
-                onUpdate={(patch) => updateRow(row.id, patch)}
-                onDelete={() => removeRow(row.id)}
-                onStatus={(s) => setStatus(row.id, s)}
-              />
-            ))}
-            <tr>
-              <td colSpan={12} className="p-0">
-                <button
-                  onClick={addRow}
-                  className="flex w-full items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+              <tr className="border-t-2 border-foreground/20 font-semibold">
+                <td
+                  colSpan={summaryLabelSpan(data)}
+                  className="px-2 py-2 text-right text-xs text-muted-foreground"
                 >
-                  <Plus className="h-4 w-4" />
-                  Rechnung hinzufügen
-                </button>
-              </td>
-            </tr>
-          </tbody>
-
-          <tfoot className="border-t">
-            <tr className="border-t-2 border-foreground/20 font-semibold">
-              <td colSpan={4} className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                Summe
-              </td>
-              <td className="num px-2 py-2 text-sm">{fmtEUR(totals.netto) || '—'}</td>
-              <td />
-              <td className="num px-2 py-2 text-sm">{fmtEUR(totals.brutto) || '—'}</td>
-              <td colSpan={5} />
-            </tr>
-            <tr>
-              <td colSpan={4} className="px-3 py-2 text-xs text-muted-foreground">
-                davon offen (netto)
-              </td>
-              <td className="num px-2 py-2 text-sm text-muted-foreground">
-                {fmtEUR(totals.offenNetto) || '—'}
-              </td>
-              <td colSpan={7} />
-            </tr>
-            <tr>
-              <td colSpan={4} className="px-3 py-2 text-xs text-muted-foreground">
-                davon bezahlt (netto)
-              </td>
-              <td className="num px-2 py-2 text-sm text-emerald-700">
-                {fmtEUR(totals.bezahltNetto) || '—'}
-              </td>
-              <td colSpan={7} />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </Section>
+                  Σ Gesamt
+                </td>
+                <td className="num px-2 py-2 text-right font-mono tabular-nums">
+                  {fmtEUR(totals.rgSummeDE) || '—'} €
+                </td>
+                <td className="num px-2 py-2 text-right font-mono tabular-nums">
+                  {fmtEUR(totals.rgSummePL) || '—'} €
+                </td>
+                <td className="num px-2 py-2 text-right font-mono tabular-nums">
+                  {fmtEUR(totals.nachtragErbracht) || '—'} €
+                </td>
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </div>
   )
 }
 
-function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
+function computeTotals(data: Rechnungsplan | null) {
+  const acc = { rgSummeDE: 0, rgSummePL: 0, nachtragErbracht: 0 }
+  if (!data) return acc
+  for (const r of data.rows) {
+    acc.rgSummeDE += r.rgSummeDE ?? 0
+    acc.rgSummePL += r.rgSummePL ?? 0
+    acc.nachtragErbracht += r.nachtragErbracht ?? 0
+  }
+  return acc
+}
+
+function totalColSpan(data: Rechnungsplan): number {
+  // PL + DE + ProjNr + Projektname + Lead + HV + Nxx + (Zeithonorar?) + notes + 3 sums + delete
   return (
-    <th className={cn('px-2 py-2 text-left text-xs font-medium text-muted-foreground', className)}>
-      {children}
-    </th>
+    5 + 1 + data.nachtragCount + (data.showZeithonorar ? 1 : 0) + data.noteColumns.length + 3 + 1
   )
 }
 
-function Td({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <td className={cn('align-top', className)}>{children}</td>
+function summaryLabelSpan(data: Rechnungsplan): number {
+  // Everything before the 3 sum columns.
+  return totalColSpan(data) - 4
 }
 
-function Row({
-  row,
-  onUpdate,
-  onDelete,
-  onStatus,
+function MonthToolbar({
+  plan,
+  onCopyPrevious,
+  onChangeNachtragCount,
+  onToggleZeithonorar,
+  onRenameNoteColumn: _onRenameNoteColumn,
 }: {
-  row: Rechnung
-  onUpdate: (patch: Partial<Omit<Rechnung, 'id'>>) => void
-  onDelete: () => void
-  onStatus: (s: RechnungStatus) => void
+  plan: Rechnungsplan
+  onCopyPrevious: () => void
+  onChangeNachtragCount: (n: number) => void
+  onToggleZeithonorar: (show: boolean) => void
+  onRenameNoteColumn: (id: string, label: string) => void
 }) {
-  const brutto = bruttoOf(row)
   return (
-    <tr className="group border-b last:border-b-0 hover:bg-accent">
-      <Td>
-        <TextCell value={row.nr} onChange={(v) => onUpdate({ nr: v })} className="font-mono text-xs" />
-      </Td>
-      <Td>
-        <DateCell value={row.datum} onChange={(v) => onUpdate({ datum: v })} />
-      </Td>
-      <Td>
-        <TextCell value={row.kunde} onChange={(v) => onUpdate({ kunde: v })} placeholder="Kunde" />
-      </Td>
-      <Td>
-        <TextCell value={row.projekt} onChange={(v) => onUpdate({ projekt: v })} placeholder="Projekt" />
-      </Td>
-      <Td>
-        <NumCell value={row.netto} onChange={(v) => onUpdate({ netto: v })} />
-      </Td>
-      <Td>
-        <NumCell value={row.ustPct} onChange={(v) => onUpdate({ ustPct: v })} decimals={0} />
-      </Td>
-      <Td>
-        <NumCell value={brutto} readOnly />
-      </Td>
-      <Td>
-        <StatusSelect value={row.status} onChange={onStatus} />
-      </Td>
-      <Td>
-        <DateCell value={row.faellig} onChange={(v) => onUpdate({ faellig: v })} />
-      </Td>
-      <Td>
-        <DateCell value={row.bezahltAm} onChange={(v) => onUpdate({ bezahltAm: v })} />
-      </Td>
-      <Td>
-        <TextCell value={row.notiz} onChange={(v) => onUpdate({ notiz: v })} placeholder="…" />
-      </Td>
-      <Td>
-        <button
-          onClick={onDelete}
-          className="rounded-md p-1.5 text-muted-foreground/40 opacity-0 transition-opacity hover:bg-accent hover:text-destructive group-hover:opacity-100"
-          title="Zeile löschen"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </Td>
-    </tr>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card px-4 py-2 text-xs">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2">
+          <span className="text-muted-foreground">Nachtrag-Spalten</span>
+          <input
+            type="number"
+            min={0}
+            max={20}
+            value={plan.nachtragCount}
+            onChange={(e) => onChangeNachtragCount(Number(e.target.value) || 0)}
+            className="num w-14 rounded border bg-background px-1.5 py-0.5 text-right font-mono tabular-nums"
+          />
+        </label>
+        <label className="flex cursor-pointer items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={plan.showZeithonorar}
+            onChange={(e) => onToggleZeithonorar(e.target.checked)}
+          />
+          <span>Zeithonorar-Spalte</span>
+        </label>
+      </div>
+      <button
+        onClick={onCopyPrevious}
+        className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        title="Übernimmt die Projektzeilen aus dem Vormonat. Rechnungssummen und Status werden zurückgesetzt."
+      >
+        <ArrowDownToLine className="h-3.5 w-3.5" />
+        Vom Vormonat übernehmen
+      </button>
+    </div>
   )
 }
 
-function DateCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function EditableColumnLabel({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  const [editing, setEditing] = useState(false)
   return (
     <input
-      type="date"
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded bg-transparent px-2 py-1.5 font-mono text-sm tabular-nums outline-none focus:bg-accent/60"
+      value={editing ? draft : value}
+      onFocus={() => {
+        setDraft(value)
+        setEditing(true)
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setEditing(false)
+        if (draft !== value) onChange(draft)
+      }}
+      className="w-full bg-transparent px-1 text-xs font-medium outline-none focus:bg-background focus:ring-1 focus:ring-ring"
     />
   )
 }
 
-function StatusSelect({ value, onChange }: { value: RechnungStatus; onChange: (s: RechnungStatus) => void }) {
+function PlBranchSelect({
+  value,
+  onChange,
+}: {
+  value: PlBranchStatus
+  onChange: (v: PlBranchStatus) => void
+}) {
   return (
-    <div className="px-1 py-1">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as RechnungStatus)}
-        className={cn(
-          'rounded px-1.5 py-0.5 text-[11px] font-mono font-semibold uppercase tracking-wider outline-none',
-          STATUS_CHIP[value],
-        )}
-      >
-        {RECHNUNG_STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {RECHNUNG_STATUS_LABELS[s]}
-          </option>
-        ))}
-      </select>
-    </div>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as PlBranchStatus)}
+      className={cn(
+        'w-full rounded px-1.5 py-1 text-[11px] font-medium outline-none',
+        PL_BRANCH_CHIP[value],
+      )}
+    >
+      {PL_BRANCH_STATUSES.map((s) => (
+        <option key={s} value={s}>
+          {PL_BRANCH_LABELS[s]}
+        </option>
+      ))}
+    </select>
   )
+}
+
+function DeStatusSelect({
+  value,
+  onChange,
+}: {
+  value: NStatus
+  onChange: (v: NStatus) => void
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as NStatus)}
+      className={cn(
+        'w-full rounded px-1.5 py-1 text-[11px] font-medium outline-none',
+        N_STATUS_CHIP[value],
+      )}
+    >
+      {DE_STATUSES.map((s) => (
+        <option key={s} value={s}>
+          {DE_STATUS_SHORT[s]}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function NEntryCell({
+  entry,
+  onChange,
+}: {
+  entry: NEntry
+  onChange: (patch: Partial<NEntry>) => void
+}) {
+  return (
+    <td className="px-1 py-1 align-top">
+      <div className="flex flex-col gap-0.5">
+        <select
+          value={entry.status}
+          onChange={(e) => onChange({ status: e.target.value as NStatus })}
+          className={cn(
+            'w-full rounded border px-1.5 py-0.5 text-[11px] font-medium outline-none',
+            N_STATUS_CHIP[entry.status],
+          )}
+        >
+          {N_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {N_STATUS_LABELS[s]}
+            </option>
+          ))}
+        </select>
+        {entry.status === 'rgGestellt' && (
+          <input
+            type="date"
+            value={entry.datum ?? ''}
+            onChange={(e) => onChange({ datum: e.target.value || undefined })}
+            className="w-full rounded border bg-background px-1 py-0.5 font-mono text-[10px] tabular-nums outline-none focus:ring-1 focus:ring-ring"
+          />
+        )}
+      </div>
+    </td>
+  )
+}
+
+function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
+  return <th className={cn('px-2 py-1.5 text-xs font-medium', className)}>{children}</th>
 }

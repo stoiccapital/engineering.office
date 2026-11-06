@@ -205,40 +205,111 @@ export function emptyMonthValues(): MonthValues {
   return Array.from({ length: 12 }, () => null)
 }
 
-// --- Rechnungen (invoices) ------------------------------------------------
+// --- Rechnungsplanung -----------------------------------------------------
+// Monthly billing-plan matrix mirroring the PM Excel workflow.
+// One row per project (or sub-project like "Teil 1. Harras").
+// Each row carries a status per Hauptvertrag + N01..N0X Nachträge,
+// optional Zeithonorar, DE/PL amounts, Nachtragssumme, and free-text notes.
 
-export type RechnungStatus = 'offen' | 'bezahlt' | 'mahnung' | 'storniert'
-export const RECHNUNG_STATUSES: RechnungStatus[] = ['offen', 'bezahlt', 'mahnung', 'storniert']
-export const RECHNUNG_STATUS_LABELS: Record<RechnungStatus, string> = {
-  offen: 'Offen',
-  bezahlt: 'Bezahlt',
-  mahnung: 'Mahnung',
-  storniert: 'Storniert',
+export type NStatus = 'aktuell' | 'nichtRelevant' | 'neu' | 'rgGestellt'
+
+export const N_STATUSES: NStatus[] = ['aktuell', 'nichtRelevant', 'neu', 'rgGestellt']
+
+export const N_STATUS_LABELS: Record<NStatus, string> = {
+  aktuell: 'Aktuell',
+  nichtRelevant: '–',
+  neu: 'Neu',
+  rgGestellt: 'Rg. gestellt',
 }
 
-export type Rechnung = {
+export type NEntry = {
+  status: NStatus
+  // ISO YYYY-MM-DD, set when the PM records when the invoice was actually sent.
+  // Shown in the cell alongside the "Rg. gestellt" label.
+  datum?: string
+}
+
+export type PlBranchStatus = 'nein' | 'ja' | 'neu'
+export const PL_BRANCH_STATUSES: PlBranchStatus[] = ['nein', 'ja', 'neu']
+export const PL_BRANCH_LABELS: Record<PlBranchStatus, string> = {
+  nein: 'Nein',
+  ja: 'Ja',
+  neu: 'Neu',
+}
+
+export type RechnungsplanRow = {
   id: string
-  nr: string           // Rechnungsnummer
-  datum: string        // ISO YYYY-MM-DD
-  kunde: string
-  projekt: string
-  netto: number | null
-  ustPct: number | null // default 19
-  status: RechnungStatus
-  faellig: string      // ISO YYYY-MM-DD, Zahlungsziel
-  bezahltAm: string    // ISO YYYY-MM-DD
-  notiz: string
+  projNr: string
+  projektname: string
+  pl: string // Projektleiter-Kürzel, Freitext
+  deStatus: NStatus // "Deutschland" column
+  plBranch: PlBranchStatus // "Polen" column
+  hv: NEntry
+  nachtraege: NEntry[] // fixed length = month.nachtragCount
+  zeithonorar?: NEntry // optional, only when month.showZeithonorar
+  rgSummeDE: number | null
+  rgSummePL: number | null
+  nachtragErbracht: number | null
+  // Keyed by NoteColumn.id → text; missing key = empty note.
+  notes: Record<string, string>
 }
 
-export type RechnungenData = {
+export type NoteColumn = {
+  id: string
+  label: string // e.g. "Bemerkung (Alberon)" or "Fragen (Nena)"
+}
+
+export type Rechnungsplan = {
   year: number
-  rows: Rechnung[]
+  month: number // 1..12
+  nachtragCount: number // how many N01..N0X columns to render
+  showZeithonorar: boolean
+  noteColumns: NoteColumn[] // fixed default on creation, editable
+  rows: RechnungsplanRow[]
 }
 
-export function bruttoOf(r: Rechnung): number | null {
-  if (r.netto === null) return null
-  const u = r.ustPct ?? 19
-  return Math.round(r.netto * (1 + u / 100) * 100) / 100
+export function emptyNEntry(): NEntry {
+  return { status: 'nichtRelevant' }
+}
+
+export function emptyRechnungsplanRow(nachtragCount: number, withZeithonorar: boolean): RechnungsplanRow {
+  return {
+    id: '',
+    projNr: '',
+    projektname: '',
+    pl: '',
+    deStatus: 'aktuell',
+    plBranch: 'nein',
+    hv: { status: 'aktuell' },
+    nachtraege: Array.from({ length: nachtragCount }, () => emptyNEntry()),
+    zeithonorar: withZeithonorar ? emptyNEntry() : undefined,
+    rgSummeDE: null,
+    rgSummePL: null,
+    nachtragErbracht: null,
+    notes: {},
+  }
+}
+
+export const DEFAULT_RECHNUNGSPLAN_NOTE_COLUMNS: NoteColumn[] = [
+  { id: 'bemerkung1', label: 'Bemerkung (Alberon)' },
+  { id: 'bemerkung2', label: 'Bemerkung (Dawid)' },
+  { id: 'fragen', label: 'Fragen (Nena)' },
+]
+
+export function emptyRechnungsplan(year: number, month: number): Rechnungsplan {
+  return {
+    year,
+    month,
+    nachtragCount: 5,
+    showZeithonorar: false,
+    noteColumns: DEFAULT_RECHNUNGSPLAN_NOTE_COLUMNS.map((n) => ({ ...n })),
+    rows: [],
+  }
+}
+
+// Key used in KV + API path: e.g. "2026-11".
+export function rechnungsplanKey(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}`
 }
 
 // --- Access control (role-based: role name + password → modules) ----------

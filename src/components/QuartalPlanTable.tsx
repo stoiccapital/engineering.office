@@ -374,8 +374,8 @@ function WeekTodosCell({
   return (
     <div
       className={cn(
-        'group/cell flex flex-col gap-0.5 p-1.5',
-        empty && !locked && 'border-l-2 border-red-400/50',
+        'group/cell flex h-full flex-col gap-0.5 p-1.5',
+        empty && !locked && 'border-l-2 border-red-400/50 bg-red-500/10',
       )}
     >
       {collapsible && (

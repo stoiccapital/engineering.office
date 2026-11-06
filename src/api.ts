@@ -1,4 +1,5 @@
-import type { AccessConfig, Period, QuartalPlan, RechnungenData, Umsatzkontrolle, Ziele } from './types'
+import type { AccessConfig, Period, QuartalPlan, Rechnungsplan, Umsatzkontrolle, Ziele } from './types'
+import { rechnungsplanKey } from './types'
 import { mock } from './mock'
 
 const TOKEN_KEY = 'forecast-token'
@@ -170,20 +171,29 @@ export async function saveUmsatz(year: number, data: Umsatzkontrolle): Promise<v
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
-export async function fetchRechnungen(year: number): Promise<RechnungenData | null> {
-  if (mock.isDev) return mock.rechnungen(year)
-  const res = await fetch(`/api/rechnungen/${year}`, { headers: headers() })
+export async function fetchRechnungsplan(
+  year: number,
+  month: number,
+): Promise<Rechnungsplan | null> {
+  if (mock.isDev) return mock.rechnungsplan(year, month)
+  const key = rechnungsplanKey(year, month)
+  const res = await fetch(`/api/rechnungsplan/${key}`, { headers: headers() })
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
-  return (await res.json()) as RechnungenData | null
+  return (await res.json()) as Rechnungsplan | null
 }
 
-export async function saveRechnungen(year: number, data: RechnungenData): Promise<void> {
+export async function saveRechnungsplan(
+  year: number,
+  month: number,
+  data: Rechnungsplan,
+): Promise<void> {
   if (mock.isDev) {
-    mock.setRechnungen(year, data)
+    mock.setRechnungsplan(year, month, data)
     return
   }
-  const res = await fetch(`/api/rechnungen/${year}`, {
+  const key = rechnungsplanKey(year, month)
+  const res = await fetch(`/api/rechnungsplan/${key}`, {
     method: 'PUT',
     headers: headers(),
     body: JSON.stringify(data),
