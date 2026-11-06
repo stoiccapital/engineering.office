@@ -114,14 +114,10 @@ export function Rechnungen() {
           <table className="w-full border-collapse text-xs">
             <thead className="sticky top-0 z-20 bg-muted/90 backdrop-blur">
               <tr className="border-b font-medium text-muted-foreground">
-                <Th className="sticky left-0 z-30 w-[88px] bg-muted/90 text-left">Polen</Th>
-                <Th className="sticky left-[88px] z-30 w-[104px] bg-muted/90 text-left">DE</Th>
-                <Th className="sticky left-[192px] z-30 w-[120px] bg-muted/90 text-left">
-                  Proj. Nr.
-                </Th>
-                <Th className="sticky left-[312px] z-30 min-w-[320px] bg-muted/90 text-left">
-                  Projekte
-                </Th>
+                <Th className="w-[88px] text-left">Polen</Th>
+                <Th className="w-[104px] text-left">DE</Th>
+                <Th className="w-[120px] text-left">Proj. Nr.</Th>
+                <Th className="min-w-[320px] text-left">Projekte</Th>
                 <Th className="w-[80px] text-left">PL</Th>
                 <Th className="w-[112px] text-center">HV</Th>
                 {Array.from({ length: data.nachtragCount }).map((_, i) => (
@@ -157,7 +153,7 @@ export function Rechnungen() {
                   key={row.id}
                   className="group border-b last:border-b-0 hover:bg-accent/30"
                 >
-                  <td className="sticky left-0 z-10 bg-background px-1.5 py-0.5 group-hover:bg-accent/30">
+                  <td className="px-1.5 py-0.5">
                     <ChipButton
                       onClick={() =>
                         updateRow(row.id, { plBranch: cycle(PL_BRANCH_STATUSES, row.plBranch) })
@@ -168,7 +164,7 @@ export function Rechnungen() {
                       {PL_BRANCH_LABELS[row.plBranch]}
                     </ChipButton>
                   </td>
-                  <td className="sticky left-[88px] z-10 bg-background px-1.5 py-0.5 group-hover:bg-accent/30">
+                  <td className="px-1.5 py-0.5">
                     <ChipButton
                       onClick={() =>
                         updateRow(row.id, { deStatus: cycle(DE_CYCLE, row.deStatus) })
@@ -179,7 +175,7 @@ export function Rechnungen() {
                       {N_STATUS_SHORT[row.deStatus]}
                     </ChipButton>
                   </td>
-                  <td className="sticky left-[192px] z-10 bg-background px-1 py-0.5 group-hover:bg-accent/30">
+                  <td className="px-1 py-0.5">
                     <TextCell
                       value={row.projNr}
                       onChange={(v) => updateRow(row.id, { projNr: v })}
@@ -187,7 +183,7 @@ export function Rechnungen() {
                       className="font-mono text-[11px]"
                     />
                   </td>
-                  <td className="sticky left-[312px] z-10 bg-background px-1 py-0.5 group-hover:bg-accent/30">
+                  <td className="px-1 py-0.5">
                     <TextCell
                       value={row.projektname}
                       onChange={(v) => updateRow(row.id, { projektname: v })}
