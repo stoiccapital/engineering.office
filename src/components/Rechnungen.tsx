@@ -111,7 +111,7 @@ export function Rechnungen() {
         padded={false}
       >
         <div className="overflow-auto">
-          <table className="w-full border-collapse text-xs">
+          <table className="w-max min-w-full border-collapse text-xs">
             <thead className="sticky top-0 z-20 bg-muted/90 backdrop-blur">
               <tr className="border-b font-medium text-muted-foreground">
                 <Th className="w-[88px] text-left">Polen</Th>
