@@ -349,12 +349,30 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
 export type Role = {
   id: string
   name: string
+  // Password kept for backwards-compat shared-role sign-in; deprecated in favour
+  // of per-user logins. Empty string means role-login is disabled.
   password: string
   modules: ModuleId[]
 }
 
+export type User = {
+  id: string
+  vorname: string
+  name: string
+  kuerzel: string // doubles as the login username
+  personalnummer: string
+  password: string
+  roleId: string // references Role.id
+}
+
 export type AccessConfig = {
   roles: Role[]
+  users: User[]
+}
+
+export function displayUserName(u: Pick<User, 'vorname' | 'name' | 'kuerzel'>): string {
+  const parts = [u.vorname, u.name].filter((s) => s.trim().length > 0)
+  return parts.length > 0 ? parts.join(' ') : u.kuerzel || 'Unbenannt'
 }
 
 // Preset role templates the admin starts with (name + sensible default modules).
@@ -385,7 +403,7 @@ export const PRESET_ROLES: RolePreset[] = [
 export const PRESET_ROLE_NAMES = PRESET_ROLES.map((p) => p.name)
 
 export function emptyAccessConfig(): AccessConfig {
-  return { roles: [] }
+  return { roles: [], users: [] }
 }
 
 // Derived values per row

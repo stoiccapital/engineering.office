@@ -4,7 +4,13 @@ interface Env {
 }
 
 type Role = { id: string; name: string; password: string; modules: string[] }
-type AccessConfig = { roles: Role[] }
+type User = {
+  id: string
+  kuerzel: string
+  password: string
+  roleId: string
+}
+type AccessConfig = { roles: Role[]; users?: User[] }
 
 const ACCESS_KEY = 'settings:access'
 
@@ -14,6 +20,7 @@ const EXEMPT = new Set([
   '/api/auth-check',
   '/api/auth/signin',
   '/api/settings/roles',
+  '/api/settings/users',
 ])
 
 // Logo is pulled on every page load (used by the sidebar brand mark). Keep it
@@ -65,17 +72,34 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
     if (!cfg || cfg.roles.length === 0) return next()
   }
 
+  // Prefer per-user auth; fall back to legacy role auth for bootstrap.
+  const userAuth = request.headers.get('x-user-auth') ?? ''
   const roleAuth = request.headers.get('x-role-auth') ?? ''
-  const idx = roleAuth.indexOf(':')
-  if (idx === -1) return unauthorized('role auth missing')
-  const roleId = roleAuth.slice(0, idx)
-  const password = roleAuth.slice(idx + 1)
-  if (!roleId || !password) return unauthorized('role auth malformed')
+  if (!userAuth && !roleAuth) return unauthorized('auth missing')
 
   const raw = await env.FORECAST_KV.get(ACCESS_KEY)
   const cfg = raw ? (JSON.parse(raw) as AccessConfig) : null
-  const role = cfg?.roles.find((r) => r.id === roleId)
-  if (!role || role.password !== password) return unauthorized('invalid role')
+
+  let role: Role | undefined
+  if (userAuth) {
+    const idx = userAuth.indexOf(':')
+    if (idx === -1) return unauthorized('user auth malformed')
+    const kuerzel = userAuth.slice(0, idx)
+    const password = userAuth.slice(idx + 1)
+    if (!kuerzel || !password) return unauthorized('user auth malformed')
+    const user = cfg?.users?.find((u) => u.kuerzel === kuerzel)
+    if (!user || user.password !== password) return unauthorized('invalid user')
+    role = cfg?.roles.find((r) => r.id === user.roleId)
+    if (!role) return unauthorized('role missing for user')
+  } else {
+    const idx = roleAuth.indexOf(':')
+    if (idx === -1) return unauthorized('role auth malformed')
+    const roleId = roleAuth.slice(0, idx)
+    const password = roleAuth.slice(idx + 1)
+    if (!roleId || !password) return unauthorized('role auth malformed')
+    role = cfg?.roles.find((r) => r.id === roleId)
+    if (!role || role.password !== password) return unauthorized('invalid role')
+  }
 
   const rule = accessForPath(url.pathname)
   if (!rule) return next() // unknown path — let the route 404 itself.

@@ -5,6 +5,8 @@ import { mock } from './mock'
 const TOKEN_KEY = 'forecast-token'
 const ROLE_ID_KEY = 'eo:currentRoleId'
 const ROLE_PASSWORD_KEY = 'eo:currentRolePassword'
+const USER_KUERZEL_KEY = 'eo:currentUserKuerzel'
+const USER_PASSWORD_KEY = 'eo:currentUserPassword'
 
 if (mock.isDev && !localStorage.getItem(TOKEN_KEY)) {
   localStorage.setItem(TOKEN_KEY, 'dev-mock')
@@ -32,20 +34,42 @@ export function clearRoleCredentials() {
   localStorage.removeItem(ROLE_PASSWORD_KEY)
 }
 
+export function setUserCredentials(kuerzel: string, password: string) {
+  localStorage.setItem(USER_KUERZEL_KEY, kuerzel)
+  localStorage.setItem(USER_PASSWORD_KEY, password)
+}
+
+export function clearUserCredentials() {
+  localStorage.removeItem(USER_KUERZEL_KEY)
+  localStorage.removeItem(USER_PASSWORD_KEY)
+}
+
 function headers(): HeadersInit {
   const t = getToken() ?? ''
-  const roleId = localStorage.getItem(ROLE_ID_KEY) ?? ''
-  const rolePw = localStorage.getItem(ROLE_PASSWORD_KEY) ?? ''
   const h: Record<string, string> = {
     'content-type': 'application/json',
     authorization: `Bearer ${t}`,
   }
+  // Prefer user credentials; fall back to legacy role credentials for bootstrap.
+  const kuerzel = localStorage.getItem(USER_KUERZEL_KEY) ?? ''
+  const userPw = localStorage.getItem(USER_PASSWORD_KEY) ?? ''
+  if (kuerzel && userPw) {
+    h['x-user-auth'] = `${kuerzel}:${userPw}`
+    return h
+  }
+  const roleId = localStorage.getItem(ROLE_ID_KEY) ?? ''
+  const rolePw = localStorage.getItem(ROLE_PASSWORD_KEY) ?? ''
   if (roleId && rolePw) h['x-role-auth'] = `${roleId}:${rolePw}`
   return h
 }
 
 export type PublicRole = { id: string; name: string }
-export type SignInResult = { ok: true; role: { id: string; name: string; modules: string[] } }
+export type PublicUser = { id: string; kuerzel: string; displayName: string }
+export type SignInResult = {
+  ok: true
+  role: { id: string; name: string; modules: string[] }
+  user?: { id: string; kuerzel: string; displayName: string }
+}
 
 export async function fetchPublicRoles(): Promise<PublicRole[]> {
   if (mock.isDev) {
@@ -55,6 +79,21 @@ export async function fetchPublicRoles(): Promise<PublicRole[]> {
   const res = await fetch('/api/settings/roles', { headers: headers() })
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return (await res.json()) as PublicRole[]
+}
+
+export async function fetchPublicUsers(): Promise<PublicUser[]> {
+  if (mock.isDev) {
+    const cfg = mock.access()
+    return (cfg?.users ?? []).map((u) => ({
+      id: u.id,
+      kuerzel: u.kuerzel,
+      displayName:
+        [u.vorname, u.name].filter((s) => s.trim().length > 0).join(' ') || u.kuerzel,
+    }))
+  }
+  const res = await fetch('/api/settings/users', { headers: headers() })
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  return (await res.json()) as PublicUser[]
 }
 
 export async function signInRole(roleId: string, password: string): Promise<SignInResult | null> {
@@ -68,6 +107,35 @@ export async function signInRole(roleId: string, password: string): Promise<Sign
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({ roleId, password }),
+  })
+  if (res.status === 401) return null
+  if (!res.ok) throw new Error(`signin failed: ${res.status}`)
+  return (await res.json()) as SignInResult
+}
+
+export async function signInUser(kuerzel: string, password: string): Promise<SignInResult | null> {
+  if (mock.isDev) {
+    const cfg = mock.access()
+    const user = cfg?.users.find((u) => u.kuerzel === kuerzel)
+    if (!user || user.password !== password) return null
+    const role = cfg?.roles.find((r) => r.id === user.roleId)
+    if (!role) return null
+    return {
+      ok: true,
+      role: { id: role.id, name: role.name, modules: role.modules },
+      user: {
+        id: user.id,
+        kuerzel: user.kuerzel,
+        displayName:
+          [user.vorname, user.name].filter((s) => s.trim().length > 0).join(' ') ||
+          user.kuerzel,
+      },
+    }
+  }
+  const res = await fetch('/api/auth/signin', {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ kuerzel, password }),
   })
   if (res.status === 401) return null
   if (!res.ok) throw new Error(`signin failed: ${res.status}`)

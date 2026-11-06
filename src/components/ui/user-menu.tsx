@@ -26,6 +26,7 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
   const removeLogo = useLogo((s) => s.remove)
   const logoStatus = useLogo((s) => s.status)
   const currentRole = useAccess((s) => s.currentRole)
+  const currentUser = useAccess((s) => s.currentUser)
   const signOut = useAccess((s) => s.signOut)
   const admin = isAdmin(currentRole)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -152,11 +153,19 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
               </DropdownMenu.Portal>
             </DropdownMenu.Sub>
             <DropdownMenu.Separator className="my-1 h-px bg-border" />
-            {currentRole && (
+            {(currentUser || currentRole) && (
               <div className="px-2 py-1.5">
-                <div className="truncate text-sm font-medium">{currentRole.name}</div>
-                {admin && (
-                  <div className="truncate text-[11px] text-muted-foreground">Admin</div>
+                <div className="truncate text-sm font-medium">
+                  {currentUser ? currentUser.displayName : currentRole?.name}
+                </div>
+                <div className="truncate text-[11px] text-muted-foreground">
+                  {currentUser ? currentRole?.name : admin ? 'Admin' : ''}
+                  {currentUser && admin ? ' · Admin' : ''}
+                </div>
+                {currentUser && (
+                  <div className="truncate font-mono text-[10px] text-muted-foreground">
+                    {currentUser.kuerzel}
+                  </div>
                 )}
               </div>
             )}
@@ -165,7 +174,9 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
               className="flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
             >
               <UserCog className="h-4 w-4 text-muted-foreground" />
-              <span className="flex-1">Rolle wechseln</span>
+              <span className="flex-1">
+                {currentUser ? 'Benutzer wechseln' : 'Rolle wechseln'}
+              </span>
             </DropdownMenu.Item>
             <DropdownMenu.Separator className="my-1 h-px bg-border" />
             <DropdownMenu.Item
