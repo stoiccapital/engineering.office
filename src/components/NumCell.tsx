@@ -26,12 +26,12 @@ export function NumCell({ value, onChange, readOnly, pct, decimals, className, p
   }, [display, editing])
 
   if (readOnly || !onChange) {
-    // Read-only / computed values sit on a muted background at rest so the
-    // eye can tell "nothing to edit here" without hovering.
+    // Read-only / computed values sit flat on the row background. No chrome,
+    // just plain-text output — matches "this isn't a slot you can fill".
     return (
       <div
         className={cn(
-          'num px-2 py-1.5 text-sm text-muted-foreground bg-foreground/[0.03] rounded-sm',
+          'num px-2 py-1.5 text-sm text-muted-foreground',
           className,
         )}
       >
@@ -43,7 +43,9 @@ export function NumCell({ value, onChange, readOnly, pct, decimals, className, p
   return (
     <input
       className={cn(
-        'num w-full px-2 py-1.5 text-sm bg-transparent outline-none rounded-sm transition-colors hover:bg-foreground/[0.05] focus:bg-foreground/[0.09]',
+        // Editable cells carry a subtle fill at rest — darker in light mode,
+        // lighter in dark mode — so input slots are visible at a glance.
+        'num w-full px-2 py-1.5 text-sm outline-none rounded-sm bg-foreground/[0.03] transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]',
         className,
       )}
       value={editing ? draft : display}
