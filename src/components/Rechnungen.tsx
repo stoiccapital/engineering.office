@@ -114,33 +114,38 @@ export function Rechnungen() {
           <table className="w-full border-collapse text-xs">
             <thead className="sticky top-0 z-20 bg-muted/90 backdrop-blur">
               <tr className="border-b font-medium text-muted-foreground">
-                <Th className="sticky left-0 z-30 w-[70px] bg-muted/90 text-left">Polen</Th>
-                <Th className="sticky left-[70px] z-30 w-[88px] bg-muted/90 text-left">DE</Th>
-                <Th className="sticky left-[158px] z-30 w-[88px] bg-muted/90 text-left">Proj. Nr.</Th>
-                <Th className="sticky left-[246px] z-30 min-w-[240px] bg-muted/90 text-left">
+                <Th className="sticky left-0 z-30 w-[88px] bg-muted/90 text-left">Polen</Th>
+                <Th className="sticky left-[88px] z-30 w-[104px] bg-muted/90 text-left">DE</Th>
+                <Th className="sticky left-[192px] z-30 w-[120px] bg-muted/90 text-left">
+                  Proj. Nr.
+                </Th>
+                <Th className="sticky left-[312px] z-30 min-w-[320px] bg-muted/90 text-left">
                   Projekte
                 </Th>
-                <Th className="w-14 text-left">PL</Th>
-                <Th className="w-[88px] text-center">HV</Th>
+                <Th className="w-[80px] text-left">PL</Th>
+                <Th className="w-[112px] text-center">HV</Th>
                 {Array.from({ length: data.nachtragCount }).map((_, i) => (
-                  <Th key={`n${i}`} className="w-[88px] text-center">
+                  <Th key={`n${i}`} className="w-[112px] text-center">
                     N{String(i + 1).padStart(2, '0')}
                   </Th>
                 ))}
                 {data.showZeithonorar && (
-                  <Th className="w-[96px] text-center">Zeithonorar</Th>
+                  <Th className="w-[120px] text-center">Zeithonorar</Th>
                 )}
                 {data.noteColumns.map((n) => (
-                  <Th key={n.id} className="min-w-[160px] text-left">
+                  <Th key={n.id} className="min-w-[220px] text-left">
                     <EditableColumnLabel
                       value={n.label}
                       onChange={(v) => renameNoteColumn(n.id, v)}
                     />
                   </Th>
                 ))}
-                <Th className="num w-28 text-right">Σ DE</Th>
-                <Th className="num w-28 text-right">Σ PL</Th>
-                <Th className="num w-28 text-right" title="Nachträge für erbrachte Leistung">
+                <Th className="num w-[132px] text-right">Σ DE</Th>
+                <Th className="num w-[132px] text-right">Σ PL</Th>
+                <Th
+                  className="num w-[132px] text-right"
+                  title="Nachträge für erbrachte Leistung"
+                >
                   Erbr. Leistung
                 </Th>
                 <Th className="w-8" />
@@ -163,7 +168,7 @@ export function Rechnungen() {
                       {PL_BRANCH_LABELS[row.plBranch]}
                     </ChipButton>
                   </td>
-                  <td className="sticky left-[70px] z-10 bg-background px-1.5 py-0.5 group-hover:bg-accent/30">
+                  <td className="sticky left-[88px] z-10 bg-background px-1.5 py-0.5 group-hover:bg-accent/30">
                     <ChipButton
                       onClick={() =>
                         updateRow(row.id, { deStatus: cycle(DE_CYCLE, row.deStatus) })
@@ -174,7 +179,7 @@ export function Rechnungen() {
                       {N_STATUS_SHORT[row.deStatus]}
                     </ChipButton>
                   </td>
-                  <td className="sticky left-[158px] z-10 bg-background px-1 py-0.5 group-hover:bg-accent/30">
+                  <td className="sticky left-[192px] z-10 bg-background px-1 py-0.5 group-hover:bg-accent/30">
                     <TextCell
                       value={row.projNr}
                       onChange={(v) => updateRow(row.id, { projNr: v })}
@@ -182,7 +187,7 @@ export function Rechnungen() {
                       className="font-mono text-[11px]"
                     />
                   </td>
-                  <td className="sticky left-[246px] z-10 bg-background px-1 py-0.5 group-hover:bg-accent/30">
+                  <td className="sticky left-[312px] z-10 bg-background px-1 py-0.5 group-hover:bg-accent/30">
                     <TextCell
                       value={row.projektname}
                       onChange={(v) => updateRow(row.id, { projektname: v })}
