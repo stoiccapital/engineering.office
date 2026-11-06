@@ -423,7 +423,7 @@ function EditableColumnLabel({
         setEditing(false)
         if (draft !== value) onChange(draft)
       }}
-      className="w-full bg-transparent px-1 text-xs font-medium outline-none transition-colors hover:bg-accent/40 focus:bg-accent/60"
+      className="w-full bg-transparent px-1 text-xs font-medium outline-none transition-colors focus:bg-foreground/[0.04]"
     />
   )
 }

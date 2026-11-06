@@ -21,9 +21,7 @@ export function TextCell({
   // Editable cells show a subtle hover lift + stronger focus — the chrome
   // only appears when you interact with it. Read-only cells stay flat so
   // scanning past them is effortless.
-  const interactive = readOnly
-    ? ''
-    : 'transition-colors hover:bg-accent/40 focus:bg-accent/60'
+  const interactive = readOnly ? '' : 'transition-colors focus:bg-foreground/[0.04]'
 
   if (multiline) {
     return (

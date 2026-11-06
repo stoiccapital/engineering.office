@@ -43,7 +43,7 @@ export function NumCell({ value, onChange, readOnly, pct, decimals, className, p
   return (
     <input
       className={cn(
-        'num w-full px-2 py-1.5 text-sm bg-transparent outline-none rounded-sm transition-colors hover:bg-accent/40 focus:bg-accent/60',
+        'num w-full px-2 py-1.5 text-sm bg-transparent outline-none rounded-sm transition-colors focus:bg-foreground/[0.04]',
         className,
       )}
       value={editing ? draft : display}

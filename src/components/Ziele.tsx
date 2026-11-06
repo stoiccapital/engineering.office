@@ -409,7 +409,7 @@ function TeamBlock({
             onChange={(e) => renameTeam(branch.id, team.id, e.target.value)}
             className={cn(
               'min-w-0 flex-1 rounded bg-transparent px-1 py-0.5 text-sm font-semibold outline-none',
-              !locked && 'transition-colors hover:bg-accent/40 focus:bg-accent/60',
+              !locked && 'transition-colors focus:bg-foreground/[0.04]',
             )}
           />
           <span className="font-mono text-xs text-muted-foreground">
@@ -464,7 +464,7 @@ function TeamBlock({
                         role: e.target.value as ZielePersonRole,
                       })
                     }
-                    className="w-full rounded-sm bg-transparent px-1 py-1 text-xs outline-none transition-colors hover:bg-accent/40 focus:bg-accent/60"
+                    className="w-full rounded-sm bg-transparent px-1 py-1 text-xs outline-none transition-colors focus:bg-foreground/[0.04]"
                   >
                     <option value="team">Team</option>
                     <option value="ausschreibung">Ausschreibung</option>

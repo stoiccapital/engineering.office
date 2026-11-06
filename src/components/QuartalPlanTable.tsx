@@ -209,7 +209,7 @@ export function QuartalPlanTable() {
                           <input
                             value={emp.name}
                             onChange={(e) => renameEmployee(empIndex, e.target.value)}
-                            className="w-full rounded bg-transparent px-1 py-0.5 text-sm font-semibold text-foreground outline-none transition-colors hover:bg-accent/40 focus:bg-accent/60"
+                            className="w-full rounded bg-transparent px-1 py-0.5 text-sm font-semibold text-foreground outline-none transition-colors focus:bg-foreground/[0.04]"
                           />
                           <select
                             value={emp.branch}
