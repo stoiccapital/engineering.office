@@ -17,13 +17,13 @@ export function TextCell({
   readOnly,
   multiline,
 }: Props) {
-  const base = 'w-full px-2 py-1.5 text-sm bg-transparent outline-none rounded-sm'
-  // Editable cells show a subtle hover lift + stronger focus — the chrome
-  // only appears when you interact with it. Read-only cells stay flat so
-  // scanning past them is effortless.
+  const base = 'w-full px-2 py-1.5 text-sm outline-none rounded-sm'
+  // Read-only cells get a muted bg at rest so the eye can spot editability
+  // instantly, without hovering first. Editable cells stay on the row bg
+  // and reveal a stronger lift on focus.
   const interactive = readOnly
-    ? ''
-    : 'transition-colors hover:bg-foreground/[0.05] focus:bg-foreground/[0.09]'
+    ? 'bg-foreground/[0.03] text-muted-foreground'
+    : 'bg-transparent transition-colors hover:bg-foreground/[0.05] focus:bg-foreground/[0.09]'
 
   if (multiline) {
     return (

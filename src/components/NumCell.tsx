@@ -26,12 +26,12 @@ export function NumCell({ value, onChange, readOnly, pct, decimals, className, p
   }, [display, editing])
 
   if (readOnly || !onChange) {
-    // No chrome, no hover: derived / computed values look flat so the eye
-    // learns to skip them while scanning for inputs.
+    // Read-only / computed values sit on a muted background at rest so the
+    // eye can tell "nothing to edit here" without hovering.
     return (
       <div
         className={cn(
-          'num px-2 py-1.5 text-sm text-muted-foreground',
+          'num px-2 py-1.5 text-sm text-muted-foreground bg-foreground/[0.03] rounded-sm',
           className,
         )}
       >

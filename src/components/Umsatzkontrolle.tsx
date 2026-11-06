@@ -555,7 +555,7 @@ function ReadCell({
 }) {
   if (v === null) {
     return (
-      <div className="num px-2 py-1.5 text-right text-sm text-muted-foreground/30">—</div>
+      <div className="num rounded-sm bg-foreground/[0.03] px-2 py-1.5 text-right text-sm text-muted-foreground/30">—</div>
     )
   }
   const tone =
@@ -567,7 +567,7 @@ function ReadCell({
   return (
     <div
       className={cn(
-        'num px-2 py-1.5 text-right text-sm tabular-nums',
+        'num rounded-sm bg-foreground/[0.03] px-2 py-1.5 text-right text-sm tabular-nums',
         bold && 'font-semibold',
         tone,
       )}
