@@ -1,7 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { usePlan, cellKey } from '@/plan-store'
-import { PLAN_STATUS_LABELS, type PlanStatus, type WeekTodo } from '@/types'
+import {
+  PLAN_STATUS_LABELS,
+  type Branch,
+  type Employee,
+  type PlanStatus,
+  type WeekTodo,
+} from '@/types'
 import {
   MONTH_LABELS_DE,
   currentISOWeek,
@@ -9,7 +15,7 @@ import {
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
 import { StateCycle } from '@/components/ui/state-cycle'
@@ -26,6 +32,20 @@ export function TeamOverview() {
   const year = usePlan((s) => s.year)
   const plan = usePlan((s) => s.plan)
   const [offset, setOffset] = useState(0)
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen()
+    else void containerRef.current?.requestFullscreen()
+  }
 
   // Reset the window to current week whenever the selected year changes.
   useEffect(() => {
@@ -51,6 +71,19 @@ export function TeamOverview() {
     }
   }, [year, offset])
 
+  // Keep original indices so plan.cells/todos keys stay valid, but group by
+  // branch for display so this matches the Plan view's Team Deutschland /
+  // Team Polen layout.
+  const groups = useMemo(() => {
+    type Group = { branch: Branch; label: string; items: { emp: Employee; empIndex: number }[] }
+    if (!plan) return [] as Group[]
+    const indexed = plan.employees.map((emp, empIndex) => ({ emp, empIndex }))
+    return [
+      { branch: 'de' as Branch, label: 'Team Deutschland', items: indexed.filter((e) => e.emp.branch === 'de') },
+      { branch: 'pl' as Branch, label: 'Team Polen', items: indexed.filter((e) => e.emp.branch === 'pl') },
+    ] satisfies Group[]
+  }, [plan])
+
   if (!plan) return null
 
   const canGoBack = startWeek > 1
@@ -65,90 +98,131 @@ export function TeamOverview() {
   )
 
   return (
-    <Section
-      title="Team-Übersicht"
-      subtitle={subtitle}
-      padded={false}
-      action={
-        <WindowNav
-          onBack={() => setOffset((o) => o - 1)}
-          onForward={() => setOffset((o) => o + 1)}
-          onToday={() => setOffset(0)}
-          canGoBack={canGoBack}
-          canGoForward={canGoForward}
-          atToday={atToday}
-          todayAvailable={todayWeek !== null}
-        />
-      }
+    <div
+      ref={containerRef}
+      className={cn(isFullscreen && 'flex h-screen w-screen flex-col bg-background p-4')}
     >
-      <div className="overflow-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 z-20 bg-muted">
-            <tr className="border-b">
-              <th className="sticky left-0 z-30 min-w-[180px] bg-muted px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                Mitarbeiter
-              </th>
-              {weeks.map(({ week, month }) => {
-                const isToday = week === todayWeek
-                return (
-                  <th
-                    key={week}
-                    className={cn(
-                      'min-w-[220px] border-l px-3 py-2 text-left text-xs font-medium',
-                      isToday ? 'bg-primary/10 text-foreground' : 'text-muted-foreground',
-                    )}
-                  >
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-mono text-[11px]">KW</span>
-                      <span className="num text-sm font-semibold tabular-nums">{week}</span>
-                      <span className="text-[11px] text-muted-foreground">
-                        · {MONTH_LABELS_DE[month]}
-                      </span>
-                      {isToday && (
-                        <span className="ml-auto rounded bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
-                          Heute
-                        </span>
-                      )}
-                    </div>
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {plan.employees.map((emp, empIndex) => (
-              <tr key={emp.id} className="border-b last:border-b-0">
-                <td className="sticky left-0 z-10 min-w-[180px] border-r bg-background px-3 py-3 align-top">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <span>{emp.name || 'Unbenannt'}</span>
-                    <span className="rounded border bg-muted/60 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
-                      {emp.branch}
-                    </span>
-                  </div>
-                </td>
-                {weeks.map(({ week }) => {
-                  const key = cellKey(empIndex, week)
-                  const status = plan.cells[key]
-                  const todos = plan.todos?.[key] ?? []
+      <Section
+        title="Team-Übersicht"
+        subtitle={subtitle}
+        padded={false}
+        className={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
+        contentClassName={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
+        action={
+          <div className="flex items-center gap-1">
+            <WindowNav
+              onBack={() => setOffset((o) => o - 1)}
+              onForward={() => setOffset((o) => o + 1)}
+              onToday={() => setOffset(0)}
+              canGoBack={canGoBack}
+              canGoForward={canGoForward}
+              atToday={atToday}
+              todayAvailable={todayWeek !== null}
+            />
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Maximize2 className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
+        }
+      >
+        <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
+          <table className="w-full border-collapse text-sm">
+            <thead className="sticky top-0 z-20 bg-muted">
+              <tr className="border-b">
+                <th className="sticky left-0 z-30 min-w-[180px] bg-muted px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                  Mitarbeiter
+                </th>
+                {weeks.map(({ week, month }) => {
                   const isToday = week === todayWeek
                   return (
-                    <td
+                    <th
                       key={week}
                       className={cn(
-                        'min-w-[220px] border-l p-3 align-top',
-                        isToday && 'bg-primary/5',
+                        'min-w-[220px] border-l px-3 py-2 text-left text-xs font-medium',
+                        isToday ? 'bg-primary/10 text-foreground' : 'text-muted-foreground',
                       )}
                     >
-                      <WeekCell status={status} todos={todos} empIndex={empIndex} week={week} />
-                    </td>
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-mono text-[11px]">KW</span>
+                        <span className="num text-sm font-semibold tabular-nums">{week}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          · {MONTH_LABELS_DE[month]}
+                        </span>
+                        {isToday && (
+                          <span className="ml-auto rounded bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
+                            Heute
+                          </span>
+                        )}
+                      </div>
+                    </th>
                   )
                 })}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Section>
+            </thead>
+            <tbody>
+              {groups.map(
+                (g) =>
+                  g.items.length > 0 && (
+                    <Fragment key={`group-${g.branch}`}>
+                      <tr className="border-b bg-muted/30">
+                        <td
+                          colSpan={weeks.length + 1}
+                          className="sticky left-0 z-10 bg-muted/30 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+                        >
+                          {g.label}
+                        </td>
+                      </tr>
+                      {g.items.map(({ emp, empIndex }) => (
+                        <tr key={emp.id} className="border-b last:border-b-0">
+                          <td className="sticky left-0 z-10 min-w-[180px] border-r bg-background px-3 py-3 align-top">
+                            <div className="flex items-center gap-2 text-sm font-semibold">
+                              <span>{emp.name || 'Unbenannt'}</span>
+                              <span className="rounded border bg-muted/60 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
+                                {emp.branch}
+                              </span>
+                            </div>
+                          </td>
+                          {weeks.map(({ week }) => {
+                            const key = cellKey(empIndex, week)
+                            const status = plan.cells[key]
+                            const todos = plan.todos?.[key] ?? []
+                            const isToday = week === todayWeek
+                            return (
+                              <td
+                                key={week}
+                                className={cn(
+                                  'min-w-[220px] border-l p-3 align-top',
+                                  isToday && 'bg-primary/5',
+                                )}
+                              >
+                                <WeekCell
+                                  status={status}
+                                  todos={todos}
+                                  empIndex={empIndex}
+                                  week={week}
+                                />
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ),
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </div>
   )
 }
 
