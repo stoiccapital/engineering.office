@@ -1,8 +1,14 @@
 import { useMemo, useState } from 'react'
-import { ArrowDownToLine, Plus, Trash2 } from 'lucide-react'
+import * as Popover from '@radix-ui/react-popover'
+import {
+  ArrowDownToLine,
+  Calendar,
+  Plus,
+  Settings as SettingsIcon,
+  Trash2,
+} from 'lucide-react'
 import { useRechnungen } from '@/rechnungen-store'
 import {
-  N_STATUSES,
   N_STATUS_LABELS,
   PL_BRANCH_LABELS,
   PL_BRANCH_STATUSES,
@@ -18,25 +24,42 @@ import { TextCell } from './TextCell'
 import { fmtEUR } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+// 4-state cycle used for HV + N0x cells.
+const N_CYCLE: NStatus[] = ['aktuell', 'neu', 'rgGestellt', 'nichtRelevant']
+// 3-state cycle for "Deutschland" column (no nichtRelevant).
+const DE_CYCLE: NStatus[] = ['aktuell', 'neu', 'rgGestellt']
+
 const N_STATUS_CHIP: Record<NStatus, string> = {
-  aktuell: 'bg-sky-100 text-sky-900 border-sky-500/30',
+  aktuell: 'bg-sky-100 text-sky-900 border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-200',
   nichtRelevant: 'bg-muted text-muted-foreground border-border',
-  neu: 'bg-amber-100 text-amber-900 border-amber-500/30',
-  rgGestellt: 'bg-emerald-100 text-emerald-900 border-emerald-500/30',
+  neu: 'bg-amber-100 text-amber-900 border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200',
+  rgGestellt:
+    'bg-emerald-100 text-emerald-900 border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200',
+}
+
+const N_STATUS_SHORT: Record<NStatus, string> = {
+  aktuell: 'Aktuell',
+  nichtRelevant: '–',
+  neu: 'Neu',
+  rgGestellt: 'Rg.',
 }
 
 const PL_BRANCH_CHIP: Record<PlBranchStatus, string> = {
   nein: 'bg-muted text-muted-foreground',
-  ja: 'bg-sky-100 text-sky-900',
-  neu: 'bg-amber-100 text-amber-900',
+  ja: 'bg-sky-100 text-sky-900 dark:bg-sky-500/15 dark:text-sky-200',
+  neu: 'bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200',
 }
 
-const DE_STATUSES: NStatus[] = ['aktuell', 'neu', 'rgGestellt']
-const DE_STATUS_SHORT: Record<NStatus, string> = {
-  aktuell: 'Aktuell',
-  nichtRelevant: '–',
-  neu: 'Neu',
-  rgGestellt: 'Rg.Gestellt',
+function cycle<T>(arr: T[], current: T): T {
+  const i = arr.indexOf(current)
+  return arr[(i + 1) % arr.length]
+}
+
+function fmtShortDate(iso: string): string {
+  // "2026-11-06" → "06.11."
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return iso
+  return `${m[3]}.${m[2]}.`
 }
 
 export function Rechnungen() {
@@ -55,14 +78,23 @@ export function Rechnungen() {
 
   if (!data) return null
 
+  const triggerCopy = () => {
+    if (data.rows.length > 0) {
+      const ok = confirm(
+        'Aktueller Monat enthält bereits Zeilen. Diese werden durch die Vormonats-Projekte ersetzt. Fortfahren?',
+      )
+      if (!ok) return
+    }
+    void copyFromPreviousMonth()
+  }
+
   return (
-    <div className="space-y-6">
-      <MonthToolbar
+    <div className="space-y-4">
+      <Toolbar
         plan={data}
-        onCopyPrevious={() => void copyFromPreviousMonth()}
+        onCopyPrevious={triggerCopy}
         onChangeNachtragCount={setNachtragCount}
         onToggleZeithonorar={setShowZeithonorar}
-        onRenameNoteColumn={renameNoteColumn}
       />
 
       <Section
@@ -71,26 +103,33 @@ export function Rechnungen() {
           <>
             <Num>{data.rows.length}</Num> Projekte · DE Σ {fmtEUR(totals.rgSummeDE) || '0'} € · PL Σ{' '}
             {fmtEUR(totals.rgSummePL) || '0'} €
+            {totals.erbrachteLeistung > 0 && (
+              <> · Erbr. Leistung {fmtEUR(totals.erbrachteLeistung)} €</>
+            )}
           </>
         }
         padded={false}
       >
         <div className="overflow-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-20 bg-muted/60">
-              <tr className="border-b text-xs font-medium text-muted-foreground">
-                <Th className="w-16 text-left">PL</Th>
-                <Th className="w-20 text-left">DE</Th>
-                <Th className="w-20 text-left">Proj. Nr.</Th>
-                <Th className="min-w-[240px] text-left">Projekte</Th>
-                <Th className="w-16 text-left">Lead</Th>
-                <Th className="w-20 text-center">HV</Th>
+          <table className="w-full border-collapse text-xs">
+            <thead className="sticky top-0 z-20 bg-muted/90 backdrop-blur">
+              <tr className="border-b font-medium text-muted-foreground">
+                <Th className="sticky left-0 z-30 w-[70px] bg-muted/90 text-left">Polen</Th>
+                <Th className="sticky left-[70px] z-30 w-[88px] bg-muted/90 text-left">DE</Th>
+                <Th className="sticky left-[158px] z-30 w-[88px] bg-muted/90 text-left">Proj. Nr.</Th>
+                <Th className="sticky left-[246px] z-30 min-w-[240px] bg-muted/90 text-left">
+                  Projekte
+                </Th>
+                <Th className="w-14 text-left">PL</Th>
+                <Th className="w-[88px] text-center">HV</Th>
                 {Array.from({ length: data.nachtragCount }).map((_, i) => (
-                  <Th key={`n${i}`} className="w-20 text-center">
+                  <Th key={`n${i}`} className="w-[88px] text-center">
                     N{String(i + 1).padStart(2, '0')}
                   </Th>
                 ))}
-                {data.showZeithonorar && <Th className="w-20 text-center">Zeithonorar</Th>}
+                {data.showZeithonorar && (
+                  <Th className="w-[96px] text-center">Zeithonorar</Th>
+                )}
                 {data.noteColumns.map((n) => (
                   <Th key={n.id} className="min-w-[160px] text-left">
                     <EditableColumnLabel
@@ -101,46 +140,61 @@ export function Rechnungen() {
                 ))}
                 <Th className="num w-28 text-right">Σ DE</Th>
                 <Th className="num w-28 text-right">Σ PL</Th>
-                <Th className="num w-28 text-right">Nachträge</Th>
+                <Th className="num w-28 text-right" title="Nachträge für erbrachte Leistung">
+                  Erbr. Leistung
+                </Th>
                 <Th className="w-8" />
               </tr>
             </thead>
             <tbody>
               {data.rows.map((row) => (
-                <tr key={row.id} className="group border-b last:border-b-0 hover:bg-accent/30">
-                  <td className="px-2 py-1">
-                    <PlBranchSelect
-                      value={row.plBranch}
-                      onChange={(v) => updateRow(row.id, { plBranch: v })}
-                    />
+                <tr
+                  key={row.id}
+                  className="group border-b last:border-b-0 hover:bg-accent/30"
+                >
+                  <td className="sticky left-0 z-10 bg-background px-1.5 py-0.5 group-hover:bg-accent/30">
+                    <ChipButton
+                      onClick={() =>
+                        updateRow(row.id, { plBranch: cycle(PL_BRANCH_STATUSES, row.plBranch) })
+                      }
+                      className={PL_BRANCH_CHIP[row.plBranch]}
+                      title="Klicken zum Wechseln"
+                    >
+                      {PL_BRANCH_LABELS[row.plBranch]}
+                    </ChipButton>
                   </td>
-                  <td className="px-2 py-1">
-                    <DeStatusSelect
-                      value={row.deStatus}
-                      onChange={(v) => updateRow(row.id, { deStatus: v })}
-                    />
+                  <td className="sticky left-[70px] z-10 bg-background px-1.5 py-0.5 group-hover:bg-accent/30">
+                    <ChipButton
+                      onClick={() =>
+                        updateRow(row.id, { deStatus: cycle(DE_CYCLE, row.deStatus) })
+                      }
+                      className={N_STATUS_CHIP[row.deStatus]}
+                      title="Klicken zum Wechseln"
+                    >
+                      {N_STATUS_SHORT[row.deStatus]}
+                    </ChipButton>
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="sticky left-[158px] z-10 bg-background px-1 py-0.5 group-hover:bg-accent/30">
                     <TextCell
                       value={row.projNr}
                       onChange={(v) => updateRow(row.id, { projNr: v })}
                       placeholder="24D001"
-                      className="font-mono text-xs"
+                      className="font-mono text-[11px]"
                     />
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="sticky left-[246px] z-10 bg-background px-1 py-0.5 group-hover:bg-accent/30">
                     <TextCell
                       value={row.projektname}
                       onChange={(v) => updateRow(row.id, { projektname: v })}
                       placeholder="Projektname"
                     />
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="px-1 py-0.5">
                     <TextCell
                       value={row.pl}
                       onChange={(v) => updateRow(row.id, { pl: v })}
                       placeholder="MuA"
-                      className="font-mono text-xs"
+                      className="font-mono text-[11px]"
                     />
                   </td>
                   <NEntryCell
@@ -163,7 +217,7 @@ export function Rechnungen() {
                     />
                   )}
                   {data.noteColumns.map((n) => (
-                    <td key={n.id} className="px-2 py-1 align-top">
+                    <td key={n.id} className="px-1 py-0.5 align-top">
                       <TextCell
                         value={row.notes[n.id] ?? ''}
                         onChange={(v) => updateNote(row.id, n.id, v)}
@@ -172,28 +226,28 @@ export function Rechnungen() {
                       />
                     </td>
                   ))}
-                  <td className="px-1 py-1">
+                  <td className="px-1 py-0.5">
                     <NumCell
                       value={row.rgSummeDE}
                       onChange={(v) => updateRow(row.id, { rgSummeDE: v })}
                       className="text-right"
                     />
                   </td>
-                  <td className="px-1 py-1">
+                  <td className="px-1 py-0.5">
                     <NumCell
                       value={row.rgSummePL}
                       onChange={(v) => updateRow(row.id, { rgSummePL: v })}
                       className="text-right"
                     />
                   </td>
-                  <td className="px-1 py-1">
+                  <td className="px-1 py-0.5">
                     <NumCell
                       value={row.nachtragErbracht}
                       onChange={(v) => updateRow(row.id, { nachtragErbracht: v })}
                       className="text-right"
                     />
                   </td>
-                  <td className="px-1 py-1 text-right">
+                  <td className="px-1 py-0.5 text-right">
                     <button
                       onClick={() => removeRow(row.id)}
                       className="rounded p-1 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
@@ -215,7 +269,7 @@ export function Rechnungen() {
                   </button>
                 </td>
               </tr>
-              <tr className="border-t-2 border-foreground/20 font-semibold">
+              <tr className="border-t-2 border-foreground/20 bg-muted/40 font-semibold">
                 <td
                   colSpan={summaryLabelSpan(data)}
                   className="px-2 py-2 text-right text-xs text-muted-foreground"
@@ -229,7 +283,7 @@ export function Rechnungen() {
                   {fmtEUR(totals.rgSummePL) || '—'} €
                 </td>
                 <td className="num px-2 py-2 text-right font-mono tabular-nums">
-                  {fmtEUR(totals.nachtragErbracht) || '—'} €
+                  {fmtEUR(totals.erbrachteLeistung) || '—'} €
                 </td>
                 <td />
               </tr>
@@ -242,64 +296,39 @@ export function Rechnungen() {
 }
 
 function computeTotals(data: Rechnungsplan | null) {
-  const acc = { rgSummeDE: 0, rgSummePL: 0, nachtragErbracht: 0 }
+  const acc = { rgSummeDE: 0, rgSummePL: 0, erbrachteLeistung: 0 }
   if (!data) return acc
   for (const r of data.rows) {
     acc.rgSummeDE += r.rgSummeDE ?? 0
     acc.rgSummePL += r.rgSummePL ?? 0
-    acc.nachtragErbracht += r.nachtragErbracht ?? 0
+    acc.erbrachteLeistung += r.nachtragErbracht ?? 0
   }
   return acc
 }
 
 function totalColSpan(data: Rechnungsplan): number {
-  // PL + DE + ProjNr + Projektname + Lead + HV + Nxx + (Zeithonorar?) + notes + 3 sums + delete
   return (
     5 + 1 + data.nachtragCount + (data.showZeithonorar ? 1 : 0) + data.noteColumns.length + 3 + 1
   )
 }
 
 function summaryLabelSpan(data: Rechnungsplan): number {
-  // Everything before the 3 sum columns.
   return totalColSpan(data) - 4
 }
 
-function MonthToolbar({
+function Toolbar({
   plan,
   onCopyPrevious,
   onChangeNachtragCount,
   onToggleZeithonorar,
-  onRenameNoteColumn: _onRenameNoteColumn,
 }: {
   plan: Rechnungsplan
   onCopyPrevious: () => void
   onChangeNachtragCount: (n: number) => void
   onToggleZeithonorar: (show: boolean) => void
-  onRenameNoteColumn: (id: string, label: string) => void
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card px-4 py-2 text-xs">
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2">
-          <span className="text-muted-foreground">Nachtrag-Spalten</span>
-          <input
-            type="number"
-            min={0}
-            max={20}
-            value={plan.nachtragCount}
-            onChange={(e) => onChangeNachtragCount(Number(e.target.value) || 0)}
-            className="num w-14 rounded border bg-background px-1.5 py-0.5 text-right font-mono tabular-nums"
-          />
-        </label>
-        <label className="flex cursor-pointer items-center gap-1.5">
-          <input
-            type="checkbox"
-            checked={plan.showZeithonorar}
-            onChange={(e) => onToggleZeithonorar(e.target.checked)}
-          />
-          <span>Zeithonorar-Spalte</span>
-        </label>
-      </div>
+    <div className="flex items-center justify-end gap-2">
       <button
         onClick={onCopyPrevious}
         className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -308,7 +337,67 @@ function MonthToolbar({
         <ArrowDownToLine className="h-3.5 w-3.5" />
         Vom Vormonat übernehmen
       </button>
+      <SettingsPopover
+        plan={plan}
+        onChangeNachtragCount={onChangeNachtragCount}
+        onToggleZeithonorar={onToggleZeithonorar}
+      />
     </div>
+  )
+}
+
+function SettingsPopover({
+  plan,
+  onChangeNachtragCount,
+  onToggleZeithonorar,
+}: {
+  plan: Rechnungsplan
+  onChangeNachtragCount: (n: number) => void
+  onToggleZeithonorar: (show: boolean) => void
+}) {
+  return (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <button
+          className="inline-flex items-center gap-1.5 rounded-md border bg-card p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          title="Monats-Einstellungen"
+        >
+          <SettingsIcon className="h-3.5 w-3.5" />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          sideOffset={6}
+          className="z-50 w-64 rounded-md border bg-card p-3 text-sm shadow-md focus:outline-none"
+        >
+          <div className="space-y-3">
+            <div className="text-xs font-semibold text-muted-foreground">
+              Monats-Einstellungen
+            </div>
+            <label className="flex items-center justify-between gap-3 text-xs">
+              <span className="text-muted-foreground">Anzahl Nachtrag-Spalten</span>
+              <input
+                type="number"
+                min={0}
+                max={20}
+                value={plan.nachtragCount}
+                onChange={(e) => onChangeNachtragCount(Number(e.target.value) || 0)}
+                className="num w-16 rounded border bg-background px-1.5 py-0.5 text-right font-mono tabular-nums"
+              />
+            </label>
+            <label className="flex cursor-pointer items-center justify-between gap-3 text-xs">
+              <span className="text-muted-foreground">Zeithonorar-Spalte anzeigen</span>
+              <input
+                type="checkbox"
+                checked={plan.showZeithonorar}
+                onChange={(e) => onToggleZeithonorar(e.target.checked)}
+              />
+            </label>
+          </div>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 
@@ -338,53 +427,28 @@ function EditableColumnLabel({
   )
 }
 
-function PlBranchSelect({
-  value,
-  onChange,
+function ChipButton({
+  onClick,
+  className,
+  title,
+  children,
 }: {
-  value: PlBranchStatus
-  onChange: (v: PlBranchStatus) => void
+  onClick: () => void
+  className?: string
+  title?: string
+  children: React.ReactNode
 }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value as PlBranchStatus)}
+    <button
+      onClick={onClick}
+      title={title}
       className={cn(
-        'w-full rounded px-1.5 py-1 text-[11px] font-medium outline-none',
-        PL_BRANCH_CHIP[value],
+        'inline-flex h-6 min-w-full items-center justify-center rounded border px-1.5 text-[11px] font-medium transition-colors',
+        className,
       )}
     >
-      {PL_BRANCH_STATUSES.map((s) => (
-        <option key={s} value={s}>
-          {PL_BRANCH_LABELS[s]}
-        </option>
-      ))}
-    </select>
-  )
-}
-
-function DeStatusSelect({
-  value,
-  onChange,
-}: {
-  value: NStatus
-  onChange: (v: NStatus) => void
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value as NStatus)}
-      className={cn(
-        'w-full rounded px-1.5 py-1 text-[11px] font-medium outline-none',
-        N_STATUS_CHIP[value],
-      )}
-    >
-      {DE_STATUSES.map((s) => (
-        <option key={s} value={s}>
-          {DE_STATUS_SHORT[s]}
-        </option>
-      ))}
-    </select>
+      {children}
+    </button>
   )
 }
 
@@ -395,29 +459,21 @@ function NEntryCell({
   entry: NEntry
   onChange: (patch: Partial<NEntry>) => void
 }) {
+  const showDate = entry.status === 'rgGestellt'
   return (
-    <td className="px-1 py-1 align-top">
-      <div className="flex flex-col gap-0.5">
-        <select
-          value={entry.status}
-          onChange={(e) => onChange({ status: e.target.value as NStatus })}
-          className={cn(
-            'w-full rounded border px-1.5 py-0.5 text-[11px] font-medium outline-none',
-            N_STATUS_CHIP[entry.status],
-          )}
+    <td className="px-1 py-0.5 align-top">
+      <div className="flex items-center gap-1">
+        <ChipButton
+          onClick={() => onChange({ status: cycle(N_CYCLE, entry.status) })}
+          className={N_STATUS_CHIP[entry.status]}
+          title={`${N_STATUS_LABELS[entry.status]} · klicken zum Wechseln`}
         >
-          {N_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {N_STATUS_LABELS[s]}
-            </option>
-          ))}
-        </select>
-        {entry.status === 'rgGestellt' && (
-          <input
-            type="date"
-            value={entry.datum ?? ''}
-            onChange={(e) => onChange({ datum: e.target.value || undefined })}
-            className="w-full rounded border bg-background px-1 py-0.5 font-mono text-[10px] tabular-nums outline-none focus:ring-1 focus:ring-ring"
+          {N_STATUS_SHORT[entry.status]}
+        </ChipButton>
+        {showDate && (
+          <DatePopover
+            value={entry.datum}
+            onChange={(v) => onChange({ datum: v || undefined })}
           />
         )}
       </div>
@@ -425,6 +481,59 @@ function NEntryCell({
   )
 }
 
-function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <th className={cn('px-2 py-1.5 text-xs font-medium', className)}>{children}</th>
+function DatePopover({
+  value,
+  onChange,
+}: {
+  value?: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <button
+          className={cn(
+            'inline-flex h-6 items-center gap-1 rounded border px-1.5 font-mono text-[10px] tabular-nums',
+            value
+              ? 'border-emerald-500/30 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-200'
+              : 'border-dashed text-muted-foreground hover:bg-accent',
+          )}
+          title={value ? 'Datum ändern' : 'Datum hinzufügen'}
+        >
+          <Calendar className="h-3 w-3" />
+          {value ? fmtShortDate(value) : '—'}
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="start"
+          sideOffset={4}
+          className="z-50 rounded-md border bg-card p-2 shadow-md focus:outline-none"
+        >
+          <input
+            type="date"
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="rounded border bg-background px-2 py-1 font-mono text-xs tabular-nums outline-none focus:ring-1 focus:ring-ring"
+          />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+}
+
+function Th({
+  children,
+  className,
+  title,
+}: {
+  children?: React.ReactNode
+  className?: string
+  title?: string
+}) {
+  return (
+    <th title={title} className={cn('px-2 py-1.5 text-[11px] font-medium', className)}>
+      {children}
+    </th>
+  )
 }
