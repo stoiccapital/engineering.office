@@ -119,14 +119,14 @@ export function Rechnungen() {
                 <Th className="w-[120px] text-left">Proj. Nr.</Th>
                 <Th className="min-w-[320px] text-left">Projekte</Th>
                 <Th className="w-[80px] text-left">PL</Th>
-                <Th className="w-[112px] text-center">HV</Th>
+                <Th className="w-[172px] text-center">HV</Th>
                 {Array.from({ length: data.nachtragCount }).map((_, i) => (
-                  <Th key={`n${i}`} className="w-[112px] text-center">
+                  <Th key={`n${i}`} className="w-[172px] text-center">
                     N{String(i + 1).padStart(2, '0')}
                   </Th>
                 ))}
                 {data.showZeithonorar && (
-                  <Th className="w-[120px] text-center">Zeithonorar</Th>
+                  <Th className="w-[180px] text-center">Zeithonorar</Th>
                 )}
                 {data.noteColumns.map((n) => (
                   <Th key={n.id} className="min-w-[220px] text-left">
@@ -444,7 +444,7 @@ function ChipButton({
       onClick={onClick}
       title={title}
       className={cn(
-        'inline-flex h-6 min-w-full items-center justify-center rounded border px-1.5 text-[11px] font-medium transition-colors',
+        'inline-flex h-6 w-full items-center justify-center rounded border px-1.5 text-[11px] font-medium transition-colors',
         className,
       )}
     >
@@ -464,13 +464,15 @@ function NEntryCell({
   return (
     <td className="px-1 py-0.5 align-top">
       <div className="flex items-center gap-1">
-        <ChipButton
-          onClick={() => onChange({ status: cycle(N_CYCLE, entry.status) })}
-          className={N_STATUS_CHIP[entry.status]}
-          title={`${N_STATUS_LABELS[entry.status]} · klicken zum Wechseln`}
-        >
-          {N_STATUS_SHORT[entry.status]}
-        </ChipButton>
+        <div className="min-w-0 flex-1">
+          <ChipButton
+            onClick={() => onChange({ status: cycle(N_CYCLE, entry.status) })}
+            className={N_STATUS_CHIP[entry.status]}
+            title={`${N_STATUS_LABELS[entry.status]} · klicken zum Wechseln`}
+          >
+            {N_STATUS_SHORT[entry.status]}
+          </ChipButton>
+        </div>
         {showDate && (
           <DatePopover
             value={entry.datum}
