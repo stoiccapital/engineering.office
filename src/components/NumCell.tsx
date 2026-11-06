@@ -26,6 +26,8 @@ export function NumCell({ value, onChange, readOnly, pct, decimals, className, p
   }, [display, editing])
 
   if (readOnly || !onChange) {
+    // No chrome, no hover: derived / computed values look flat so the eye
+    // learns to skip them while scanning for inputs.
     return (
       <div
         className={cn(
@@ -41,7 +43,7 @@ export function NumCell({ value, onChange, readOnly, pct, decimals, className, p
   return (
     <input
       className={cn(
-        'num w-full px-2 py-1.5 text-sm bg-transparent outline-none focus:bg-accent/60 rounded-sm',
+        'num w-full px-2 py-1.5 text-sm bg-transparent outline-none rounded-sm transition-colors hover:bg-accent/40 focus:bg-accent/60',
         className,
       )}
       value={editing ? draft : display}
