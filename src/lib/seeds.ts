@@ -1,7 +1,7 @@
 import type { Umsatzkontrolle, Ziele, ZielePerson } from '@/types'
 
 function person(name: string, fte: number, role?: ZielePerson['role']): ZielePerson {
-  return { id: crypto.randomUUID(), name, fte, role }
+  return { id: crypto.randomUUID(), name, fte: { h1: fte, h2: fte }, role }
 }
 
 export function defaultZiele(year: number): Ziele {

@@ -118,11 +118,24 @@ export function migratePlan(input: QuartalPlan | LegacyPlan | null | undefined):
 
 export type ZielePersonRole = 'team' | 'ausschreibung' | 'verwaltung'
 
+// FTE is tracked per half-year so mid-year hires or part-time schedule changes
+// can be reflected without losing precision. A legacy flat number migrates to
+// { h1: value, h2: value }.
+export type PersonFTE = {
+  h1: number
+  h2: number
+}
+
 export type ZielePerson = {
   id: string
   name: string
-  fte: number
+  fte: PersonFTE
   role?: ZielePersonRole // defaults to 'team'
+}
+
+export function personFTE(p: ZielePerson, half?: 'h1' | 'h2'): number {
+  if (half) return p.fte[half] ?? 0
+  return ((p.fte.h1 ?? 0) + (p.fte.h2 ?? 0)) / 2
 }
 
 export type ZieleTeam = {
@@ -161,11 +174,24 @@ export type Ziele = {
   lockedBy?: string // role name for the banner
 }
 
-// Legacy shape stored before the H1/H2 split landed.
-type LegacyZieleBranch = Omit<ZieleBranch, 'umsatzProFTE'> & {
+// Legacy shapes stored before successive migrations landed.
+type LegacyZielePerson = Omit<ZielePerson, 'fte'> & {
+  fte: number | PersonFTE
+}
+type LegacyZieleTeam = Omit<ZieleTeam, 'people'> & {
+  people: LegacyZielePerson[]
+}
+type LegacyZieleBranch = Omit<ZieleBranch, 'umsatzProFTE' | 'teams'> & {
   umsatzProFTE: number | UmsatzProFTE
+  teams: LegacyZieleTeam[]
 }
 type LegacyZiele = Omit<Ziele, 'branches'> & { branches: LegacyZieleBranch[] }
+
+function migratePersonFTE(fte: number | PersonFTE | undefined): PersonFTE {
+  if (fte === undefined || fte === null) return { h1: 0, h2: 0 }
+  if (typeof fte === 'number') return { h1: fte, h2: fte }
+  return { h1: fte.h1 ?? 0, h2: fte.h2 ?? 0 }
+}
 
 export function migrateZiele(input: Ziele | LegacyZiele | null | undefined): Ziele | null {
   if (!input) return null
@@ -173,7 +199,11 @@ export function migrateZiele(input: Ziele | LegacyZiele | null | undefined): Zie
     const u = b.umsatzProFTE
     const umsatzProFTE: UmsatzProFTE =
       typeof u === 'number' ? { h1: u / 2, h2: u / 2 } : { h1: u.h1 ?? 0, h2: u.h2 ?? 0 }
-    return { ...b, umsatzProFTE }
+    const teams: ZieleTeam[] = b.teams.map((t) => ({
+      ...t,
+      people: t.people.map((p) => ({ ...p, fte: migratePersonFTE(p.fte) })),
+    }))
+    return { ...b, umsatzProFTE, teams }
   })
   return { ...input, branches }
 }

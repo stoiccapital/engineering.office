@@ -64,14 +64,14 @@ export function cumulativeMonthValues(values: MonthValues): MonthValues {
   return out
 }
 
-// Monthly target from Ziele: H1 months (Jan–Jun) use the H1 rate, H2 months
-// (Jul–Dez) use the H2 rate. Effective FTE now includes the team's share of
-// Verwaltung + Ausschreibung via its Teilungsschlüssel, so Zielkontrolle
-// mirrors the Ziele formula exactly.
+// Monthly target from Ziele: H1 months (Jan–Jun) use the H1 rate × H1 FTE,
+// H2 months (Jul–Dez) use the H2 rate × H2 FTE. Effective FTE includes the
+// team's share of Verwaltung + Ausschreibung via its Teilungsschlüssel, so
+// Zielkontrolle mirrors the Ziele formula exactly.
 export function monthlyZielFromZiele(team: ZieleTeam, branch: ZieleBranch): MonthValues {
-  const fte = computeTeamTargets(team, branch).fte
-  const h1Monthly = (fte * (branch.umsatzProFTE.h1 ?? 0)) / 6
-  const h2Monthly = (fte * (branch.umsatzProFTE.h2 ?? 0)) / 6
+  const targets = computeTeamTargets(team, branch)
+  const h1Monthly = targets.umsatz.h1.monat
+  const h2Monthly = targets.umsatz.h2.monat
   if (h1Monthly === 0 && h2Monthly === 0) return emptyMonthValues()
   return Array.from({ length: 12 }, (_, i) => (i < 6 ? h1Monthly : h2Monthly))
 }

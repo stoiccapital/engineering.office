@@ -15,6 +15,7 @@ import {
   useZiele,
   type HalbjahrTargets,
   type HalbjahrView,
+  type HalfSplit,
   type TeamTargets,
 } from '@/ziele-store'
 import { useAccess } from '@/access-store'
@@ -132,6 +133,7 @@ function LockBar({
 
 function DashboardSection() {
   const ziele = useZiele((s) => s.ziele)
+  const halbjahr = useZiele((s) => s.halbjahr)
   if (!ziele) return null
   const locked = !!ziele.locked
   return (
@@ -142,7 +144,7 @@ function DashboardSection() {
     >
       <div className="grid gap-px bg-border md:grid-cols-2">
         {ziele.branches.map((b) => (
-          <BranchDashboard key={b.id} branch={b} locked={locked} />
+          <BranchDashboard key={b.id} branch={b} locked={locked} halbjahr={halbjahr} />
         ))}
       </div>
     </Section>
@@ -162,38 +164,59 @@ type DashboardRow = {
 function BranchDashboard({
   branch,
   locked,
+  halbjahr,
 }: {
   branch: ZieleBranch
   locked: boolean
+  halbjahr: HalbjahrView
 }) {
   const updateTeilungsschluessel = useZiele((s) => s.updateTeilungsschluessel)
 
-  const { rows, verwaltungTotal, ausschreibungTotal, revenueTotal, shareSum } = useMemo(() => {
-    const alloc = computeBranchAllocations(branch)
-    const rs: DashboardRow[] = branch.teams
-      .map((t) => {
-        const revFTE = teamRevenueFTE(t)
-        const share = teamTeilungsschluessel(t, alloc)
-        return {
-          teamId: t.id,
-          teamName: t.name || 'Unbenannt',
-          revenueFTE: revFTE,
-          share,
-          isAuto: t.teilungsschluessel === undefined,
-          verwaltungAllocated: alloc.verwaltung * share,
-          ausschreibungAllocated: alloc.ausschreibung * share,
-        }
-      })
-      .filter((r) => r.revenueFTE > 0)
-    const sum = rs.reduce((s, r) => s + r.share, 0)
-    return {
-      rows: rs,
-      verwaltungTotal: alloc.verwaltung,
-      ausschreibungTotal: alloc.ausschreibung,
-      revenueTotal: alloc.operative,
-      shareSum: sum,
-    }
-  }, [branch])
+  const { rows, verwaltungTotal, ausschreibungTotal, revenueTotal, shareSum, halfLabel } =
+    useMemo(() => {
+      const alloc = computeBranchAllocations(branch)
+      // Pick which pool to display: filter respects Halbjahr view; "Jahr"
+      // falls back to annual average so the dashboard stays scalar.
+      const pickBranch = (annual: number, split: HalfSplit): number => {
+        if (halbjahr === 'h1') return split.h1
+        if (halbjahr === 'h2') return split.h2
+        return annual
+      }
+      const verwaltung = pickBranch(alloc.verwaltung, alloc.verwaltungH)
+      const ausschreibung = pickBranch(alloc.ausschreibung, alloc.ausschreibungH)
+      const revenue = pickBranch(alloc.operative, alloc.operativeH)
+      const halfLabel =
+        halbjahr === 'h1' ? ' H1' : halbjahr === 'h2' ? ' H2' : ''
+      const rs: DashboardRow[] = branch.teams
+        .map((t) => {
+          const revFTE =
+            halbjahr === 'h1'
+              ? teamRevenueFTE(t, 'h1')
+              : halbjahr === 'h2'
+                ? teamRevenueFTE(t, 'h2')
+                : teamRevenueFTE(t)
+          const share = teamTeilungsschluessel(t, alloc)
+          return {
+            teamId: t.id,
+            teamName: t.name || 'Unbenannt',
+            revenueFTE: revFTE,
+            share,
+            isAuto: t.teilungsschluessel === undefined,
+            verwaltungAllocated: verwaltung * share,
+            ausschreibungAllocated: ausschreibung * share,
+          }
+        })
+        .filter((r) => r.revenueFTE > 0)
+      const sum = rs.reduce((s, r) => s + r.share, 0)
+      return {
+        rows: rs,
+        verwaltungTotal: verwaltung,
+        ausschreibungTotal: ausschreibung,
+        revenueTotal: revenue,
+        shareSum: sum,
+        halfLabel,
+      }
+    }, [branch, halbjahr])
 
   const sumOk = Math.abs(shareSum - 1) < 0.001
 
@@ -202,7 +225,7 @@ function BranchDashboard({
       <div className="mb-3 flex items-baseline justify-between">
         <div className="text-sm font-semibold">{branch.label}</div>
         <div className="font-mono text-[11px] text-muted-foreground">
-          {fmtDecimal(revenueTotal, 2)} FTE Umsatzteams
+          {fmtDecimal(revenueTotal, 2)} FTE Umsatzteams{halfLabel}
         </div>
       </div>
       <div className="mb-3 grid grid-cols-2 gap-2 rounded-md border bg-muted/30 p-2 text-xs">
@@ -452,8 +475,15 @@ function TeamBlock({
   const addPerson = useZiele((s) => s.addPerson)
   const removePerson = useZiele((s) => s.removePerson)
   const updatePerson = useZiele((s) => s.updatePerson)
+  const updatePersonFTE = useZiele((s) => s.updatePersonFTE)
 
   const targets = useMemo(() => computeTeamTargets(team, branch), [team, branch])
+
+  // FTE columns follow the Halbjahr filter: H1 → only H1 column; H2 → only H2;
+  // Jahr → both columns side by side so the PM can tune mid-year schedule.
+  const showH1 = halbjahr !== 'h2'
+  const showH2 = halbjahr !== 'h1'
+  const colSpan = 2 + (showH1 ? 1 : 0) + (showH2 ? 1 : 0) + 1
 
   return (
     <div className="rounded-md border bg-card">
@@ -471,7 +501,11 @@ function TeamBlock({
             )}
           />
           <span className="font-mono text-xs text-muted-foreground">
-            {fmtDecimal(teamFTE(team), 2)} FTE
+            {halbjahr === 'h1'
+              ? `${fmtDecimal(teamFTE(team, 'h1'), 2)} FTE H1`
+              : halbjahr === 'h2'
+                ? `${fmtDecimal(teamFTE(team, 'h2'), 2)} FTE H2`
+                : `${fmtDecimal(teamFTE(team, 'h1'), 2)} / ${fmtDecimal(teamFTE(team, 'h2'), 2)} FTE H1/H2`}
           </span>
         </div>
         {!locked && (
@@ -494,9 +528,16 @@ function TeamBlock({
             <th className="w-28 px-2 py-1.5 text-left text-xs font-medium text-muted-foreground">
               Rolle
             </th>
-            <th className="num w-24 px-2 py-1.5 text-right text-xs font-medium text-muted-foreground">
-              FTE
-            </th>
+            {showH1 && (
+              <th className="num w-24 px-2 py-1.5 text-right text-xs font-medium text-muted-foreground">
+                FTE H1
+              </th>
+            )}
+            {showH2 && (
+              <th className="num w-24 px-2 py-1.5 text-right text-xs font-medium text-muted-foreground">
+                FTE H2
+              </th>
+            )}
             <th className="w-8" />
           </tr>
         </thead>
@@ -530,15 +571,28 @@ function TeamBlock({
                   </select>
                 )}
               </td>
-              <td>
-                <NumCell
-                  value={p.fte}
-                  readOnly={locked}
-                  onChange={(v) => updatePerson(branch.id, team.id, p.id, { fte: v ?? 0 })}
-                  decimals={2}
-                  className="text-right"
-                />
-              </td>
+              {showH1 && (
+                <td>
+                  <NumCell
+                    value={p.fte.h1}
+                    readOnly={locked}
+                    onChange={(v) => updatePersonFTE(branch.id, team.id, p.id, 'h1', v ?? 0)}
+                    decimals={2}
+                    className="text-right"
+                  />
+                </td>
+              )}
+              {showH2 && (
+                <td>
+                  <NumCell
+                    value={p.fte.h2}
+                    readOnly={locked}
+                    onChange={(v) => updatePersonFTE(branch.id, team.id, p.id, 'h2', v ?? 0)}
+                    decimals={2}
+                    className="text-right"
+                  />
+                </td>
+              )}
               <td className="w-8 pr-1">
                 {!locked && (
                   <button
@@ -554,7 +608,7 @@ function TeamBlock({
           ))}
           {!locked && (
             <tr>
-              <td colSpan={4} className="p-0">
+              <td colSpan={colSpan} className="p-0">
                 <button
                   onClick={() => addPerson(branch.id, team.id)}
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -568,7 +622,7 @@ function TeamBlock({
         </tbody>
       </table>
 
-      {targets.operativeFTE > 0 ? (
+      {targets.operativeFTE.h1 + targets.operativeFTE.h2 > 0 ? (
         <TeamTargetsGrid targets={targets} halbjahr={halbjahr} />
       ) : (
         <div className="border-t bg-muted/20 px-4 py-3 text-[11px] text-muted-foreground">
@@ -589,17 +643,56 @@ function TeamTargetsGrid({
 }) {
   return (
     <>
-      <div className="flex items-center justify-between border-t bg-muted/10 px-4 py-1.5 font-mono text-[10px] text-muted-foreground">
-        <span>
-          <span className="font-semibold text-foreground">{fmtDecimal(targets.fte, 2)}</span>{' '}
-          Eff. FTE
-        </span>
-        <span>
-          {fmtDecimal(targets.operativeFTE, 2)} operativ ·{' '}
-          <span className="text-sky-700 dark:text-sky-300">
-            + {fmtDecimal(targets.overheadFTE, 2)} Overhead-Allokation
-          </span>
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t bg-muted/10 px-4 py-1.5 font-mono text-[10px] text-muted-foreground">
+        {halbjahr === 'all' ? (
+          <>
+            <span>
+              H1{' '}
+              <span className="font-semibold text-foreground">
+                {fmtDecimal(targets.effectiveFTE.h1, 2)}
+              </span>
+              {' · '}H2{' '}
+              <span className="font-semibold text-foreground">
+                {fmtDecimal(targets.effectiveFTE.h2, 2)}
+              </span>{' '}
+              Eff. FTE
+            </span>
+            <span>
+              Operativ {fmtDecimal(targets.operativeFTE.h1, 2)} / {fmtDecimal(targets.operativeFTE.h2, 2)} ·{' '}
+              <span className="text-sky-700 dark:text-sky-300">
+                + Overhead {fmtDecimal(targets.overheadFTE.h1, 2)} /{' '}
+                {fmtDecimal(targets.overheadFTE.h2, 2)}
+              </span>
+            </span>
+          </>
+        ) : (
+          <>
+            <span>
+              <span className="font-semibold text-foreground">
+                {fmtDecimal(
+                  halbjahr === 'h1' ? targets.effectiveFTE.h1 : targets.effectiveFTE.h2,
+                  2,
+                )}
+              </span>{' '}
+              Eff. FTE {halbjahr === 'h1' ? 'H1' : 'H2'}
+            </span>
+            <span>
+              {fmtDecimal(
+                halbjahr === 'h1' ? targets.operativeFTE.h1 : targets.operativeFTE.h2,
+                2,
+              )}{' '}
+              operativ ·{' '}
+              <span className="text-sky-700 dark:text-sky-300">
+                +{' '}
+                {fmtDecimal(
+                  halbjahr === 'h1' ? targets.overheadFTE.h1 : targets.overheadFTE.h2,
+                  2,
+                )}{' '}
+                Overhead-Allokation
+              </span>
+            </span>
+          </>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-px border-t bg-border">
         <TargetHalfGroup
