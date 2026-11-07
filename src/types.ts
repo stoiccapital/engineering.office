@@ -129,6 +129,11 @@ export type ZieleTeam = {
   id: string
   name: string
   people: ZielePerson[]
+  // Share of Verwaltung + Ausschreibung FTE this team carries (0..1). Undefined
+  // means "use the auto default = this team's operative FTE / branch operative
+  // FTE". Sum across operative teams of a branch should equal 1 to fully
+  // allocate overhead.
+  teilungsschluessel?: number
 }
 
 // Half-year split: PMs often expect different revenue-per-FTE in H1 vs H2.

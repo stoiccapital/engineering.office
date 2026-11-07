@@ -39,6 +39,12 @@ type State = {
     personId: string,
     patch: Partial<Pick<ZielePerson, 'name' | 'fte' | 'role'>>,
   ) => void
+  // null = clear override (fall back to auto FTE-share).
+  updateTeilungsschluessel: (
+    branchId: ZieleBranch['id'],
+    teamId: string,
+    value: number | null,
+  ) => void
   lock: (by: string) => void
   unlock: () => void
 }
@@ -188,6 +194,20 @@ export const useZiele = create<State>()((set, get) => ({
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
+  updateTeilungsschluessel: (branchId, teamId, value) => {
+    const s = get()
+    if (!s.ziele) return
+    set({
+      ziele: mapBranch(s.ziele, branchId, (b) =>
+        mapTeam(b, teamId, (t) => ({
+          ...t,
+          teilungsschluessel: value === null ? undefined : value,
+        })),
+      ),
+    })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
   lock: (by) => {
     const s = get()
     if (!s.ziele) return
@@ -246,22 +266,65 @@ export type HalbjahrTargets = {
 }
 
 export type TeamTargets = {
+  // Effective FTE used for the target: operative FTE + overhead allocation.
   fte: number
+  // Team's own operative FTE (sum of role=team people).
+  operativeFTE: number
+  // Allocated share of Verwaltung + Ausschreibung FTE via Teilungsschlüssel.
+  overheadFTE: number
   umsatz: { h1: HalbjahrTargets; h2: HalbjahrTargets; jahr: number }
   akquise: { h1: HalbjahrTargets; h2: HalbjahrTargets; jahr: number }
+}
+
+export type BranchAllocations = {
+  operative: number
+  verwaltung: number
+  ausschreibung: number
 }
 
 function halbjahr(total: number): HalbjahrTargets {
   return { halbjahr: total, quartal: total / 2, monat: total / 6 }
 }
 
+// Sum operative + overhead FTE across the branch. Overhead teams (where
+// everyone is Verwaltung/Ausschreibung) contribute to the pool but don't
+// receive their own targets.
+export function computeBranchAllocations(branch: ZieleBranch): BranchAllocations {
+  let operative = 0
+  let verwaltung = 0
+  let ausschreibung = 0
+  for (const t of branch.teams) {
+    operative += teamRevenueFTE(t)
+    verwaltung += teamOverheadFTE(t, 'verwaltung')
+    ausschreibung += teamOverheadFTE(t, 'ausschreibung')
+  }
+  return { operative, verwaltung, ausschreibung }
+}
+
+// Effective Teilungsschlüssel for a team: user override if set, else the
+// auto default = this team's operative share of the branch operative pool.
+export function teamTeilungsschluessel(
+  team: ZieleTeam,
+  allocations: BranchAllocations,
+): number {
+  if (team.teilungsschluessel !== undefined) return team.teilungsschluessel
+  if (allocations.operative <= 0) return 0
+  return teamRevenueFTE(team) / allocations.operative
+}
+
 export function computeTeamTargets(team: ZieleTeam, branch: ZieleBranch): TeamTargets {
-  const fte = teamFTE(team)
+  const alloc = computeBranchAllocations(branch)
+  const operativeFTE = teamRevenueFTE(team)
+  const ts = teamTeilungsschluessel(team, alloc)
+  const overheadFTE = (alloc.verwaltung + alloc.ausschreibung) * ts
+  const fte = operativeFTE + overheadFTE
   const quot = Math.max(0.0001, 1 - branch.ruhendePct)
   const umsatzH1 = fte * (branch.umsatzProFTE.h1 ?? 0)
   const umsatzH2 = fte * (branch.umsatzProFTE.h2 ?? 0)
   return {
     fte,
+    operativeFTE,
+    overheadFTE,
     umsatz: {
       h1: halbjahr(umsatzH1),
       h2: halbjahr(umsatzH2),
@@ -279,6 +342,8 @@ export function emptyTeamTargets(): TeamTargets {
   const z = halbjahr(0)
   return {
     fte: 0,
+    operativeFTE: 0,
+    overheadFTE: 0,
     umsatz: { h1: { ...z }, h2: { ...z }, jahr: 0 },
     akquise: { h1: { ...z }, h2: { ...z }, jahr: 0 },
   }
@@ -292,6 +357,8 @@ export function addTeamTargets(a: TeamTargets, b: TeamTargets): TeamTargets {
   })
   return {
     fte: a.fte + b.fte,
+    operativeFTE: a.operativeFTE + b.operativeFTE,
+    overheadFTE: a.overheadFTE + b.overheadFTE,
     umsatz: {
       h1: addH(a.umsatz.h1, b.umsatz.h1),
       h2: addH(a.umsatz.h2, b.umsatz.h2),

@@ -6,11 +6,12 @@ import { TextCell } from './TextCell'
 import { LoadingCard } from '@/components/ui/loading-card'
 import {
   addTeamTargets,
+  computeBranchAllocations,
   computeTeamTargets,
   emptyTeamTargets,
   teamFTE,
-  teamOverheadFTE,
   teamRevenueFTE,
+  teamTeilungsschluessel,
   useZiele,
   type HalbjahrTargets,
   type HalbjahrView,
@@ -132,11 +133,16 @@ function LockBar({
 function DashboardSection() {
   const ziele = useZiele((s) => s.ziele)
   if (!ziele) return null
+  const locked = !!ziele.locked
   return (
-    <Section title="Dashboard" subtitle="Teilungsschlüssel · Verwaltung und Ausschreibung" padded={false}>
+    <Section
+      title="Dashboard"
+      subtitle="Teilungsschlüssel · Verwaltung und Ausschreibung"
+      padded={false}
+    >
       <div className="grid gap-px bg-border md:grid-cols-2">
         {ziele.branches.map((b) => (
-          <BranchDashboard key={b.id} branch={b} />
+          <BranchDashboard key={b.id} branch={b} locked={locked} />
         ))}
       </div>
     </Section>
@@ -147,37 +153,49 @@ type DashboardRow = {
   teamId: string
   teamName: string
   revenueFTE: number
-  share: number // 0..1
+  share: number // 0..1 — effective Teilungsschlüssel (manual override or auto)
+  isAuto: boolean
   verwaltungAllocated: number
   ausschreibungAllocated: number
 }
 
-function BranchDashboard({ branch }: { branch: ZieleBranch }) {
-  const { rows, verwaltungTotal, ausschreibungTotal, revenueTotal } = useMemo(() => {
-    const revTotal = branch.teams.reduce((s, t) => s + teamRevenueFTE(t), 0)
-    const vTotal = branch.teams.reduce((s, t) => s + teamOverheadFTE(t, 'verwaltung'), 0)
-    const aTotal = branch.teams.reduce((s, t) => s + teamOverheadFTE(t, 'ausschreibung'), 0)
+function BranchDashboard({
+  branch,
+  locked,
+}: {
+  branch: ZieleBranch
+  locked: boolean
+}) {
+  const updateTeilungsschluessel = useZiele((s) => s.updateTeilungsschluessel)
+
+  const { rows, verwaltungTotal, ausschreibungTotal, revenueTotal, shareSum } = useMemo(() => {
+    const alloc = computeBranchAllocations(branch)
     const rs: DashboardRow[] = branch.teams
       .map((t) => {
         const revFTE = teamRevenueFTE(t)
-        const share = revTotal > 0 ? revFTE / revTotal : 0
+        const share = teamTeilungsschluessel(t, alloc)
         return {
           teamId: t.id,
           teamName: t.name || 'Unbenannt',
           revenueFTE: revFTE,
           share,
-          verwaltungAllocated: vTotal * share,
-          ausschreibungAllocated: aTotal * share,
+          isAuto: t.teilungsschluessel === undefined,
+          verwaltungAllocated: alloc.verwaltung * share,
+          ausschreibungAllocated: alloc.ausschreibung * share,
         }
       })
       .filter((r) => r.revenueFTE > 0)
+    const sum = rs.reduce((s, r) => s + r.share, 0)
     return {
       rows: rs,
-      verwaltungTotal: vTotal,
-      ausschreibungTotal: aTotal,
-      revenueTotal: revTotal,
+      verwaltungTotal: alloc.verwaltung,
+      ausschreibungTotal: alloc.ausschreibung,
+      revenueTotal: alloc.operative,
+      shareSum: sum,
     }
   }, [branch])
+
+  const sumOk = Math.abs(shareSum - 1) < 0.001
 
   return (
     <div className="bg-card p-4">
@@ -205,7 +223,7 @@ function BranchDashboard({ branch }: { branch: ZieleBranch }) {
               <th className="num px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">
                 FTE
               </th>
-              <th className="num px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">
+              <th className="num w-28 px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">
                 Schlüssel
               </th>
               <th className="num px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">
@@ -223,8 +241,26 @@ function BranchDashboard({ branch }: { branch: ZieleBranch }) {
                 <td className="num px-2 py-1.5 text-right font-mono tabular-nums">
                   {fmtDecimal(r.revenueFTE, 2)}
                 </td>
-                <td className="num px-2 py-1.5 text-right font-mono tabular-nums font-semibold">
-                  {fmtPct(r.share)}
+                <td className="num px-1 py-1 text-right">
+                  {locked ? (
+                    <div className="num px-2 py-1 text-right text-sm text-muted-foreground">
+                      {fmtPct(r.share)}
+                      {r.isAuto && <span className="ml-1 text-[9px]">auto</span>}
+                    </div>
+                  ) : (
+                    <NumCell
+                      value={r.isAuto ? null : r.share}
+                      onChange={(v) =>
+                        updateTeilungsschluessel(branch.id, r.teamId, v)
+                      }
+                      pct
+                      placeholder={fmtPct(r.share)}
+                      className={cn(
+                        'text-right font-semibold',
+                        r.isAuto && 'text-muted-foreground',
+                      )}
+                    />
+                  )}
                 </td>
                 <td className="num px-2 py-1.5 text-right font-mono tabular-nums text-muted-foreground">
                   {fmtDecimal(r.verwaltungAllocated, 2)}
@@ -234,6 +270,26 @@ function BranchDashboard({ branch }: { branch: ZieleBranch }) {
                 </td>
               </tr>
             ))}
+            <tr className="border-t-2 border-foreground/20 font-semibold">
+              <td colSpan={2} className="px-2 py-1.5 text-right text-[11px] text-muted-foreground">
+                Σ Schlüssel
+              </td>
+              <td
+                className={cn(
+                  'num px-2 py-1.5 text-right font-mono tabular-nums',
+                  !sumOk && 'text-destructive',
+                )}
+                title={sumOk ? undefined : 'Sollte 100 % sein, sonst wird Overhead ungleich verteilt.'}
+              >
+                {fmtPct(shareSum)}
+              </td>
+              <td className="num px-2 py-1.5 text-right font-mono tabular-nums">
+                {fmtDecimal(verwaltungTotal * shareSum, 2)}
+              </td>
+              <td className="num px-2 py-1.5 text-right font-mono tabular-nums">
+                {fmtDecimal(ausschreibungTotal * shareSum, 2)}
+              </td>
+            </tr>
           </tbody>
         </table>
       )}
@@ -415,7 +471,7 @@ function TeamBlock({
             )}
           />
           <span className="font-mono text-xs text-muted-foreground">
-            {fmtDecimal(targets.fte, 2)} FTE
+            {fmtDecimal(teamFTE(team), 2)} FTE
           </span>
         </div>
         {!locked && (
@@ -512,30 +568,57 @@ function TeamBlock({
         </tbody>
       </table>
 
-      <TeamTargetsGrid targets={targets} halbjahr={halbjahr} />
+      {targets.operativeFTE > 0 ? (
+        <TeamTargetsGrid targets={targets} halbjahr={halbjahr} />
+      ) : (
+        <div className="border-t bg-muted/20 px-4 py-3 text-[11px] text-muted-foreground">
+          Overhead-Team · kein eigenes Ziel. FTE wird anteilig über den Teilungsschlüssel
+          auf die operativen Teams verteilt.
+        </div>
+      )}
     </div>
   )
 }
 
-function TeamTargetsGrid({ targets, halbjahr }: { targets: TeamTargets; halbjahr: HalbjahrView }) {
+function TeamTargetsGrid({
+  targets,
+  halbjahr,
+}: {
+  targets: TeamTargets
+  halbjahr: HalbjahrView
+}) {
   return (
-    <div className="grid grid-cols-2 gap-px border-t bg-border">
-      <TargetHalfGroup
-        title="Umsatzziel"
-        h1={targets.umsatz.h1}
-        h2={targets.umsatz.h2}
-        jahr={targets.umsatz.jahr}
-        halbjahr={halbjahr}
-      />
-      <TargetHalfGroup
-        title="Akquiseziel"
-        h1={targets.akquise.h1}
-        h2={targets.akquise.h2}
-        jahr={targets.akquise.jahr}
-        halbjahr={halbjahr}
-        tone="accent"
-      />
-    </div>
+    <>
+      <div className="flex items-center justify-between border-t bg-muted/10 px-4 py-1.5 font-mono text-[10px] text-muted-foreground">
+        <span>
+          <span className="font-semibold text-foreground">{fmtDecimal(targets.fte, 2)}</span>{' '}
+          Eff. FTE
+        </span>
+        <span>
+          {fmtDecimal(targets.operativeFTE, 2)} operativ ·{' '}
+          <span className="text-sky-700 dark:text-sky-300">
+            + {fmtDecimal(targets.overheadFTE, 2)} Overhead-Allokation
+          </span>
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-px border-t bg-border">
+        <TargetHalfGroup
+          title="Umsatzziel"
+          h1={targets.umsatz.h1}
+          h2={targets.umsatz.h2}
+          jahr={targets.umsatz.jahr}
+          halbjahr={halbjahr}
+        />
+        <TargetHalfGroup
+          title="Akquiseziel"
+          h1={targets.akquise.h1}
+          h2={targets.akquise.h2}
+          jahr={targets.akquise.jahr}
+          halbjahr={halbjahr}
+          tone="accent"
+        />
+      </div>
+    </>
   )
 }
 

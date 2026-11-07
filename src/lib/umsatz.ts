@@ -8,7 +8,7 @@ import type {
   ZieleTeam,
 } from '@/types'
 import { emptyMonthValues } from '@/types'
-import { teamFTE } from '@/ziele-store'
+import { computeTeamTargets, teamFTE } from '@/ziele-store'
 
 export const MONTH_LABELS = [
   'Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
@@ -65,10 +65,11 @@ export function cumulativeMonthValues(values: MonthValues): MonthValues {
 }
 
 // Monthly target from Ziele: H1 months (Jan–Jun) use the H1 rate, H2 months
-// (Jul–Dez) use the H2 rate. Keeps month-by-month target in step with the
-// half-year split on the Ziele page.
+// (Jul–Dez) use the H2 rate. Effective FTE now includes the team's share of
+// Verwaltung + Ausschreibung via its Teilungsschlüssel, so Zielkontrolle
+// mirrors the Ziele formula exactly.
 export function monthlyZielFromZiele(team: ZieleTeam, branch: ZieleBranch): MonthValues {
-  const fte = teamFTE(team)
+  const fte = computeTeamTargets(team, branch).fte
   const h1Monthly = (fte * (branch.umsatzProFTE.h1 ?? 0)) / 6
   const h2Monthly = (fte * (branch.umsatzProFTE.h2 ?? 0)) / 6
   if (h1Monthly === 0 && h2Monthly === 0) return emptyMonthValues()
