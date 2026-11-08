@@ -292,7 +292,6 @@ export function QuartalPlanTable() {
                               <WeekTodosCell
                                 todos={todos}
                                 locked={isPast}
-                                projects={forecastPeriod?.rows ?? []}
                                 onAdd={() => addTodo(empIndex, row.week)}
                                 onUpdate={(id, patch) => updateTodo(empIndex, row.week, id, patch)}
                                 onRemove={(id) => removeTodo(empIndex, row.week, id)}
@@ -358,14 +357,12 @@ function PrioStrip({ rows, forecastLabel }: { rows: ProjectRow[]; forecastLabel:
 function WeekTodosCell({
   todos,
   locked,
-  projects,
   onAdd,
   onUpdate,
   onRemove,
 }: {
   todos: WeekTodo[]
   locked: boolean
-  projects: ProjectRow[]
   onAdd: () => void
   onUpdate: (id: string, patch: Partial<Omit<WeekTodo, 'id'>>) => void
   onRemove: (id: string) => void
@@ -396,7 +393,6 @@ function WeekTodosCell({
           <TodoRow
             key={todo.id}
             todo={todo}
-            projects={projects}
             onUpdate={(patch) => onUpdate(todo.id, patch)}
             onRemove={() => onRemove(todo.id)}
           />
@@ -422,19 +418,15 @@ function WeekTodosCell({
 
 function TodoRow({
   todo,
-  projects,
   onUpdate,
   onRemove,
 }: {
   todo: WeekTodo
-  projects: ProjectRow[]
   onUpdate: (patch: Partial<Omit<WeekTodo, 'id'>>) => void
   onRemove: () => void
 }) {
   const tone = todoTone(todo.text)
   const isUrlaub = tone === 'blue'
-  // Urlaub-Todos haben keine Projektzuordnung — nur echte Aufgaben bekommen den Picker.
-  const showProjectPicker = !isUrlaub
   return (
     <div
       className={cn(
@@ -442,14 +434,7 @@ function TodoRow({
         tone ? TONE_CLASSES[tone] : 'hover:bg-muted',
       )}
     >
-      <div className="flex items-start gap-1">
-        {showProjectPicker && (
-          <ProjectNrPicker
-            value={todo.projNr ?? ''}
-            projects={projects}
-            onChange={(v) => onUpdate({ projNr: v })}
-          />
-        )}
+      <div className="flex items-start gap-2">
         <textarea
           value={todo.text}
           onChange={(e) => onUpdate({ text: e.target.value })}
@@ -471,46 +456,6 @@ function TodoRow({
       </div>
       {isUrlaub && <UrlaubDayPicker days={todo.days ?? []} onChange={(days) => onUpdate({ days })} />}
     </div>
-  )
-}
-
-function ProjectNrPicker({
-  value,
-  projects,
-  onChange,
-}: {
-  value: string
-  projects: ProjectRow[]
-  onChange: (v: string) => void
-}) {
-  // Unique project numbers in the current forecast period.
-  const options = Array.from(
-    new Map(
-      projects
-        .filter((p) => (p.projNr || '').trim().length > 0)
-        .map((p) => [p.projNr, p]),
-    ).values(),
-  )
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={cn(
-        'shrink-0 rounded-sm border bg-background px-1 py-0.5 font-mono text-[10px] tabular-nums outline-none',
-        value
-          ? 'text-foreground'
-          : 'border-dashed border-foreground/20 text-muted-foreground/70',
-      )}
-      title={value ? `Proj. Nr. ${value}` : 'Proj. Nr. zuweisen'}
-    >
-      <option value="">—</option>
-      {options.map((p) => (
-        <option key={p.projNr} value={p.projNr}>
-          {p.projNr}
-          {p.projektname ? ` — ${p.projektname}` : ''}
-        </option>
-      ))}
-    </select>
   )
 }
 

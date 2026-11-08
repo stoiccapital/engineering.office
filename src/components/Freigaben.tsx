@@ -87,9 +87,6 @@ export function Freigaben() {
                   KW
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                  Proj. Nr.
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
                   Aufgabe
                 </th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
@@ -119,9 +116,6 @@ export function Freigaben() {
                         · {MONTH_LABELS_DE[item.month]}
                       </span>
                     </div>
-                  </td>
-                  <td className="px-3 py-3 align-top font-mono text-xs text-muted-foreground">
-                    {item.todo.projNr || '—'}
                   </td>
                   <td className="px-3 py-3 align-top text-sm">
                     {item.todo.text || <em className="text-muted-foreground/60">unbenannt</em>}

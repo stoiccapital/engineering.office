@@ -61,9 +61,6 @@ export type WeekTodo = {
   // Reason supplied by the PM when rejecting a Zur-Freigabe submission.
   // Present on an inProgress todo means the last submission was rejected.
   rejectReason?: string
-  // Project number this todo belongs to. Pulled from the current Forecast
-  // period's project list; empty = no project assigned.
-  projNr?: string
 }
 
 export type Branch = 'de' | 'pl'

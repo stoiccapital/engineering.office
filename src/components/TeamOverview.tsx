@@ -369,11 +369,6 @@ function WeekCell({
                 <div className="flex items-start gap-1.5">
                   {!isUrlaub && <StateCycle state={todo.state} />}
                   <span className="min-w-0 flex-1 break-words">
-                    {todo.projNr && (
-                      <span className="mr-1 font-mono text-[10px] text-muted-foreground">
-                        {todo.projNr}
-                      </span>
-                    )}
                     {todo.text || <em className="text-muted-foreground/60">unbenannt</em>}
                   </span>
                 </div>
