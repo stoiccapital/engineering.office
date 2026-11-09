@@ -52,19 +52,29 @@ export function TeamOverview() {
     setOffset(0)
   }, [year])
 
-  const { weeks, todayWeek, startWeek, totalWeeks } = useMemo(() => {
+  const { weekRows, todayWeek, startWeek, totalWeeks } = useMemo(() => {
     const total = weeksInISOYear(year)
     const today = currentISOWeek()
     const baseWeek = today.year === year ? Math.min(today.week, total) : 1
     const maxStart = Math.max(1, total - LOOKAHEAD_WEEKS + 1)
     const startWeek = Math.max(1, Math.min(baseWeek + offset, maxStart))
     const end = Math.min(startWeek + LOOKAHEAD_WEEKS - 1, total)
-    const weeks: { week: number; month: number }[] = []
+    // Build rows + collapse consecutive same-month weeks into a Monat rowSpan
+    // so the first column reads like a calendar strip.
+    const raw: { week: number; month: number; firstOfMonth: boolean; monthSpan: number }[] = []
     for (let w = startWeek; w <= end; w++) {
-      weeks.push({ week: w, month: monthOfISOWeek(year, w) })
+      raw.push({ week: w, month: monthOfISOWeek(year, w), firstOfMonth: false, monthSpan: 0 })
+    }
+    let i = 0
+    while (i < raw.length) {
+      let j = i
+      while (j < raw.length && raw[j].month === raw[i].month) j++
+      raw[i].firstOfMonth = true
+      raw[i].monthSpan = j - i
+      i = j
     }
     return {
-      weeks,
+      weekRows: raw,
       todayWeek: today.year === year ? today.week : null,
       startWeek,
       totalWeeks: total,
@@ -88,12 +98,12 @@ export function TeamOverview() {
 
   const canGoBack = startWeek > 1
   const canGoForward = startWeek + LOOKAHEAD_WEEKS - 1 < totalWeeks
-  const atToday = todayWeek !== null && weeks.some((w) => w.week === todayWeek) && offset === 0
+  const atToday = todayWeek !== null && weekRows.some((w) => w.week === todayWeek) && offset === 0
 
   const subtitle = (
     <>
       <Num>{plan.employees.length}</Num> Mitarbeiter · KW{' '}
-      <Num>{weeks[0]?.week ?? '—'}</Num>–<Num>{weeks[weeks.length - 1]?.week ?? '—'}</Num>
+      <Num>{weekRows[0]?.week ?? '—'}</Num>–<Num>{weekRows[weekRows.length - 1]?.week ?? '—'}</Num>
     </>
   )
 
@@ -137,87 +147,106 @@ export function TeamOverview() {
         <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 z-20 bg-muted">
+              {/* Team label row: spans each group's employee columns. */}
               <tr className="border-b">
-                <th className="sticky left-0 z-30 min-w-[180px] bg-muted px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-                  Mitarbeiter
+                <th className="sticky left-0 z-30 bg-muted" colSpan={2}></th>
+                {groups.map((g, gi) => (
+                  <th
+                    key={g.branch}
+                    colSpan={Math.max(1, g.items.length)}
+                    className={cn(
+                      'px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground',
+                      gi > 0 && 'border-l-2 border-foreground/20',
+                    )}
+                  >
+                    {g.label}
+                  </th>
+                ))}
+              </tr>
+              {/* Monat · KW · employee name columns. */}
+              <tr className="border-b">
+                <th className="sticky left-0 z-30 w-16 bg-muted px-2 py-2 text-left text-xs font-medium text-muted-foreground">
+                  Monat
                 </th>
-                {weeks.map(({ week, month }) => {
-                  const isToday = week === todayWeek
-                  return (
-                    <th
-                      key={week}
-                      className={cn(
-                        'min-w-[220px] border-l px-3 py-2 text-left text-xs font-medium',
-                        isToday ? 'bg-primary/10 text-foreground' : 'text-muted-foreground',
-                      )}
-                    >
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-[11px]">KW</span>
-                        <span className="num text-sm font-semibold tabular-nums">{week}</span>
-                        <span className="text-[11px] text-muted-foreground">
-                          · {MONTH_LABELS_DE[month]}
-                        </span>
-                        {isToday && (
-                          <span className="ml-auto rounded bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background">
-                            Heute
-                          </span>
+                <th className="sticky left-16 z-30 w-14 border-r bg-muted px-2 py-2 text-right text-xs font-medium text-muted-foreground">
+                  KW
+                </th>
+                {groups.map((g, gi) => (
+                  <Fragment key={`emp-th-${g.branch}`}>
+                    {g.items.map(({ emp }, i) => (
+                      <th
+                        key={emp.id}
+                        className={cn(
+                          'min-w-[260px] px-3 py-2 text-left text-xs font-medium text-muted-foreground',
+                          i === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
                         )}
-                      </div>
-                    </th>
-                  )
-                })}
+                      >
+                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                          <span>{emp.name || 'Unbenannt'}</span>
+                          <span className="rounded border bg-muted/60 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
+                            {emp.branch}
+                          </span>
+                        </div>
+                      </th>
+                    ))}
+                  </Fragment>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {groups.map(
-                (g) =>
-                  g.items.length > 0 && (
-                    <Fragment key={`group-${g.branch}`}>
-                      <tr className="border-b bg-muted/30">
-                        <td
-                          colSpan={weeks.length + 1}
-                          className="sticky left-0 z-10 bg-muted/30 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-                        >
-                          {g.label}
-                        </td>
-                      </tr>
-                      {g.items.map(({ emp, empIndex }) => (
-                        <tr key={emp.id} className="border-b last:border-b-0">
-                          <td className="sticky left-0 z-10 min-w-[180px] border-r bg-background px-3 py-3 align-top">
-                            <div className="flex items-center gap-2 text-sm font-semibold">
-                              <span>{emp.name || 'Unbenannt'}</span>
-                              <span className="rounded border bg-muted/60 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
-                                {emp.branch}
-                              </span>
-                            </div>
-                          </td>
-                          {weeks.map(({ week }) => {
-                            const key = cellKey(empIndex, week)
-                            const status = plan.cells[key]
-                            const todos = plan.todos?.[key] ?? []
-                            const isToday = week === todayWeek
-                            return (
-                              <td
-                                key={week}
-                                className={cn(
-                                  'min-w-[220px] border-l p-3 align-top',
-                                  isToday && 'bg-primary/5',
-                                )}
-                              >
-                                <WeekCell
-                                  status={status}
-                                  todos={todos}
-                                  empIndex={empIndex}
-                                  week={week}
-                                />
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      ))}
-                    </Fragment>
-                  ),
-              )}
+              {weekRows.map((row) => {
+                const isToday = row.week === todayWeek
+                return (
+                  <tr
+                    key={row.week}
+                    className={cn('border-b last:border-b-0', isToday && 'bg-primary/5')}
+                  >
+                    {row.firstOfMonth && (
+                      <td
+                        rowSpan={row.monthSpan}
+                        className="sticky left-0 z-10 border-r bg-muted px-2 py-1 align-top text-xs font-semibold text-muted-foreground"
+                      >
+                        {MONTH_LABELS_DE[row.month]}
+                      </td>
+                    )}
+                    <td
+                      className={cn(
+                        'num sticky left-16 z-10 border-r bg-background px-2 py-1 text-xs tabular-nums',
+                        isToday ? 'font-semibold text-foreground' : 'text-muted-foreground',
+                      )}
+                    >
+                      {row.week}
+                    </td>
+                    {groups.map((g, gi) => (
+                      <Fragment key={`row-${row.week}-${g.branch}`}>
+                        {g.items.map(({ empIndex }, i) => {
+                          const key = cellKey(empIndex, row.week)
+                          const status = plan.cells[key]
+                          const todos = plan.todos?.[key] ?? []
+                          return (
+                            <td
+                              key={`${row.week}-${empIndex}`}
+                              className={cn(
+                                'min-w-[260px] p-3 align-top',
+                                i === 0 && gi > 0
+                                  ? 'border-l-2 border-foreground/20'
+                                  : 'border-l',
+                              )}
+                            >
+                              <WeekCell
+                                status={status}
+                                todos={todos}
+                                empIndex={empIndex}
+                                week={row.week}
+                              />
+                            </td>
+                          )
+                        })}
+                      </Fragment>
+                    ))}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
