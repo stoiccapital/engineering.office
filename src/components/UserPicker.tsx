@@ -16,8 +16,6 @@ export function UserPicker() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const [pickedRoleId, setPickedRoleId] = useState<string>('')
-
   const [newRoleName, setNewRoleName] = useState('')
   const [newRolePassword, setNewRolePassword] = useState('')
 
@@ -27,15 +25,6 @@ export function UserPicker() {
     const ok = await signInAsUser(kuerzel, password)
     setBusy(false)
     if (!ok) setError('Kürzel oder Passwort falsch')
-    else setError(null)
-  }
-
-  async function handleRoleLogin() {
-    if (!pickedRoleId || !password || busy) return
-    setBusy(true)
-    const ok = await signInAsRole(pickedRoleId, password)
-    setBusy(false)
-    if (!ok) setError('Falsches Passwort')
     else setError(null)
   }
 
@@ -52,6 +41,7 @@ export function UserPicker() {
         'ziele',
         'umsatz',
         'rechnungen',
+        'mitarbeiter',
         'settings',
       ])
       await signInAsRole(role.id, newRolePassword)
@@ -68,11 +58,7 @@ export function UserPicker() {
             {isFirstBoot ? 'Erste Einrichtung' : 'Anmelden'}
           </div>
           <h1 className="text-lg font-semibold">
-            {isFirstBoot
-              ? 'Admin-Rolle anlegen'
-              : hasUsers
-                ? 'Benutzer wählen'
-                : 'Rolle wählen'}
+            {isFirstBoot ? 'Admin-Rolle anlegen' : hasUsers ? 'Benutzer wählen' : 'Noch kein Zugang'}
           </h1>
         </div>
 
@@ -104,8 +90,8 @@ export function UserPicker() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Die erste Rolle ist automatisch Admin. Danach legst du in den Einstellungen
-              Benutzer an — die melden sich künftig mit Kürzel + Passwort an.
+              Erste Rolle ist automatisch Admin. Danach legst du unter Mitarbeiter deinen
+              persönlichen Login (Kürzel + Passwort + Rolle) an und meldest dich künftig damit an.
             </p>
             <button
               onClick={handleFirstBoot}
@@ -165,55 +151,15 @@ export function UserPicker() {
           </>
         ) : (
           <>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Rolle
-              </label>
-              <select
-                autoFocus
-                value={pickedRoleId}
-                onChange={(e) => {
-                  setPickedRoleId(e.target.value)
-                  setError(null)
-                }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="">— auswählen —</option>
-                {publicRoles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Passwort
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setError(null)
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && handleRoleLogin()}
-                placeholder="•••••••••"
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-              />
-              {error && <div className="text-xs text-destructive">{error}</div>}
-            </div>
             <p className="text-xs text-muted-foreground">
-              Noch keine Benutzer angelegt — bitte als Admin-Rolle anmelden und unter
-              Einstellungen Benutzer hinzufügen.
+              Noch keine Benutzer angelegt. Bitte Administrator kontaktieren — sie legen deinen
+              Zugang unter <strong className="font-medium text-foreground">Einstellungen → Mitarbeiter</strong> an.
             </p>
-            <button
-              onClick={handleRoleLogin}
-              disabled={!pickedRoleId || !password || busy}
-              className="w-full rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:bg-foreground/90 disabled:opacity-50"
-            >
-              {busy ? 'Prüfe…' : 'Anmelden'}
-            </button>
+            <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-[10px] text-muted-foreground">
+              <strong className="font-semibold">Admin ohne Benutzer-Login?</strong> Session im
+              UserMenu abmelden, dann als bestehender Admin-Account wieder einloggen und unter
+              Mitarbeiter einen Login für dich selbst anlegen.
+            </div>
           </>
         )}
       </div>
