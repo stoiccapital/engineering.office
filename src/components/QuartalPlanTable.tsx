@@ -129,14 +129,22 @@ export function QuartalPlanTable() {
 
   // Keep original indices so cell/todo keys stay stable, but group by branch for layout.
   const indexed: { emp: Employee; empIndex: number }[] = plan.employees.map((emp, i) => ({ emp, empIndex: i }))
-  const deEmployees = indexed.filter((e) => e.emp.branch === 'de')
-  const plEmployees = indexed.filter((e) => e.emp.branch === 'pl')
-  const groups: { branch: Branch; label: string; items: typeof indexed }[] = (
-    [
-      { branch: 'de' as Branch, label: 'Team Deutschland', items: deEmployees },
-      { branch: 'pl' as Branch, label: 'Team Polen', items: plEmployees },
-    ]
-  ).filter((g) => teamFilter === 'all' || g.branch === teamFilter)
+  // Apply team filter: when a roster team id is picked, keep only employees
+  // whose roster-linked team matches. Legacy (unlinked) rows are filtered out
+  // because they have no team to match against.
+  const filtered = indexed.filter((entry) => {
+    if (teamFilter === 'all') return true
+    const linkId = entry.emp.rosterEmployeeId
+    if (!linkId || !roster) return false
+    const rosterEmp = roster.employees.find((r) => r.id === linkId)
+    return rosterEmp?.teamId === teamFilter
+  })
+  const deEmployees = filtered.filter((e) => e.emp.branch === 'de')
+  const plEmployees = filtered.filter((e) => e.emp.branch === 'pl')
+  const groups: { branch: Branch; label: string; items: typeof indexed }[] = [
+    { branch: 'de' as Branch, label: 'Team Deutschland', items: deEmployees },
+    { branch: 'pl' as Branch, label: 'Team Polen', items: plEmployees },
+  ].filter((g) => g.items.length > 0)
 
   const prioRows = forecastPeriod?.rows.filter((r) => r.prio) ?? []
 
@@ -995,6 +1003,8 @@ function RosterPickerDialog({
   )
 }
 
+// Dropdown that lists all roster teams (grouped by location via optgroup) plus
+// an "Alle" default. Legacy-only plans show just the "Alle" option.
 export function TeamFilterToggle({
   value,
   onChange,
@@ -1002,28 +1012,60 @@ export function TeamFilterToggle({
   value: TeamFilter
   onChange: (v: TeamFilter) => void
 }) {
-  const options: { value: TeamFilter; label: string }[] = [
-    { value: 'all', label: 'Alle' },
-    { value: 'de', label: 'DE' },
-    { value: 'pl', label: 'PL' },
-  ]
+  const roster = useRoster((s) => s.roster)
+
+  const groups = useMemo(() => {
+    const locs = roster?.locations ?? []
+    const teams = roster?.teams ?? []
+    type Group = { key: string; label: string; teams: { id: string; name: string }[] }
+    const byLocation = new Map<string, Group>()
+    const noLocation: Group = { key: 'no-loc', label: 'Ohne Standort', teams: [] }
+    for (const t of teams) {
+      const teamEntry = { id: t.id, name: t.name || 'Unbenannt' }
+      if (t.locationId && locs.some((l) => l.id === t.locationId)) {
+        let g = byLocation.get(t.locationId)
+        if (!g) {
+          const loc = locs.find((l) => l.id === t.locationId)
+          g = { key: t.locationId, label: loc?.name || 'Standort', teams: [] }
+          byLocation.set(t.locationId, g)
+        }
+        g.teams.push(teamEntry)
+      } else {
+        noLocation.teams.push(teamEntry)
+      }
+    }
+    // Preserve roster.locations declaration order.
+    const ordered: Group[] = []
+    for (const l of locs) {
+      const g = byLocation.get(l.id)
+      if (g) ordered.push(g)
+    }
+    if (noLocation.teams.length > 0) ordered.push(noLocation)
+    return ordered
+  }, [roster])
+
+  const empty = groups.length === 0
+
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-md border bg-card p-0.5 text-xs font-medium">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          className={cn(
-            'rounded px-2 py-1 transition-colors',
-            value === o.value
-              ? 'bg-foreground text-background'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-          )}
-          title={`Nur ${o.label}`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <label className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs font-medium">
+      <span className="text-muted-foreground">Team</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as TeamFilter)}
+        className="rounded bg-transparent text-xs font-medium outline-none"
+        title={empty ? 'Teams werden im Mitarbeiter-Modul gepflegt' : 'Nach Team filtern'}
+      >
+        <option value="all">Alle</option>
+        {groups.map((g) => (
+          <optgroup key={g.key} label={g.label}>
+            {g.teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </label>
   )
 }

@@ -93,12 +93,19 @@ export function TeamOverview() {
     type Group = { branch: Branch; label: string; items: { emp: Employee; empIndex: number }[] }
     if (!plan) return [] as Group[]
     const indexed = plan.employees.map((emp, empIndex) => ({ emp, empIndex }))
+    const filtered = indexed.filter((entry) => {
+      if (teamFilter === 'all') return true
+      const linkId = entry.emp.rosterEmployeeId
+      if (!linkId || !roster) return false
+      const rosterEmp = roster.employees.find((r) => r.id === linkId)
+      return rosterEmp?.teamId === teamFilter
+    })
     const all: Group[] = [
-      { branch: 'de' as Branch, label: 'Team Deutschland', items: indexed.filter((e) => e.emp.branch === 'de') },
-      { branch: 'pl' as Branch, label: 'Team Polen', items: indexed.filter((e) => e.emp.branch === 'pl') },
+      { branch: 'de' as Branch, label: 'Team Deutschland', items: filtered.filter((e) => e.emp.branch === 'de') },
+      { branch: 'pl' as Branch, label: 'Team Polen', items: filtered.filter((e) => e.emp.branch === 'pl') },
     ]
-    return all.filter((g) => teamFilter === 'all' || g.branch === teamFilter)
-  }, [plan, teamFilter])
+    return all.filter((g) => g.items.length > 0)
+  }, [plan, teamFilter, roster])
 
   if (!plan) return null
 

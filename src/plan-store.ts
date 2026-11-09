@@ -11,7 +11,9 @@ const INITIAL_QUARTER: QuarterLabel = (() => {
 })()
 
 export type QuarterView = 'all' | QuarterLabel
-export type TeamFilter = 'all' | Branch
+// 'all' = show every employee; otherwise a roster team id — only roster-linked
+// employees whose rosterEmployee.teamId matches are shown.
+export type TeamFilter = 'all' | string
 
 function newId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
