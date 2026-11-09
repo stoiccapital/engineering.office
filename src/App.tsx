@@ -35,6 +35,7 @@ import { Briefcase, CalendarDays, CheckSquare, ChevronDown, ChevronRight, FileTe
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
+const EINSTELLUNGEN_EXPANDED_KEY = 'eo:einstellungenExpanded'
 
 // plan_overview isn't a separate nav entry — it collapses into 'plan' view
 // but with the overview-only tab inside PlanTabs.
@@ -50,7 +51,7 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   umsatz: { title: 'Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
   mitarbeiter: { title: 'Mitarbeiter', label: 'Mitarbeiter', icon: Users },
-  settings: { title: 'Einstellungen', label: 'Einstellungen', icon: SettingsIcon },
+  settings: { title: 'Rollen', label: 'Rollen', icon: SettingsIcon },
 }
 
 type NavEntry =
@@ -68,8 +69,13 @@ const NAV: NavEntry[] = [
   },
   { kind: 'leaf', view: 'umsatz' },
   { kind: 'leaf', view: 'rechnungen' },
-  { kind: 'leaf', view: 'mitarbeiter' },
-  { kind: 'leaf', view: 'settings' },
+  {
+    kind: 'group',
+    id: 'einstellungen',
+    label: 'Einstellungen',
+    icon: SettingsIcon,
+    children: ['mitarbeiter', 'settings'],
+  },
 ]
 
 function filterNav(entries: NavEntry[], allowed: Set<View>): NavEntry[] {
@@ -147,6 +153,9 @@ function Shell() {
   const [operativeExpanded, setOperativeExpanded] = useState<boolean>(
     () => localStorage.getItem(OPERATIVE_EXPANDED_KEY) !== '0',
   )
+  const [einstellungenExpanded, setEinstellungenExpanded] = useState<boolean>(
+    () => localStorage.getItem(EINSTELLUNGEN_EXPANDED_KEY) !== '0',
+  )
   const loadForecast = useForecast((s) => s.load)
   const period = useForecast((s) => s.period)
   const loadPlan = usePlan((s) => s.load)
@@ -207,6 +216,10 @@ function Shell() {
     localStorage.setItem(OPERATIVE_EXPANDED_KEY, operativeExpanded ? '1' : '0')
   }, [operativeExpanded])
 
+  useEffect(() => {
+    localStorage.setItem(EINSTELLUNGEN_EXPANDED_KEY, einstellungenExpanded ? '1' : '0')
+  }, [einstellungenExpanded])
+
   const meta = VIEW_META[view]
 
   return (
@@ -219,8 +232,14 @@ function Shell() {
         onSelect={setView}
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed((v) => !v)}
-        operativeExpanded={operativeExpanded}
-        onToggleOperative={() => setOperativeExpanded((v) => !v)}
+        expandedByGroup={{
+          operative: operativeExpanded,
+          einstellungen: einstellungenExpanded,
+        }}
+        onToggleGroup={(id) => {
+          if (id === 'operative') setOperativeExpanded((v) => !v)
+          else if (id === 'einstellungen') setEinstellungenExpanded((v) => !v)
+        }}
         freigabenCount={freigabenCount}
       />
 
@@ -273,8 +292,8 @@ function Sidebar({
   onSelect,
   collapsed,
   onToggleCollapsed,
-  operativeExpanded,
-  onToggleOperative,
+  expandedByGroup,
+  onToggleGroup,
   freigabenCount,
 }: {
   nav: NavEntry[]
@@ -282,8 +301,8 @@ function Sidebar({
   onSelect: (v: View) => void
   collapsed: boolean
   onToggleCollapsed: () => void
-  operativeExpanded: boolean
-  onToggleOperative: () => void
+  expandedByGroup: Record<string, boolean>
+  onToggleGroup: (id: string) => void
   freigabenCount: number
 }) {
   return (
@@ -318,7 +337,7 @@ function Sidebar({
             )
           }
           const childActive = entry.children.includes(view)
-          const expanded = operativeExpanded || collapsed
+          const expanded = (expandedByGroup[entry.id] ?? true) || collapsed
           return (
             <div key={entry.id}>
               <NavGroupHeader
@@ -330,7 +349,7 @@ function Sidebar({
                 badge={
                   entry.children.includes('freigaben' as View) && !expanded ? freigabenCount : 0
                 }
-                onToggle={onToggleOperative}
+                onToggle={() => onToggleGroup(entry.id)}
               />
               {expanded &&
                 entry.children.map((childView) => (
