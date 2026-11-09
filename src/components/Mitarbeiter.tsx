@@ -21,8 +21,11 @@ export function Mitarbeiter() {
   const updateEmployee = useRoster((s) => s.updateEmployee)
   const removeEmployee = useRoster((s) => s.removeEmployee)
   const roles = useAccess((s) => s.config.roles)
+  const legacyUsers = useAccess((s) => s.config.users)
   const loadFullConfig = useAccess((s) => s.loadFullConfig)
+  const clearLegacyUsers = useAccess((s) => s.clearLegacyUsers)
   const currentUser = useAccess((s) => s.currentUser)
+  const clearAllLogins = useRoster((s) => s.clearAllLogins)
   const [revealedPw, setRevealedPw] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -249,13 +252,37 @@ export function Mitarbeiter() {
           </>
         }
         action={
-          <button
-            onClick={() => addEmployee()}
-            className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Mitarbeiter
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                const otherLogins =
+                  roster.employees.filter((e) => e.kuerzel && e.id !== currentUser?.id).length +
+                  legacyUsers.filter((u) => u.id !== currentUser?.id).length
+                if (otherLogins === 0) {
+                  alert('Außer dir sind keine weiteren Logins aktiv.')
+                  return
+                }
+                const ok = confirm(
+                  `Alle anderen Logins (${otherLogins}) zurücksetzen? Kürzel, Passwort, Personalnr. und Rolle werden auf diesen Mitarbeiter-Zeilen gelöscht. Dein eigener Login bleibt.`,
+                )
+                if (!ok) return
+                clearAllLogins(currentUser?.id)
+                clearLegacyUsers(currentUser?.id)
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+              title="Alle anderen Logins zurücksetzen"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Logins zurücksetzen
+            </button>
+            <button
+              onClick={() => addEmployee()}
+              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Mitarbeiter
+            </button>
+          </div>
         }
         padded={false}
       >

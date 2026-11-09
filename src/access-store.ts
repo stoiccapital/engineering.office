@@ -51,6 +51,9 @@ type State = {
   addUser: (data: Omit<User, 'id'>) => Promise<User>
   updateUser: (id: string, patch: Partial<Omit<User, 'id'>>) => void
   removeUser: (id: string) => void
+  // Wipe every entry in AccessConfig.users except the one matching exceptId
+  // (keeps the currently signed-in legacy admin functional, if any).
+  clearLegacyUsers: (exceptId?: string) => void
 }
 
 function newId(prefix: string): string {
@@ -320,6 +323,17 @@ export const useAccess = create<State>()((set, get) => {
         localStorage.removeItem(CURRENT_USER_KEY)
         set({ currentUser: null, currentRole: null })
       }
+      void persist()
+      void refreshPublic()
+    },
+
+    clearLegacyUsers: (exceptId) => {
+      set((s) => ({
+        config: {
+          ...s.config,
+          users: exceptId ? s.config.users.filter((u) => u.id === exceptId) : [],
+        },
+      }))
       void persist()
       void refreshPublic()
     },

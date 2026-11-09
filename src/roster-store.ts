@@ -24,6 +24,10 @@ type State = {
   addEmployee: (teamId?: string) => void
   updateEmployee: (id: string, patch: Partial<Omit<RosterEmployee, 'id'>>) => void
   removeEmployee: (id: string) => void
+  // Clear kuerzel / password / personalnummer / roleId on every employee
+  // except the one whose id matches `exceptId` (used to keep the currently
+  // signed-in admin functional while wiping everyone else's login).
+  clearAllLogins: (exceptId?: string) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -169,6 +173,22 @@ export const useRoster = create<State>()((set, get) => ({
       roster: {
         ...s.roster,
         employees: s.roster.employees.filter((e) => e.id !== id),
+      },
+    })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  clearAllLogins: (exceptId) => {
+    const s = get()
+    if (!s.roster) return
+    set({
+      roster: {
+        ...s.roster,
+        employees: s.roster.employees.map((e) =>
+          e.id === exceptId
+            ? e
+            : { ...e, kuerzel: undefined, password: undefined, personalnummer: undefined, roleId: undefined },
+        ),
       },
     })
     scheduleSave(get, (p) => set(p as Partial<State>))
