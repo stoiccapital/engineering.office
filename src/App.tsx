@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { KPIStrip } from '@/components/KPIStrip'
 import { ForecastTable } from '@/components/ForecastTable'
-import { AuthGate } from '@/components/AuthGate'
 import { SaveStatus } from '@/components/SaveStatus'
 import { PlanSaveStatus } from '@/components/PlanSaveStatus'
 import { ZieleSaveStatus } from '@/components/ZieleSaveStatus'
@@ -93,11 +92,9 @@ function filterNav(entries: NavEntry[], allowed: Set<View>): NavEntry[] {
 
 export default function App() {
   return (
-    <AuthGate>
-      <AccessGate>
-        <Shell />
-      </AccessGate>
-    </AuthGate>
+    <AccessGate>
+      <Shell />
+    </AccessGate>
   )
 }
 

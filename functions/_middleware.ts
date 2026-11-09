@@ -64,11 +64,6 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
   const url = new URL(request.url)
   if (!url.pathname.startsWith('/api/')) return next()
 
-  // Outer gate: shared office password (prevents casual drive-by hits).
-  const header = request.headers.get('authorization') ?? ''
-  const token = header.startsWith('Bearer ') ? header.slice(7) : ''
-  if (!env.AUTH || token !== env.AUTH) return unauthorized()
-
   if (EXEMPT.has(url.pathname) || url.pathname === LOGO_PATH) return next()
 
   // Bootstrap window: on fresh KV with no roles yet, allow a single write to
