@@ -16,6 +16,7 @@ import {
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react'
+import { TeamFilterToggle } from '@/components/QuartalPlanTable'
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
 import { StateCycle } from '@/components/ui/state-cycle'
@@ -31,6 +32,8 @@ const STATUS_BADGE: Record<PlanStatus, string> = {
 export function TeamOverview() {
   const year = usePlan((s) => s.year)
   const plan = usePlan((s) => s.plan)
+  const teamFilter = usePlan((s) => s.teamFilter)
+  const setTeamFilter = usePlan((s) => s.setTeamFilter)
   const [offset, setOffset] = useState(0)
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -88,11 +91,12 @@ export function TeamOverview() {
     type Group = { branch: Branch; label: string; items: { emp: Employee; empIndex: number }[] }
     if (!plan) return [] as Group[]
     const indexed = plan.employees.map((emp, empIndex) => ({ emp, empIndex }))
-    return [
+    const all: Group[] = [
       { branch: 'de' as Branch, label: 'Team Deutschland', items: indexed.filter((e) => e.emp.branch === 'de') },
       { branch: 'pl' as Branch, label: 'Team Polen', items: indexed.filter((e) => e.emp.branch === 'pl') },
-    ] satisfies Group[]
-  }, [plan])
+    ]
+    return all.filter((g) => teamFilter === 'all' || g.branch === teamFilter)
+  }, [plan, teamFilter])
 
   if (!plan) return null
 
@@ -120,6 +124,7 @@ export function TeamOverview() {
         contentClassName={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
         action={
           <div className="flex items-center gap-1">
+            <TeamFilterToggle value={teamFilter} onChange={setTeamFilter} />
             <WindowNav
               onBack={() => setOffset((o) => o - 1)}
               onForward={() => setOffset((o) => o + 1)}
@@ -162,7 +167,7 @@ export function TeamOverview() {
                     colSpan={Math.max(1, g.items.length)}
                     className={cn(
                       'px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground',
-                      gi > 0 && 'border-l-2 border-foreground/20',
+                      gi > 0 && 'border-l-2 border-foreground/40',
                     )}
                   >
                     {g.label}
@@ -190,7 +195,7 @@ export function TeamOverview() {
                         key={emp.id}
                         className={cn(
                           'min-w-[260px] px-3 py-2 text-left text-xs font-medium text-muted-foreground',
-                          i === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
+                          i === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
                         )}
                       >
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -243,8 +248,8 @@ export function TeamOverview() {
                               className={cn(
                                 'min-w-[260px] p-3 align-top',
                                 i === 0 && gi > 0
-                                  ? 'border-l-2 border-foreground/20'
-                                  : 'border-l',
+                                  ? 'border-l-2 border-foreground/40'
+                                  : 'border-l border-foreground/30',
                               )}
                             >
                               <WeekCell

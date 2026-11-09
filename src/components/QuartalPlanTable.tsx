@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { usePlan, cellKey } from '@/plan-store'
+import { usePlan, cellKey, type TeamFilter } from '@/plan-store'
 import { useForecast } from '@/store'
 import {
   type Branch,
@@ -55,6 +55,8 @@ const DAYS_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr'] as const
 export function QuartalPlanTable() {
   const year = usePlan((s) => s.year)
   const quarter = usePlan((s) => s.quarter)
+  const teamFilter = usePlan((s) => s.teamFilter)
+  const setTeamFilter = usePlan((s) => s.setTeamFilter)
   const plan = usePlan((s) => s.plan)
   const renameEmployee = usePlan((s) => s.renameEmployee)
   const setEmployeeBranch = usePlan((s) => s.setEmployeeBranch)
@@ -119,10 +121,12 @@ export function QuartalPlanTable() {
   const indexed: { emp: Employee; empIndex: number }[] = plan.employees.map((emp, i) => ({ emp, empIndex: i }))
   const deEmployees = indexed.filter((e) => e.emp.branch === 'de')
   const plEmployees = indexed.filter((e) => e.emp.branch === 'pl')
-  const groups: { branch: Branch; label: string; items: typeof indexed }[] = [
-    { branch: 'de', label: 'Team Deutschland', items: deEmployees },
-    { branch: 'pl', label: 'Team Polen', items: plEmployees },
-  ]
+  const groups: { branch: Branch; label: string; items: typeof indexed }[] = (
+    [
+      { branch: 'de' as Branch, label: 'Team Deutschland', items: deEmployees },
+      { branch: 'pl' as Branch, label: 'Team Polen', items: plEmployees },
+    ]
+  ).filter((g) => teamFilter === 'all' || g.branch === teamFilter)
 
   const prioRows = forecastPeriod?.rows.filter((r) => r.prio) ?? []
 
@@ -155,6 +159,7 @@ export function QuartalPlanTable() {
         contentClassName={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
         action={
           <div className="flex items-center gap-1">
+            <TeamFilterToggle value={teamFilter} onChange={setTeamFilter} />
             <PlanLegend />
             <button
               onClick={toggleFullscreen}
@@ -196,7 +201,7 @@ export function QuartalPlanTable() {
                     colSpan={Math.max(1, g.items.length) + 1}
                     className={cn(
                       'px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground',
-                      gi > 0 && 'border-l-2 border-foreground/20',
+                      gi > 0 && 'border-l-2 border-foreground/40',
                     )}
                   >
                     {g.label}
@@ -223,7 +228,7 @@ export function QuartalPlanTable() {
                         key={emp.id}
                         className={cn(
                           'min-w-[280px] px-2 py-2 text-left text-xs font-medium text-muted-foreground',
-                          i === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
+                          i === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
                         )}
                       >
                         <div className="group flex items-center gap-1">
@@ -255,7 +260,7 @@ export function QuartalPlanTable() {
                       key={`add-${g.branch}`}
                       className={cn(
                         'w-10 px-1 py-2',
-                        g.items.length === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
+                        g.items.length === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
                       )}
                     >
                       <button
@@ -311,7 +316,7 @@ export function QuartalPlanTable() {
                               key={emp.id}
                               className={cn(
                                 'min-w-[280px] p-0 align-top',
-                                i === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
+                                i === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
                                 isPast && 'pointer-events-none opacity-60',
                                 cellEmpty && 'bg-red-500/25',
                               )}
@@ -329,7 +334,7 @@ export function QuartalPlanTable() {
                         <td
                           className={cn(
                             'align-top',
-                            g.items.length === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
+                            g.items.length === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
                           )}
                         />
                       </Fragment>
@@ -405,7 +410,7 @@ function PoolRow({
                 key={empIndex}
                 className={cn(
                   'min-w-[280px] p-0 align-top',
-                  i === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
+                  i === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
                 )}
               >
                 <PoolCellContent
@@ -421,7 +426,7 @@ function PoolRow({
           <td
             className={cn(
               'align-top',
-              g.items.length === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
+              g.items.length === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
             )}
           />
         </Fragment>
@@ -825,5 +830,38 @@ function PlanLegend() {
         </div>
       </div>
     </InfoTooltip>
+  )
+}
+
+export function TeamFilterToggle({
+  value,
+  onChange,
+}: {
+  value: TeamFilter
+  onChange: (v: TeamFilter) => void
+}) {
+  const options: { value: TeamFilter; label: string }[] = [
+    { value: 'all', label: 'Alle' },
+    { value: 'de', label: 'DE' },
+    { value: 'pl', label: 'PL' },
+  ]
+  return (
+    <div className="inline-flex items-center gap-0.5 rounded-md border bg-card p-0.5 text-xs font-medium">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            'rounded px-2 py-1 transition-colors',
+            value === o.value
+              ? 'bg-foreground text-background'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+          )}
+          title={`Nur ${o.label}`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   )
 }

@@ -11,6 +11,7 @@ const INITIAL_QUARTER: QuarterLabel = (() => {
 })()
 
 export type QuarterView = 'all' | QuarterLabel
+export type TeamFilter = 'all' | Branch
 
 function newId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -42,11 +43,13 @@ type SaveStatus = 'idle' | 'loading' | 'saving' | 'saved' | 'error'
 type State = {
   year: number
   quarter: QuarterView
+  teamFilter: TeamFilter
   plan: QuartalPlan | null
   status: SaveStatus
   error: string | null
   setYear: (y: number) => void
   setQuarter: (q: QuarterView) => void
+  setTeamFilter: (t: TeamFilter) => void
   load: () => Promise<void>
   setCell: (empIndex: number, week: number, status: PlanStatus | null) => void
   renameEmployee: (empIndex: number, name: string) => void
@@ -91,6 +94,7 @@ function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
 export const usePlan = create<State>()((set, get) => ({
   year: CURRENT_YEAR,
   quarter: INITIAL_QUARTER,
+  teamFilter: 'all',
   plan: null,
   status: 'idle',
   error: null,
@@ -101,6 +105,8 @@ export const usePlan = create<State>()((set, get) => ({
   },
 
   setQuarter: (q) => set({ quarter: q }),
+
+  setTeamFilter: (t) => set({ teamFilter: t }),
 
   load: async () => {
     const s = get()
