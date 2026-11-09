@@ -146,6 +146,12 @@ export function TeamOverview() {
       >
         <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
           <table className="w-full border-collapse text-sm">
+            {/* Pin Monat + KW widths so sticky left offsets line up exactly
+                with the column edges (same fix as the Plan view). */}
+            <colgroup>
+              <col style={{ width: 64 }} />
+              <col style={{ width: 56 }} />
+            </colgroup>
             <thead className="sticky top-0 z-20 bg-muted">
               {/* Team label row: spans each group's employee columns. */}
               <tr className="border-b">
@@ -165,10 +171,16 @@ export function TeamOverview() {
               </tr>
               {/* Monat · KW · employee name columns. */}
               <tr className="border-b">
-                <th className="sticky left-0 z-30 w-16 bg-muted px-2 py-2 text-left text-xs font-medium text-muted-foreground">
+                <th
+                  className="sticky left-0 z-30 border-r bg-muted px-2 py-2 text-left text-xs font-medium text-muted-foreground"
+                  style={{ width: 64, minWidth: 64, maxWidth: 64 }}
+                >
                   Monat
                 </th>
-                <th className="sticky left-16 z-30 w-14 border-r bg-muted px-2 py-2 text-right text-xs font-medium text-muted-foreground">
+                <th
+                  className="sticky z-30 border-r bg-muted px-2 py-2 text-right text-xs font-medium text-muted-foreground"
+                  style={{ left: 63, width: 56, minWidth: 56, maxWidth: 56 }}
+                >
                   KW
                 </th>
                 {groups.map((g, gi) => (
@@ -201,19 +213,21 @@ export function TeamOverview() {
                     key={row.week}
                     className={cn('border-b last:border-b-0', isToday && 'bg-primary/5')}
                   >
-                    {row.firstOfMonth && (
-                      <td
-                        rowSpan={row.monthSpan}
-                        className="sticky left-0 z-10 border-r bg-muted px-2 py-1 align-top text-xs font-semibold text-muted-foreground"
-                      >
-                        {MONTH_LABELS_DE[row.month]}
-                      </td>
-                    )}
                     <td
                       className={cn(
-                        'num sticky left-16 z-10 border-r bg-background px-2 py-1 text-xs tabular-nums',
+                        'sticky left-0 z-10 border-r bg-muted px-2 py-1 align-top text-xs font-semibold text-muted-foreground',
+                        !row.firstOfMonth && 'border-t-0',
+                      )}
+                      style={{ width: 64, minWidth: 64, maxWidth: 64 }}
+                    >
+                      {row.firstOfMonth ? MONTH_LABELS_DE[row.month] : ''}
+                    </td>
+                    <td
+                      className={cn(
+                        'num sticky z-10 border-r bg-background px-2 py-1 text-xs tabular-nums',
                         isToday ? 'font-semibold text-foreground' : 'text-muted-foreground',
                       )}
+                      style={{ left: 63, width: 56, minWidth: 56, maxWidth: 56 }}
                     >
                       {row.week}
                     </td>
