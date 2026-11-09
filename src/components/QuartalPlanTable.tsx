@@ -197,7 +197,7 @@ export function QuartalPlanTable() {
                 ))}
               </tr>
               <tr className="border-b">
-                <th className="sticky left-0 z-30 w-16 bg-muted px-2 py-2 text-left text-xs font-medium text-muted-foreground">
+                <th className="sticky left-0 z-30 w-16 border-r bg-muted px-2 py-2 text-left text-xs font-medium text-muted-foreground">
                   Monat
                 </th>
                 <th className="sticky left-16 z-30 w-14 border-r bg-muted px-2 py-2 text-right text-xs font-medium text-muted-foreground">
