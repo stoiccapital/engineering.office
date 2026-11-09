@@ -33,7 +33,7 @@ function todoTone(text: string): TodoTone {
 }
 
 const TONE_CLASSES: Record<Exclude<TodoTone, null>, string> = {
-  red: 'text-red-600 border-l-2 border-red-500 pl-1.5',
+  red: 'text-red-700 dark:text-red-200 border-l-2 border-red-500 pl-1.5 bg-red-500/15',
   green: 'text-emerald-600 border-l-2 border-emerald-500 pl-1.5',
   yellow: 'text-amber-600 border-l-2 border-amber-500 pl-1.5',
   blue: 'text-sky-600 border-l-2 border-sky-500 pl-1.5',
@@ -280,6 +280,7 @@ export function QuartalPlanTable() {
                         {g.items.map(({ emp, empIndex }, i) => {
                           const key = cellKey(empIndex, row.week)
                           const todos = plan.todos?.[key] ?? []
+                          const cellEmpty = todos.length === 0 && !isPast
                           return (
                             <td
                               key={emp.id}
@@ -287,6 +288,7 @@ export function QuartalPlanTable() {
                                 'min-w-[280px] p-0 align-top',
                                 i === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
                                 isPast && 'pointer-events-none opacity-60',
+                                cellEmpty && 'bg-red-500/25',
                               )}
                             >
                               <WeekTodosCell
@@ -372,12 +374,7 @@ function WeekTodosCell({
   const collapsible = todos.length >= 2
   const isCollapsed = collapsible && collapsed
   return (
-    <div
-      className={cn(
-        'group/cell flex h-full flex-col gap-0.5 p-1.5',
-        empty && !locked && 'border-l-2 border-red-400/50 bg-red-500/10',
-      )}
-    >
+    <div className="group/cell flex h-full flex-col gap-0.5 p-1.5">
       {collapsible && (
         <button
           onClick={() => setCollapsed((c) => !c)}
@@ -402,7 +399,7 @@ function WeekTodosCell({
           onClick={onAdd}
           className={cn(
             'flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all',
-            empty && 'text-red-500/70 hover:text-red-600',
+            empty && 'text-red-700 hover:text-red-900 dark:text-red-200 dark:hover:text-red-100',
             !empty &&
               'rounded border border-dashed text-muted-foreground hover:bg-accent hover:text-foreground',
           )}
