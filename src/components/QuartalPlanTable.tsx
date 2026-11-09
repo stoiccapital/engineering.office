@@ -634,17 +634,21 @@ function TodoRow({
       )}
     >
       <div className="flex items-start gap-2">
-        <textarea
-          value={todo.text}
-          onChange={(e) => onUpdate({ text: e.target.value })}
-          placeholder="Aufgabe…"
-          rows={1}
-          className={cn(
-            'min-w-0 flex-1 resize-none bg-transparent text-xs leading-snug outline-none placeholder:text-muted-foreground/50',
-            todo.state === 'erledigt' && 'line-through opacity-60',
-          )}
-          style={{ fieldSizing: 'content' } as React.CSSProperties}
-        />
+        {/* overflow-hidden on the wrapper caps the textarea's intrinsic width
+            so fieldSizing: content grows only vertically, not horizontally. */}
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <textarea
+            value={todo.text}
+            onChange={(e) => onUpdate({ text: e.target.value })}
+            placeholder="Aufgabe…"
+            rows={1}
+            className={cn(
+              'block w-full resize-none bg-transparent text-xs leading-snug outline-none placeholder:text-muted-foreground/50',
+              todo.state === 'erledigt' && 'line-through opacity-60',
+            )}
+            style={{ fieldSizing: 'content' } as React.CSSProperties}
+          />
+        </div>
         <button
           onClick={onRemove}
           className="mt-0.5 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
