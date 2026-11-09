@@ -380,7 +380,10 @@ function PoolRow({
         —
       </td>
       <td colSpan={poolColSpan} className="border-l p-0 align-top">
-        <div className="group/cell flex h-full max-w-[560px] flex-col gap-0.5 p-1.5">
+        {/* Sticky at left:120px so the pool content stays glued to the right
+            edge of the Monat + KW sticky columns as the PM scrolls horizontally
+            through employees. bg-card keeps it opaque above scrolled content. */}
+        <div className="sticky left-[120px] z-10 flex h-full w-full max-w-[560px] flex-col gap-0.5 bg-card p-1.5">
           {pool.map((t) => (
             <PoolTaskRow
               key={t.id}
