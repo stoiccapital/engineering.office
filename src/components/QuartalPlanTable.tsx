@@ -325,7 +325,13 @@ export function QuartalPlanTable() {
         </div>
       </Section>
 
-      {!isFullscreen && (
+      <div
+        className={cn(
+          // In fullscreen, cap the pool so the grid keeps most of the viewport
+          // and let the pool's own list scroll internally when long.
+          isFullscreen && 'mt-2 max-h-[30vh] shrink-0 overflow-auto',
+        )}
+      >
         <AufgabenPool
           pool={plan.pool ?? []}
           onAdd={() => addPoolTask('')}
@@ -333,7 +339,7 @@ export function QuartalPlanTable() {
           onRemove={removePoolTask}
           onAssign={(task) => setAssignFor(task)}
         />
-      )}
+      </div>
 
       <AssignDialog
         task={assignFor}
