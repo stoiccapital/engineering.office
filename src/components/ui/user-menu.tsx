@@ -42,6 +42,7 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
   const logout = () => {
+    signOut()
     clearToken()
     location.reload()
   }
