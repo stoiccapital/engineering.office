@@ -266,14 +266,16 @@ export function QuartalPlanTable() {
                     key={row.week}
                     className={cn('border-b last:border-b-0', isToday && 'bg-primary/5', isPast && 'bg-muted/40')}
                   >
-                    {row.firstOfMonth && (
-                      <td
-                        rowSpan={row.monthSpan}
-                        className="sticky left-0 z-10 border-r bg-muted px-2 py-1 align-top text-xs font-semibold text-muted-foreground"
-                      >
-                        {MONTH_LABELS_DE[row.month]}
-                      </td>
-                    )}
+                    <td
+                      className={cn(
+                        'sticky left-0 z-10 w-16 border-r bg-muted px-2 py-1 align-top text-xs font-semibold text-muted-foreground',
+                        // Hide the top border on consecutive same-month rows
+                        // so the monthly block reads as one merged region.
+                        !row.firstOfMonth && 'border-t-0',
+                      )}
+                    >
+                      {row.firstOfMonth ? MONTH_LABELS_DE[row.month] : ''}
+                    </td>
                     <td
                       className={cn(
                         'num sticky left-16 z-10 border-r bg-background px-2 py-1 text-xs tabular-nums',
