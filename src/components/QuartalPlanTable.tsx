@@ -1,9 +1,11 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { usePlan, cellKey } from '@/plan-store'
 import { useForecast } from '@/store'
 import {
   type Branch,
   type Employee,
+  type PoolTask,
   type ProjectRow,
   type WeekTodo,
 } from '@/types'
@@ -61,6 +63,12 @@ export function QuartalPlanTable() {
   const addTodo = usePlan((s) => s.addTodo)
   const updateTodo = usePlan((s) => s.updateTodo)
   const removeTodo = usePlan((s) => s.removeTodo)
+  const addPoolTask = usePlan((s) => s.addPoolTask)
+  const updatePoolTask = usePlan((s) => s.updatePoolTask)
+  const removePoolTask = usePlan((s) => s.removePoolTask)
+  const assignPoolTask = usePlan((s) => s.assignPoolTask)
+
+  const [assignFor, setAssignFor] = useState<PoolTask | null>(null)
 
   const forecastPeriod = useForecast((s) => s.period)
   const forecastYear = useForecast((s) => s.year)
@@ -316,7 +324,195 @@ export function QuartalPlanTable() {
           </table>
         </div>
       </Section>
+
+      {!isFullscreen && (
+        <AufgabenPool
+          pool={plan.pool ?? []}
+          onAdd={() => addPoolTask('')}
+          onUpdate={updatePoolTask}
+          onRemove={removePoolTask}
+          onAssign={(task) => setAssignFor(task)}
+        />
+      )}
+
+      <AssignDialog
+        task={assignFor}
+        employees={plan.employees}
+        year={year}
+        onCancel={() => setAssignFor(null)}
+        onConfirm={(empIndex, week) => {
+          if (assignFor) assignPoolTask(assignFor.id, empIndex, week)
+          setAssignFor(null)
+        }}
+      />
     </div>
+  )
+}
+
+function AufgabenPool({
+  pool,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onAssign,
+}: {
+  pool: PoolTask[]
+  onAdd: () => void
+  onUpdate: (id: string, text: string) => void
+  onRemove: (id: string) => void
+  onAssign: (task: PoolTask) => void
+}) {
+  return (
+    <Section
+      title="Aufgaben-Pool"
+      subtitle={
+        <>
+          <Num>{pool.length}</Num>{' '}
+          {pool.length === 1 ? 'ungeplante Aufgabe' : 'ungeplante Aufgaben'} · schiebst du bei
+          Bedarf in eine Woche
+        </>
+      }
+      action={
+        <button
+          onClick={onAdd}
+          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Aufgabe
+        </button>
+      }
+      padded={false}
+    >
+      {pool.length === 0 ? (
+        <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+          Noch keine Aufgaben im Pool.
+        </div>
+      ) : (
+        <ul className="divide-y">
+          {pool.map((t) => (
+            <li key={t.id} className="group flex items-center gap-2 px-3 py-2">
+              <textarea
+                value={t.text}
+                onChange={(e) => onUpdate(t.id, e.target.value)}
+                placeholder="Aufgabe…"
+                rows={1}
+                className="min-w-0 flex-1 resize-none bg-transparent text-sm leading-snug outline-none placeholder:text-muted-foreground/50"
+                style={{ fieldSizing: 'content' } as React.CSSProperties}
+              />
+              <button
+                onClick={() => onAssign(t)}
+                disabled={!t.text.trim()}
+                className="shrink-0 rounded-md border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                title={!t.text.trim() ? 'Text eingeben, dann zuweisen' : 'Zuweisen'}
+              >
+                Zuweisen…
+              </button>
+              <button
+                onClick={() => onRemove(t.id)}
+                className="shrink-0 rounded p-1 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                title="Löschen"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  )
+}
+
+function AssignDialog({
+  task,
+  employees,
+  year,
+  onCancel,
+  onConfirm,
+}: {
+  task: PoolTask | null
+  employees: Employee[]
+  year: number
+  onCancel: () => void
+  onConfirm: (empIndex: number, week: number) => void
+}) {
+  const today = currentISOWeek()
+  const defaultWeek = today.year === year ? today.week : 1
+  const [empIndex, setEmpIndex] = useState<number>(0)
+  const [week, setWeek] = useState<number>(defaultWeek)
+  const totalWeeks = weeksInISOYear(year)
+
+  // Reset selection whenever the dialog opens for a new task.
+  useEffect(() => {
+    if (!task) return
+    setEmpIndex(0)
+    setWeek(today.year === year ? today.week : 1)
+  }, [task, year, today.week, today.year])
+
+  return (
+    <Dialog.Root open={!!task} onOpenChange={(open) => !open && onCancel()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
+          <div className="border-b px-5 py-4">
+            <Dialog.Title className="text-sm font-semibold">
+              Aufgabe zuweisen
+            </Dialog.Title>
+            <Dialog.Description className="mt-1 text-xs text-muted-foreground">
+              „{task?.text || 'Aufgabe'}" einem Mitarbeiter in einer KW zuordnen.
+            </Dialog.Description>
+          </div>
+          <div className="space-y-3 px-5 py-4">
+            <label className="block space-y-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Mitarbeiter
+              </span>
+              <select
+                value={empIndex}
+                onChange={(e) => setEmpIndex(Number(e.target.value))}
+                className="w-full rounded-md border bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+              >
+                {employees.map((e, i) => (
+                  <option key={e.id} value={i}>
+                    {e.name || `Mitarbeiter ${i + 1}`} ({e.branch.toUpperCase()})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Kalenderwoche {year}
+              </span>
+              <select
+                value={week}
+                onChange={(e) => setWeek(Number(e.target.value))}
+                className="w-full rounded-md border bg-background px-2 py-1.5 font-mono text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+              >
+                {Array.from({ length: totalWeeks }).map((_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    KW {i + 1}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3">
+            <button
+              onClick={onCancel}
+              className="rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={() => onConfirm(empIndex, week)}
+              disabled={employees.length === 0}
+              className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Zuweisen
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Branch, Employee, PlanStatus, QuartalPlan, WeekTodo } from './types'
+import type { Branch, Employee, PlanStatus, PoolTask, QuartalPlan, WeekTodo } from './types'
 import { migratePlan } from './types'
 import { fetchPlan, savePlan } from './api'
 import { currentISOWeek, quarterOfISOWeek, type QuarterLabel } from './lib/iso-week'
@@ -61,6 +61,13 @@ type State = {
     patch: Partial<Omit<WeekTodo, 'id'>>,
   ) => void
   removeTodo: (empIndex: number, week: number, id: string) => void
+  // Backlog pool of unscheduled tasks the PM has drafted.
+  addPoolTask: (text?: string) => void
+  updatePoolTask: (id: string, text: string) => void
+  removePoolTask: (id: string) => void
+  // Promote a pool task into a specific (empIndex, week) cell as a new WeekTodo.
+  // The pool entry is removed on success.
+  assignPoolTask: (poolId: string, empIndex: number, week: number) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -204,6 +211,44 @@ export const usePlan = create<State>()((set, get) => ({
     if (next.length === 0) delete allTodos[k]
     else allTodos[k] = next
     set({ plan: { ...s.plan, todos: allTodos } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  addPoolTask: (text = '') => {
+    const s = get()
+    if (!s.plan) return
+    const pool = [...(s.plan.pool ?? []), { id: newId(), text }]
+    set({ plan: { ...s.plan, pool } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  updatePoolTask: (id, text) => {
+    const s = get()
+    if (!s.plan) return
+    const pool = (s.plan.pool ?? []).map((t) => (t.id === id ? { ...t, text } : t))
+    set({ plan: { ...s.plan, pool } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  removePoolTask: (id) => {
+    const s = get()
+    if (!s.plan) return
+    const pool = (s.plan.pool ?? []).filter((t) => t.id !== id)
+    set({ plan: { ...s.plan, pool } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  assignPoolTask: (poolId, empIndex, week) => {
+    const s = get()
+    if (!s.plan) return
+    const poolEntry: PoolTask | undefined = (s.plan.pool ?? []).find((t) => t.id === poolId)
+    if (!poolEntry) return
+    const k = cellKey(empIndex, week)
+    const current = s.plan.todos?.[k] ?? []
+    const todo: WeekTodo = { id: newId(), text: poolEntry.text, state: 'offen' }
+    const todos = { ...(s.plan.todos ?? {}), [k]: [...current, todo] }
+    const pool = (s.plan.pool ?? []).filter((t) => t.id !== poolId)
+    set({ plan: { ...s.plan, todos, pool } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 }))

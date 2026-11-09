@@ -71,12 +71,21 @@ export type Employee = {
   branch: Branch
 }
 
+// Backlog of todos the PM has prepared but not yet scheduled. When a team
+// member finishes early the PM promotes a PoolTask into a specific
+// (empIndex, week) cell, which spawns a WeekTodo and removes the pool entry.
+export type PoolTask = {
+  id: string
+  text: string
+}
+
 export type QuartalPlan = {
   year: number
   employees: Employee[]
   cells: Record<string, PlanStatus>
   // Key `${empIndex}:${week}` -> todos for that employee/week cell.
   todos?: Record<string, WeekTodo[]>
+  pool?: PoolTask[]
 }
 
 // Legacy shapes stored before this migration landed.
