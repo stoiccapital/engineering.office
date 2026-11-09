@@ -14,6 +14,7 @@ import { Dashboard } from '@/components/Dashboard'
 import { Ziele } from '@/components/Ziele'
 import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
 import { Rechnungen } from '@/components/Rechnungen'
+import { Mitarbeiter } from '@/components/Mitarbeiter'
 import { Settings } from '@/components/Settings'
 import { UserPicker } from '@/components/UserPicker'
 import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
@@ -26,10 +27,11 @@ import { usePlan } from '@/plan-store'
 import { useZiele } from '@/ziele-store'
 import { useUmsatz } from '@/umsatz-store'
 import { useRechnungen } from '@/rechnungen-store'
+import { useRoster } from '@/roster-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Briefcase, CalendarDays, CheckSquare, ChevronDown, ChevronRight, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Table2, Target } from 'lucide-react'
+import { Briefcase, CalendarDays, CheckSquare, ChevronDown, ChevronRight, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
@@ -47,6 +49,7 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ziele: { title: 'Ziele', label: 'Ziele', icon: Target },
   umsatz: { title: 'Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
+  mitarbeiter: { title: 'Mitarbeiter', label: 'Mitarbeiter', icon: Users },
   settings: { title: 'Einstellungen', label: 'Einstellungen', icon: SettingsIcon },
 }
 
@@ -65,6 +68,7 @@ const NAV: NavEntry[] = [
   },
   { kind: 'leaf', view: 'umsatz' },
   { kind: 'leaf', view: 'rechnungen' },
+  { kind: 'leaf', view: 'mitarbeiter' },
   { kind: 'leaf', view: 'settings' },
 ]
 
@@ -153,6 +157,8 @@ function Shell() {
   const umsatz = useUmsatz((s) => s.data)
   const loadRechnungen = useRechnungen((s) => s.load)
   const rechnungen = useRechnungen((s) => s.data)
+  const loadRoster = useRoster((s) => s.load)
+  const roster = useRoster((s) => s.roster)
 
   useEffect(() => {
     void loadForecast()
@@ -188,6 +194,10 @@ function Shell() {
   useEffect(() => {
     if (view === 'rechnungen' && !rechnungen) void loadRechnungen()
   }, [view, rechnungen, loadRechnungen])
+
+  useEffect(() => {
+    if (view === 'mitarbeiter' && !roster) void loadRoster()
+  }, [view, roster, loadRoster])
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
@@ -248,6 +258,7 @@ function Shell() {
           {view === 'ziele' && <Ziele />}
           {view === 'umsatz' && <Umsatzkontrolle />}
           {view === 'rechnungen' && <Rechnungen />}
+          {view === 'mitarbeiter' && <Mitarbeiter />}
           {view === 'settings' && <Settings />}
         </main>
       </div>
@@ -378,6 +389,8 @@ function ViewPeriodPicker({ view }: { view: View }) {
       return <UmsatzPicker />
     case 'rechnungen':
       return <RechnungenPicker />
+    case 'mitarbeiter':
+      return null
     case 'settings':
       return null
   }

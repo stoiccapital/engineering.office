@@ -9,11 +9,13 @@ import type {
   Ziele,
   Umsatzkontrolle,
   Rechnungsplan,
+  Roster,
   AccessConfig,
 } from './types'
 import {
   emptyAccessConfig,
   emptyRechnungsplan,
+  emptyRoster,
   rechnungsplanKey,
 } from './types'
 import { defaultUmsatz, defaultZiele } from './lib/seeds'
@@ -216,6 +218,7 @@ const ziele = new Map<number, Ziele>()
 const umsatz = new Map<number, Umsatzkontrolle>()
 const rechnungsplaene = new Map<string, Rechnungsplan>()
 let logo: string | null = null
+let roster: Roster | null = emptyRoster()
 let access: AccessConfig | null = (() => {
   const cfg = emptyAccessConfig()
   cfg.roles = [
@@ -299,5 +302,11 @@ export const mock = {
   },
   setAccess(value: AccessConfig) {
     access = value
+  },
+  roster(): Roster | null {
+    return roster
+  },
+  setRoster(value: Roster) {
+    roster = value
   },
 }

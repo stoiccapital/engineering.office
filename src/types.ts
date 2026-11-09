@@ -366,6 +366,35 @@ export function rechnungsplanKey(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`
 }
 
+// --- Mitarbeiter (Roster) module -----------------------------------------
+// Standalone employee + team directory. Not wired into QuartalPlanTable yet —
+// that view keeps its own Employee list for now. PMs define their own teams
+// here and assign employees to them.
+
+export type RosterTeam = {
+  id: string
+  name: string
+  // Optional CSS color (hex) used as a tag chip; falls back to a neutral
+  // grey when empty.
+  color?: string
+}
+
+export type RosterEmployee = {
+  id: string
+  vorname: string
+  name: string
+  teamId?: string // undefined = not yet assigned to a team
+}
+
+export type Roster = {
+  teams: RosterTeam[]
+  employees: RosterEmployee[]
+}
+
+export function emptyRoster(): Roster {
+  return { teams: [], employees: [] }
+}
+
 // --- Access control (role-based: role name + password → modules) ----------
 
 export type ModuleId =
@@ -376,6 +405,7 @@ export type ModuleId =
   | 'ziele'
   | 'umsatz'
   | 'rechnungen'
+  | 'mitarbeiter'
   | 'settings'
 
 export const MODULES: ModuleId[] = [
@@ -386,6 +416,7 @@ export const MODULES: ModuleId[] = [
   'plan_overview',
   'umsatz',
   'rechnungen',
+  'mitarbeiter',
   'settings',
 ]
 
@@ -397,6 +428,7 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
   ziele: 'Ziele',
   umsatz: 'Zielkontrolle',
   rechnungen: 'Rechnungen',
+  mitarbeiter: 'Mitarbeiter',
   settings: 'Einstellungen',
 }
 
@@ -437,15 +469,15 @@ export type RolePreset = { name: string; modules: ModuleId[] }
 export const PRESET_ROLES: RolePreset[] = [
   {
     name: 'GF und Teamleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'settings'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'mitarbeiter', 'settings'],
   },
   {
     name: 'Verwaltung',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'mitarbeiter'],
   },
   {
     name: 'Projektleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'rechnungen'],
+    modules: ['dashboard', 'forecast', 'plan', 'rechnungen', 'mitarbeiter'],
   },
   { name: 'Projektingenieur', modules: ['plan_overview'] },
   { name: 'Konstrukteur', modules: ['plan_overview'] },
