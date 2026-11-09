@@ -3,6 +3,7 @@ import {
   emptyRoster,
   type Roster,
   type RosterEmployee,
+  type RosterLocation,
   type RosterTeam,
 } from './types'
 import { fetchRoster, saveRoster } from './api'
@@ -14,7 +15,10 @@ type State = {
   status: SaveStatus
   error: string | null
   load: () => Promise<void>
-  addTeam: (name?: string) => void
+  addLocation: (name?: string) => void
+  updateLocation: (id: string, patch: Partial<Omit<RosterLocation, 'id'>>) => void
+  removeLocation: (id: string) => void
+  addTeam: (name?: string, locationId?: string) => void
   updateTeam: (id: string, patch: Partial<Omit<RosterTeam, 'id'>>) => void
   removeTeam: (id: string) => void
   addEmployee: (teamId?: string) => void
@@ -54,16 +58,56 @@ export const useRoster = create<State>()((set, get) => ({
     set({ status: 'loading', error: null })
     try {
       const data = await fetchRoster()
-      set({ roster: data ?? emptyRoster(), status: 'saved' })
+      // Migration: older rosters may be missing the locations array.
+      const safe: Roster = data
+        ? { locations: data.locations ?? [], teams: data.teams ?? [], employees: data.employees ?? [] }
+        : emptyRoster()
+      set({ roster: safe, status: 'saved' })
     } catch (e) {
       set({ status: 'error', error: (e as Error).message })
     }
   },
 
-  addTeam: (name = '') => {
+  addLocation: (name = '') => {
     const s = get()
     if (!s.roster) return
-    const team: RosterTeam = { id: newId(), name }
+    const loc: RosterLocation = { id: newId(), name }
+    set({ roster: { ...s.roster, locations: [...s.roster.locations, loc] } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  updateLocation: (id, patch) => {
+    const s = get()
+    if (!s.roster) return
+    set({
+      roster: {
+        ...s.roster,
+        locations: s.roster.locations.map((l) => (l.id === id ? { ...l, ...patch } : l)),
+      },
+    })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  removeLocation: (id) => {
+    const s = get()
+    if (!s.roster) return
+    // Orphan teams instead of cascade-delete; admin reassigns.
+    set({
+      roster: {
+        ...s.roster,
+        locations: s.roster.locations.filter((l) => l.id !== id),
+        teams: s.roster.teams.map((t) =>
+          t.locationId === id ? { ...t, locationId: undefined } : t,
+        ),
+      },
+    })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  addTeam: (name = '', locationId) => {
+    const s = get()
+    if (!s.roster) return
+    const team: RosterTeam = { id: newId(), name, locationId }
     set({ roster: { ...s.roster, teams: [...s.roster.teams, team] } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },

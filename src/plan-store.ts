@@ -55,6 +55,9 @@ type State = {
   renameEmployee: (empIndex: number, name: string) => void
   setEmployeeBranch: (empIndex: number, branch: Branch) => void
   addEmployee: (branch?: Branch) => void
+  // Add a plan.employee linked to a RosterEmployee. Prevents duplicates
+  // when the roster entry is already in the plan.
+  addRosterEmployee: (rosterEmployeeId: string, name: string, branch: Branch) => void
   removeEmployee: (empIndex: number) => void
   addTodo: (empIndex: number, week: number) => void
   updateTodo: (
@@ -154,6 +157,22 @@ export const usePlan = create<State>()((set, get) => ({
       id: newId(),
       name: `Mitarbeiter ${s.plan.employees.length + 1}`,
       branch,
+    }
+    const employees = [...s.plan.employees, newEmp]
+    set({ plan: { ...s.plan, employees } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  addRosterEmployee: (rosterEmployeeId, name, branch) => {
+    const s = get()
+    if (!s.plan) return
+    // Guard: skip if the roster entry is already linked in this plan.
+    if (s.plan.employees.some((e) => e.rosterEmployeeId === rosterEmployeeId)) return
+    const newEmp: Employee = {
+      id: newId(),
+      name,
+      branch,
+      rosterEmployeeId,
     }
     const employees = [...s.plan.employees, newEmp]
     set({ plan: { ...s.plan, employees } })

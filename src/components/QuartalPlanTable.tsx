@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { usePlan, cellKey, type TeamFilter } from '@/plan-store'
+import { useRoster } from '@/roster-store'
+import type { Roster, RosterEmployee } from '@/types'
 import { useForecast } from '@/store'
 import {
   type Branch,
@@ -69,8 +71,16 @@ export function QuartalPlanTable() {
   const updatePoolTask = usePlan((s) => s.updatePoolTask)
   const removePoolTask = usePlan((s) => s.removePoolTask)
   const assignPoolTask = usePlan((s) => s.assignPoolTask)
+  const addRosterEmployee = usePlan((s) => s.addRosterEmployee)
+
+  const roster = useRoster((s) => s.roster)
+  const loadRoster = useRoster((s) => s.load)
+  useEffect(() => {
+    if (!roster) void loadRoster()
+  }, [roster, loadRoster])
 
   const [assignFor, setAssignFor] = useState<PoolTask | null>(null)
+  const [rosterPickerOpen, setRosterPickerOpen] = useState(false)
 
   const forecastPeriod = useForecast((s) => s.period)
   const forecastYear = useForecast((s) => s.year)
@@ -159,6 +169,14 @@ export function QuartalPlanTable() {
         contentClassName={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
         action={
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setRosterPickerOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Mitarbeiter aus Mitarbeiter-Modul hinzufügen"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Aus Roster
+            </button>
             <TeamFilterToggle value={teamFilter} onChange={setTeamFilter} />
             <PlanLegend />
             <button
@@ -223,39 +241,56 @@ export function QuartalPlanTable() {
                 </th>
                 {groups.map((g, gi) => (
                   <Fragment key={`th-${g.branch}`}>
-                    {g.items.map(({ emp, empIndex }, i) => (
-                      <th
-                        key={emp.id}
-                        className={cn(
-                          'min-w-[280px] px-2 py-2 text-left text-xs font-medium text-muted-foreground',
-                          i === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
-                        )}
-                      >
-                        <div className="group flex items-center gap-1">
-                          <input
-                            value={emp.name}
-                            onChange={(e) => renameEmployee(empIndex, e.target.value)}
-                            className="w-full rounded bg-foreground/[0.03] px-1 py-0.5 text-sm font-semibold text-foreground outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
-                          />
-                          <select
-                            value={emp.branch}
-                            onChange={(e) => setEmployeeBranch(empIndex, e.target.value as Branch)}
-                            title="Team wechseln"
-                            className="rounded border bg-background px-1 py-0.5 text-[10px] font-mono font-semibold text-muted-foreground outline-none"
-                          >
-                            <option value="de">DE</option>
-                            <option value="pl">PL</option>
-                          </select>
-                          <button
-                            onClick={() => removeEmployee(empIndex)}
-                            className="opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                            title="Mitarbeiter entfernen"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </th>
-                    ))}
+                    {g.items.map(({ emp, empIndex }, i) => {
+                      const link = rosterLinkFor(emp, roster)
+                      return (
+                        <th
+                          key={emp.id}
+                          className={cn(
+                            'min-w-[280px] px-2 py-2 text-left text-xs font-medium text-muted-foreground',
+                            i === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
+                          )}
+                        >
+                          <div className="group flex items-center gap-1">
+                            {link ? (
+                              <div
+                                className="flex min-w-0 flex-1 flex-col"
+                                title={link.contextLabel}
+                              >
+                                <span className="truncate text-sm font-semibold text-foreground">
+                                  {link.displayName}
+                                </span>
+                                <span className="truncate font-mono text-[10px] text-muted-foreground">
+                                  {link.contextLabel}
+                                </span>
+                              </div>
+                            ) : (
+                              <input
+                                value={emp.name}
+                                onChange={(e) => renameEmployee(empIndex, e.target.value)}
+                                className="w-full rounded bg-foreground/[0.03] px-1 py-0.5 text-sm font-semibold text-foreground outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
+                              />
+                            )}
+                            <select
+                              value={emp.branch}
+                              onChange={(e) => setEmployeeBranch(empIndex, e.target.value as Branch)}
+                              title="Team wechseln"
+                              className="rounded border bg-background px-1 py-0.5 text-[10px] font-mono font-semibold text-muted-foreground outline-none"
+                            >
+                              <option value="de">DE</option>
+                              <option value="pl">PL</option>
+                            </select>
+                            <button
+                              onClick={() => removeEmployee(empIndex)}
+                              className="opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                              title="Mitarbeiter aus Plan entfernen"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </th>
+                      )
+                    })}
                     <th
                       key={`add-${g.branch}`}
                       className={cn(
@@ -363,6 +398,26 @@ export function QuartalPlanTable() {
         onConfirm={(week) => {
           if (assignFor) assignPoolTask(assignFor.id, week)
           setAssignFor(null)
+        }}
+      />
+
+      <RosterPickerDialog
+        open={rosterPickerOpen}
+        onClose={() => setRosterPickerOpen(false)}
+        roster={roster}
+        linkedIds={
+          new Set(
+            plan.employees
+              .map((e) => e.rosterEmployeeId)
+              .filter((id): id is string => !!id),
+          )
+        }
+        onPick={(r) => {
+          const display =
+            [r.vorname, r.name].filter((s) => s.trim().length > 0).join(' ') || 'Unbenannt'
+          // Default branch to 'de' — PM can switch via existing DE/PL dropdown
+          // in the column header.
+          addRosterEmployee(r.id, display, 'de')
         }}
       />
     </div>
@@ -830,6 +885,113 @@ function PlanLegend() {
         </div>
       </div>
     </InfoTooltip>
+  )
+}
+
+// Look up the roster entry a plan employee is linked to and build a short
+// "Team · Standort" context label used in the column header.
+function rosterLinkFor(
+  emp: Employee,
+  roster: Roster | null,
+): { displayName: string; contextLabel: string } | null {
+  if (!emp.rosterEmployeeId || !roster) return null
+  const rosterEmp = roster.employees.find((r) => r.id === emp.rosterEmployeeId)
+  if (!rosterEmp) return null
+  const team = rosterEmp.teamId ? roster.teams.find((t) => t.id === rosterEmp.teamId) : undefined
+  const location = team?.locationId
+    ? roster.locations.find((l) => l.id === team.locationId)
+    : undefined
+  const displayName =
+    [rosterEmp.vorname, rosterEmp.name].filter((s) => s.trim().length > 0).join(' ') ||
+    'Unbenannt'
+  const parts = [team?.name, location?.name].filter(Boolean)
+  return {
+    displayName,
+    contextLabel: parts.length > 0 ? parts.join(' · ') : 'ohne Team',
+  }
+}
+
+function RosterPickerDialog({
+  open,
+  onClose,
+  roster,
+  linkedIds,
+  onPick,
+}: {
+  open: boolean
+  onClose: () => void
+  roster: Roster | null
+  linkedIds: Set<string>
+  onPick: (rosterEmp: RosterEmployee) => void
+}) {
+  const available = useMemo(
+    () => (roster?.employees ?? []).filter((e) => !linkedIds.has(e.id)),
+    [roster, linkedIds],
+  )
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
+          <div className="border-b px-5 py-4">
+            <Dialog.Title className="text-sm font-semibold">
+              Mitarbeiter aus Roster hinzufügen
+            </Dialog.Title>
+            <Dialog.Description className="mt-1 text-xs text-muted-foreground">
+              Wähle einen Mitarbeiter aus dem Mitarbeiter-Modul. Team und Standort kommen
+              aus dem Roster und erscheinen im Spaltenkopf.
+            </Dialog.Description>
+          </div>
+          <div className="max-h-80 overflow-auto">
+            {available.length === 0 ? (
+              <div className="px-5 py-8 text-center text-xs text-muted-foreground">
+                Alle Roster-Mitarbeiter sind bereits im Plan eingebunden. Lege neue unter
+                Mitarbeiter an.
+              </div>
+            ) : (
+              <ul className="divide-y">
+                {available.map((r) => {
+                  const team = r.teamId ? roster?.teams.find((t) => t.id === r.teamId) : undefined
+                  const location = team?.locationId
+                    ? roster?.locations.find((l) => l.id === team.locationId)
+                    : undefined
+                  const context = [team?.name, location?.name].filter(Boolean).join(' · ') || 'ohne Team'
+                  const display =
+                    [r.vorname, r.name].filter((s) => s.trim().length > 0).join(' ') || 'Unbenannt'
+                  return (
+                    <li key={r.id}>
+                      <button
+                        onClick={() => {
+                          onPick(r)
+                          onClose()
+                        }}
+                        className="flex w-full items-center justify-between gap-3 px-5 py-2.5 text-left transition-colors hover:bg-accent"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">{display}</div>
+                          <div className="truncate font-mono text-[10px] text-muted-foreground">
+                            {context}
+                          </div>
+                        </div>
+                        <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3">
+            <button
+              onClick={onClose}
+              className="rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent"
+            >
+              Fertig
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 

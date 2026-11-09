@@ -69,6 +69,10 @@ export type Employee = {
   id: string
   name: string
   branch: Branch
+  // Optional link to a RosterEmployee. When set, display name + grouping come
+  // from the roster (vorname + name, team → location); otherwise the legacy
+  // branch grouping is used as fallback so existing plans keep rendering.
+  rosterEmployeeId?: string
 }
 
 // Backlog of todos the PM has prepared but not yet scheduled. Each pool task
@@ -371,9 +375,16 @@ export function rechnungsplanKey(year: number, month: number): string {
 // that view keeps its own Employee list for now. PMs define their own teams
 // here and assign employees to them.
 
+export type RosterLocation = {
+  id: string
+  name: string
+}
+
 export type RosterTeam = {
   id: string
   name: string
+  // Country the team belongs to. undefined = not yet assigned.
+  locationId?: string
   // Optional CSS color (hex) used as a tag chip; falls back to a neutral
   // grey when empty.
   color?: string
@@ -387,12 +398,13 @@ export type RosterEmployee = {
 }
 
 export type Roster = {
+  locations: RosterLocation[]
   teams: RosterTeam[]
   employees: RosterEmployee[]
 }
 
 export function emptyRoster(): Roster {
-  return { teams: [], employees: [] }
+  return { locations: [], teams: [], employees: [] }
 }
 
 // --- Access control (role-based: role name + password → modules) ----------

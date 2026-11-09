@@ -16,6 +16,7 @@ import {
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react'
+import { useRoster } from '@/roster-store'
 import { TeamFilterToggle } from '@/components/QuartalPlanTable'
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
@@ -34,6 +35,7 @@ export function TeamOverview() {
   const plan = usePlan((s) => s.plan)
   const teamFilter = usePlan((s) => s.teamFilter)
   const setTeamFilter = usePlan((s) => s.setTeamFilter)
+  const roster = useRoster((s) => s.roster)
   const [offset, setOffset] = useState(0)
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -198,12 +200,41 @@ export function TeamOverview() {
                           i === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
                         )}
                       >
-                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                          <span>{emp.name || 'Unbenannt'}</span>
-                          <span className="rounded border bg-muted/60 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
-                            {emp.branch}
-                          </span>
-                        </div>
+                        {(() => {
+                          const link = emp.rosterEmployeeId && roster
+                            ? roster.employees.find((r) => r.id === emp.rosterEmployeeId)
+                            : undefined
+                          const team = link?.teamId
+                            ? roster?.teams.find((t) => t.id === link.teamId)
+                            : undefined
+                          const location = team?.locationId
+                            ? roster?.locations.find((l) => l.id === team.locationId)
+                            : undefined
+                          const displayName = link
+                            ? [link.vorname, link.name]
+                                .filter((s) => s.trim().length > 0)
+                                .join(' ') || 'Unbenannt'
+                            : emp.name || 'Unbenannt'
+                          const context = link
+                            ? [team?.name, location?.name].filter(Boolean).join(' · ') ||
+                              'ohne Team'
+                            : null
+                          return (
+                            <div className="flex flex-col text-sm font-semibold text-foreground">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate">{displayName}</span>
+                                <span className="rounded border bg-muted/60 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
+                                  {emp.branch}
+                                </span>
+                              </div>
+                              {context && (
+                                <span className="truncate font-mono text-[10px] font-normal text-muted-foreground">
+                                  {context}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </th>
                     ))}
                   </Fragment>

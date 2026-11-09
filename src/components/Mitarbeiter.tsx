@@ -10,6 +10,9 @@ import { cn } from '@/lib/utils'
 export function Mitarbeiter() {
   const roster = useRoster((s) => s.roster)
   const load = useRoster((s) => s.load)
+  const addLocation = useRoster((s) => s.addLocation)
+  const updateLocation = useRoster((s) => s.updateLocation)
+  const removeLocation = useRoster((s) => s.removeLocation)
   const addTeam = useRoster((s) => s.addTeam)
   const updateTeam = useRoster((s) => s.updateTeam)
   const removeTeam = useRoster((s) => s.removeTeam)
@@ -42,6 +45,73 @@ export function Mitarbeiter() {
   return (
     <div className="space-y-6">
       <Section
+        title="Standorte"
+        subtitle={
+          <>
+            <Num>{roster.locations.length}</Num>{' '}
+            {roster.locations.length === 1 ? 'Standort' : 'Standorte'}
+          </>
+        }
+        action={
+          <button
+            onClick={() => addLocation('')}
+            className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Standort
+          </button>
+        }
+        padded={false}
+      >
+        {roster.locations.length === 0 ? (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+            Noch keine Standorte angelegt. Teams werden unten einem Standort zugeordnet.
+          </div>
+        ) : (
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <th className="px-3 py-2 text-left">Name</th>
+                <th className="num w-28 px-3 py-2 text-right">Teams</th>
+                <th className="w-10 px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {roster.locations.map((l) => {
+                const teamCount = roster.teams.filter((t) => t.locationId === l.id).length
+                return (
+                  <tr key={l.id} className="group border-b last:border-b-0">
+                    <td className="px-3 py-2">
+                      <input
+                        value={l.name}
+                        onChange={(e) => updateLocation(l.id, { name: e.target.value })}
+                        placeholder="Standort…"
+                        className="w-full rounded bg-foreground/[0.03] px-2 py-1 text-sm font-medium outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
+                      />
+                    </td>
+                    <td className="num px-3 py-2 text-right font-mono tabular-nums text-xs text-muted-foreground">
+                      {teamCount}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        onClick={() => {
+                          if (confirm(`Standort "${l.name || 'Unbenannt'}" löschen?`)) removeLocation(l.id)
+                        }}
+                        className="rounded p-1 text-muted-foreground/40 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                        title="Löschen"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </Section>
+
+      <Section
         title="Teams"
         subtitle={
           <>
@@ -68,6 +138,7 @@ export function Mitarbeiter() {
             <thead>
               <tr className="border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 text-left">Teamname</th>
+                <th className="w-40 px-3 py-2 text-left">Standort</th>
                 <th className="w-32 px-3 py-2 text-left">Farbe</th>
                 <th className="num w-28 px-3 py-2 text-right">Mitarbeiter</th>
                 <th className="w-10 px-3 py-2" />
@@ -76,6 +147,7 @@ export function Mitarbeiter() {
             <tbody>
               {roster.teams.map((t) => {
                 const count = grouped.byTeam.get(t.id)?.length ?? 0
+                const locationMissing = !!t.locationId && !roster.locations.some((l) => l.id === t.locationId)
                 return (
                   <tr key={t.id} className="group border-b last:border-b-0">
                     <td className="px-3 py-2">
@@ -85,6 +157,23 @@ export function Mitarbeiter() {
                         placeholder="Team…"
                         className="w-full rounded bg-foreground/[0.03] px-2 py-1 text-sm font-medium outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
                       />
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={t.locationId ?? ''}
+                        onChange={(e) => updateTeam(t.id, { locationId: e.target.value || undefined })}
+                        className={cn(
+                          'w-full rounded bg-foreground/[0.03] px-2 py-1 text-sm outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]',
+                          locationMissing && 'text-destructive',
+                        )}
+                      >
+                        <option value="">— ohne —</option>
+                        {roster.locations.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.name || 'Unbenannt'}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
