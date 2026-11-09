@@ -380,7 +380,7 @@ function PoolRow({
         —
       </td>
       <td colSpan={poolColSpan} className="border-l p-0 align-top">
-        <div className="group/cell flex h-full flex-col gap-0.5 p-1.5">
+        <div className="group/cell flex h-full max-w-[560px] flex-col gap-0.5 p-1.5">
           {pool.map((t) => (
             <PoolTaskRow
               key={t.id}
