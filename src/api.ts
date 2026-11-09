@@ -92,12 +92,29 @@ export async function fetchPublicRoles(): Promise<PublicRole[]> {
 export async function fetchPublicUsers(): Promise<PublicUser[]> {
   if (mock.isDev) {
     const cfg = mock.access()
-    return (cfg?.users ?? []).map((u) => ({
-      id: u.id,
-      kuerzel: u.kuerzel,
-      displayName:
-        [u.vorname, u.name].filter((s) => s.trim().length > 0).join(' ') || u.kuerzel,
-    }))
+    const roster = mock.roster()
+    const seen = new Set<string>()
+    const out: PublicUser[] = []
+    for (const e of roster?.employees ?? []) {
+      if (!e.kuerzel) continue
+      seen.add(e.id)
+      out.push({
+        id: e.id,
+        kuerzel: e.kuerzel,
+        displayName:
+          [e.vorname, e.name].filter((s) => s.trim().length > 0).join(' ') || e.kuerzel,
+      })
+    }
+    for (const u of cfg?.users ?? []) {
+      if (seen.has(u.id)) continue
+      out.push({
+        id: u.id,
+        kuerzel: u.kuerzel,
+        displayName:
+          [u.vorname, u.name].filter((s) => s.trim().length > 0).join(' ') || u.kuerzel,
+      })
+    }
+    return out
   }
   const res = await fetch('/api/settings/users', { headers: headers() })
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
@@ -124,6 +141,26 @@ export async function signInRole(roleId: string, password: string): Promise<Sign
 export async function signInUser(kuerzel: string, password: string): Promise<SignInResult | null> {
   if (mock.isDev) {
     const cfg = mock.access()
+    const roster = mock.roster()
+    // Roster first, then legacy accessConfig.users.
+    const rosterMatch = roster?.employees.find(
+      (e) => e.kuerzel && e.kuerzel === kuerzel && e.password === password,
+    )
+    if (rosterMatch && rosterMatch.roleId) {
+      const role = cfg?.roles.find((r) => r.id === rosterMatch.roleId)
+      if (!role) return null
+      return {
+        ok: true,
+        role: { id: role.id, name: role.name, modules: role.modules },
+        user: {
+          id: rosterMatch.id,
+          kuerzel: rosterMatch.kuerzel!,
+          displayName:
+            [rosterMatch.vorname, rosterMatch.name].filter((s) => s.trim().length > 0).join(' ') ||
+            rosterMatch.kuerzel!,
+        },
+      }
+    }
     const user = cfg?.users.find((u) => u.kuerzel === kuerzel)
     if (!user || user.password !== password) return null
     const role = cfg?.roles.find((r) => r.id === user.roleId)

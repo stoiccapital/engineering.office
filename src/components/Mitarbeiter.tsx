@@ -1,10 +1,11 @@
-import { useEffect, useMemo } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { LoadingCard } from '@/components/ui/loading-card'
 import { Num } from '@/components/ui/num'
 import { useRoster } from '@/roster-store'
-import type { RosterEmployee, RosterTeam } from '@/types'
+import { useAccess } from '@/access-store'
+import type { Role, RosterEmployee, RosterTeam } from '@/types'
 import { cn } from '@/lib/utils'
 
 export function Mitarbeiter() {
@@ -19,10 +20,28 @@ export function Mitarbeiter() {
   const addEmployee = useRoster((s) => s.addEmployee)
   const updateEmployee = useRoster((s) => s.updateEmployee)
   const removeEmployee = useRoster((s) => s.removeEmployee)
+  const roles = useAccess((s) => s.config.roles)
+  const loadFullConfig = useAccess((s) => s.loadFullConfig)
+  const currentUser = useAccess((s) => s.currentUser)
+  const [revealedPw, setRevealedPw] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!roster) void load()
   }, [roster, load])
+
+  // Admins can see the full role list to assign roles to roster employees.
+  useEffect(() => {
+    if (roles.length === 0) void loadFullConfig()
+  }, [roles.length, loadFullConfig])
+
+  function toggleRevealPw(id: string) {
+    setRevealedPw((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const grouped = useMemo(() => {
     if (!roster) return { byTeam: new Map<string, RosterEmployee[]>(), unassigned: [] as RosterEmployee[] }
@@ -245,30 +264,40 @@ export function Mitarbeiter() {
             Noch keine Mitarbeiter angelegt.
           </div>
         ) : (
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                <th className="px-3 py-2 text-left">Vorname</th>
-                <th className="px-3 py-2 text-left">Name</th>
-                <th className="w-48 px-3 py-2 text-left">Team</th>
-                <th className="w-10 px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {roster.employees.map((e) => (
-                <EmployeeRow
-                  key={e.id}
-                  emp={e}
-                  teams={roster.teams}
-                  onUpdate={(patch) => updateEmployee(e.id, patch)}
-                  onRemove={() => {
-                    const label = `${e.vorname} ${e.name}`.trim() || 'Unbenannt'
-                    if (confirm(`Mitarbeiter "${label}" löschen?`)) removeEmployee(e.id)
-                  }}
-                />
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2 text-left">Vorname</th>
+                  <th className="px-3 py-2 text-left">Name</th>
+                  <th className="w-40 px-3 py-2 text-left">Team</th>
+                  <th className="w-32 px-3 py-2 text-left">Kürzel</th>
+                  <th className="w-36 px-3 py-2 text-left">Personalnr.</th>
+                  <th className="w-40 px-3 py-2 text-left">Rolle</th>
+                  <th className="w-40 px-3 py-2 text-left">Passwort</th>
+                  <th className="w-10 px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {roster.employees.map((e) => (
+                  <EmployeeRow
+                    key={e.id}
+                    emp={e}
+                    teams={roster.teams}
+                    roles={roles}
+                    isMe={e.id === currentUser?.id}
+                    pwRevealed={revealedPw.has(e.id)}
+                    onTogglePw={() => toggleRevealPw(e.id)}
+                    onUpdate={(patch) => updateEmployee(e.id, patch)}
+                    onRemove={() => {
+                      const label = `${e.vorname} ${e.name}`.trim() || 'Unbenannt'
+                      if (confirm(`Mitarbeiter "${label}" löschen?`)) removeEmployee(e.id)
+                    }}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Section>
     </div>
@@ -278,16 +307,25 @@ export function Mitarbeiter() {
 function EmployeeRow({
   emp,
   teams,
+  roles,
+  isMe,
+  pwRevealed,
+  onTogglePw,
   onUpdate,
   onRemove,
 }: {
   emp: RosterEmployee
   teams: RosterTeam[]
+  roles: Role[]
+  isMe: boolean
+  pwRevealed: boolean
+  onTogglePw: () => void
   onUpdate: (patch: Partial<Omit<RosterEmployee, 'id'>>) => void
   onRemove: () => void
 }) {
   const team = teams.find((t) => t.id === emp.teamId)
   const teamMissing = !!emp.teamId && !team
+  const roleMissing = !!emp.roleId && !roles.some((r) => r.id === emp.roleId)
   return (
     <tr className="group border-b last:border-b-0">
       <td className="px-3 py-2">
@@ -297,6 +335,11 @@ function EmployeeRow({
           placeholder="Vorname"
           className="w-full rounded bg-foreground/[0.03] px-2 py-1 text-sm outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
         />
+        {isMe && (
+          <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Du
+          </div>
+        )}
       </td>
       <td className="px-3 py-2">
         <input
@@ -323,11 +366,68 @@ function EmployeeRow({
           ))}
         </select>
       </td>
+      <td className="px-3 py-2">
+        <input
+          value={emp.kuerzel ?? ''}
+          onChange={(e) => onUpdate({ kuerzel: e.target.value || undefined })}
+          placeholder="MuA"
+          className="w-full rounded bg-foreground/[0.03] px-2 py-1 font-mono text-sm outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          value={emp.personalnummer ?? ''}
+          onChange={(e) => onUpdate({ personalnummer: e.target.value || undefined })}
+          placeholder="P-0014"
+          className="w-full rounded bg-foreground/[0.03] px-2 py-1 font-mono text-sm outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <select
+          value={emp.roleId ?? ''}
+          onChange={(e) => onUpdate({ roleId: e.target.value || undefined })}
+          className={cn(
+            'w-full rounded bg-foreground/[0.03] px-2 py-1 text-sm outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]',
+            roleMissing && 'text-destructive',
+          )}
+        >
+          <option value="">— keine —</option>
+          {roles.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name || 'Unbenannt'}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-1">
+          <input
+            type={pwRevealed ? 'text' : 'password'}
+            value={emp.password ?? ''}
+            onChange={(e) => onUpdate({ password: e.target.value || undefined })}
+            placeholder="•••••••"
+            className="w-full rounded bg-foreground/[0.03] px-2 py-1 font-mono text-sm outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
+          />
+          <button
+            onClick={onTogglePw}
+            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            title={pwRevealed ? 'Verbergen' : 'Anzeigen'}
+          >
+            {pwRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </td>
       <td className="px-3 py-2 text-right">
         <button
           onClick={onRemove}
-          className="rounded p-1 text-muted-foreground/40 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-          title="Löschen"
+          disabled={isMe}
+          className={cn(
+            'rounded p-1 transition-opacity',
+            isMe
+              ? 'cursor-not-allowed text-muted-foreground/40'
+              : 'text-muted-foreground/40 opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100',
+          )}
+          title={isMe ? 'Du kannst dich nicht selbst löschen' : 'Löschen'}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

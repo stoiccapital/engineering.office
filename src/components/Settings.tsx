@@ -153,9 +153,17 @@ export function Settings() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-md border border-sky-500/30 bg-sky-50 px-4 py-2.5 text-xs text-sky-900 dark:bg-sky-500/10 dark:text-sky-200">
+        Benutzer werden jetzt im Modul{' '}
+        <strong className="font-semibold">Mitarbeiter</strong> gepflegt (Login-Felder
+        pro Person, nicht mehr hier). Die Rollen-Tabelle unten bleibt — sie steuert
+        welche Module eine Rolle sieht.
+      </div>
+
+      {false && (
       <Section
-        title="Neuer Benutzer"
-        subtitle="Jede Person bekommt einen eigenen Login. Login-Name ist das Kürzel (z. B. MuA). Rolle steuert die sichtbaren Module."
+        title="Neuer Benutzer (Legacy)"
+        subtitle="Nur noch zur Migration — neue Benutzer bitte im Mitarbeiter-Modul anlegen."
       >
         <div className="grid gap-3 md:grid-cols-6">
           <FormField label="Vorname">
@@ -234,7 +242,9 @@ export function Settings() {
           </FormField>
         </div>
       </Section>
+      )}
 
+      {false && (
       <Section
         title="Benutzer"
         subtitle={`${users.length} ${users.length === 1 ? 'Benutzer' : 'Benutzer'}`}
@@ -367,6 +377,7 @@ export function Settings() {
           </div>
         )}
       </Section>
+      )}
 
       <Section
         title="Neue Rolle"

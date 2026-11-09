@@ -395,6 +395,12 @@ export type RosterEmployee = {
   vorname: string
   name: string
   teamId?: string // undefined = not yet assigned to a team
+  // Login fields — all optional. A roster entry with kuerzel + password set
+  // can sign in; without them the person exists only as roster/HR data.
+  kuerzel?: string
+  personalnummer?: string
+  password?: string
+  roleId?: string
 }
 
 export type Roster = {

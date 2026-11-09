@@ -11,8 +11,16 @@ type User = {
   roleId: string
 }
 type AccessConfig = { roles: Role[]; users?: User[] }
+type RosterEmployee = {
+  id: string
+  kuerzel?: string
+  password?: string
+  roleId?: string
+}
+type Roster = { employees?: RosterEmployee[] }
 
 const ACCESS_KEY = 'settings:access'
+const ROSTER_KEY = 'roster'
 
 // Paths past the shared AUTH that don't need role credentials. Used before any
 // role exists (first boot) or during the login flow itself.
@@ -90,10 +98,22 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
     const kuerzel = userAuth.slice(0, idx)
     const password = userAuth.slice(idx + 1)
     if (!kuerzel || !password) return unauthorized('user auth malformed')
-    const user = cfg?.users?.find((u) => u.kuerzel === kuerzel)
-    if (!user || user.password !== password) return unauthorized('invalid user')
-    role = cfg?.roles.find((r) => r.id === user.roleId)
-    if (!role) return unauthorized('role missing for user')
+    // Try Roster first (canonical), fall back to legacy accessConfig.users
+    // so existing deployments keep working while admins migrate.
+    const rosterRaw = await env.FORECAST_KV.get(ROSTER_KEY)
+    const roster = rosterRaw ? (JSON.parse(rosterRaw) as Roster) : null
+    const rosterMatch = roster?.employees?.find(
+      (e) => e.kuerzel && e.kuerzel === kuerzel && e.password === password,
+    )
+    if (rosterMatch && rosterMatch.roleId) {
+      role = cfg?.roles.find((r) => r.id === rosterMatch.roleId)
+      if (!role) return unauthorized('role missing for user')
+    } else {
+      const user = cfg?.users?.find((u) => u.kuerzel === kuerzel)
+      if (!user || user.password !== password) return unauthorized('invalid user')
+      role = cfg?.roles.find((r) => r.id === user.roleId)
+      if (!role) return unauthorized('role missing for user')
+    }
   } else {
     const idx = roleAuth.indexOf(':')
     if (idx === -1) return unauthorized('role auth malformed')
