@@ -322,9 +322,8 @@ export function QuartalPlanTable() {
               })}
               <PoolRow
                 pool={plan.pool ?? []}
-                employeeCount={plan.employees.length}
-                groupCount={groups.length}
-                onAdd={() => addPoolTask('')}
+                groups={groups}
+                onAdd={(empIndex) => addPoolTask(empIndex, '')}
                 onUpdate={updatePoolTask}
                 onRemove={removePoolTask}
                 onAssign={(task) => setAssignFor(task)}
@@ -339,8 +338,8 @@ export function QuartalPlanTable() {
         employees={plan.employees}
         year={year}
         onCancel={() => setAssignFor(null)}
-        onConfirm={(empIndex, week) => {
-          if (assignFor) assignPoolTask(assignFor.id, empIndex, week)
+        onConfirm={(week) => {
+          if (assignFor) assignPoolTask(assignFor.id, week)
           setAssignFor(null)
         }}
       />
@@ -348,29 +347,24 @@ export function QuartalPlanTable() {
   )
 }
 
-// Single table row that lives at the bottom of the week grid. "Pool" sits in
-// the Monat column; the KW column is a dash; the remaining columns merge into
-// one big cell carrying the pool tasks. Visually it reads as one more row of
-// the calendar, not a separate card.
+// Pool row at the bottom of the week grid — one cell per employee, same
+// layout as the week rows. PMs draft tasks per employee; assigning only asks
+// for the KW because the employee is implicit from the column.
 function PoolRow({
   pool,
-  employeeCount,
-  groupCount,
+  groups,
   onAdd,
   onUpdate,
   onRemove,
   onAssign,
 }: {
   pool: PoolTask[]
-  employeeCount: number
-  groupCount: number
-  onAdd: () => void
+  groups: { branch: Branch; label: string; items: { emp: Employee; empIndex: number }[] }[]
+  onAdd: (empIndex: number) => void
   onUpdate: (id: string, text: string) => void
   onRemove: (id: string) => void
   onAssign: (task: PoolTask) => void
 }) {
-  // Employee columns + one trailing +-column per branch group.
-  const poolColSpan = employeeCount + groupCount
   return (
     <tr className="border-t-4 border-foreground/30">
       <td className="sticky left-0 z-10 border-r bg-muted px-2 py-2 align-top text-xs font-semibold text-muted-foreground">
@@ -379,36 +373,78 @@ function PoolRow({
       <td className="num sticky left-16 z-10 border-r bg-background px-2 py-2 text-right text-xs text-muted-foreground/40">
         —
       </td>
-      <td colSpan={poolColSpan} className="border-l p-0 align-top">
-        {/* Sticky at left:120px so the pool content stays glued to the right
-            edge of the Monat + KW sticky columns as the PM scrolls horizontally
-            through employees. bg-card keeps it opaque above scrolled content. */}
-        <div className="sticky left-[120px] z-10 flex h-full w-full max-w-[560px] flex-col gap-0.5 bg-card p-1.5">
-          {pool.map((t) => (
-            <PoolTaskRow
-              key={t.id}
-              task={t}
-              onUpdate={(text) => onUpdate(t.id, text)}
-              onAssign={() => onAssign(t)}
-              onRemove={() => onRemove(t.id)}
-            />
-          ))}
-          <button
-            onClick={onAdd}
+      {groups.map((g, gi) => (
+        <Fragment key={`pool-${g.branch}`}>
+          {g.items.map(({ empIndex }, i) => {
+            const tasks = pool.filter((t) => t.empIndex === empIndex)
+            return (
+              <td
+                key={empIndex}
+                className={cn(
+                  'min-w-[280px] p-0 align-top',
+                  i === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
+                )}
+              >
+                <PoolCellContent
+                  tasks={tasks}
+                  onAdd={() => onAdd(empIndex)}
+                  onUpdate={onUpdate}
+                  onRemove={onRemove}
+                  onAssign={onAssign}
+                />
+              </td>
+            )
+          })}
+          <td
             className={cn(
-              'flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all',
-              pool.length === 0
-                ? 'text-muted-foreground hover:text-foreground'
-                : 'rounded border border-dashed text-muted-foreground hover:bg-accent hover:text-foreground',
+              'align-top',
+              g.items.length === 0 && gi > 0 ? 'border-l-2 border-foreground/20' : 'border-l',
             )}
-            title="Aufgabe im Pool anlegen"
-          >
-            <Plus className="h-3 w-3" />
-            Aufgabe
-          </button>
-        </div>
-      </td>
+          />
+        </Fragment>
+      ))}
     </tr>
+  )
+}
+
+function PoolCellContent({
+  tasks,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onAssign,
+}: {
+  tasks: PoolTask[]
+  onAdd: () => void
+  onUpdate: (id: string, text: string) => void
+  onRemove: (id: string) => void
+  onAssign: (task: PoolTask) => void
+}) {
+  return (
+    <div className="group/cell flex h-full flex-col gap-0.5 p-1.5">
+      {tasks.map((t) => (
+        <PoolTaskRow
+          key={t.id}
+          task={t}
+          onUpdate={(text) => onUpdate(t.id, text)}
+          onAssign={() => onAssign(t)}
+          onRemove={() => onRemove(t.id)}
+        />
+      ))}
+      <button
+        onClick={onAdd}
+        className={cn(
+          'flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all',
+          tasks.length === 0
+            ? 'text-muted-foreground hover:text-foreground'
+            : 'rounded border border-dashed text-muted-foreground hover:bg-accent hover:text-foreground',
+        )}
+        title="Aufgabe im Pool anlegen"
+      >
+        <Plus className="h-3 w-3" />
+        Aufgabe
+      </button>
+    </div>
   )
 }
 
@@ -471,18 +507,17 @@ function AssignDialog({
   employees: Employee[]
   year: number
   onCancel: () => void
-  onConfirm: (empIndex: number, week: number) => void
+  onConfirm: (week: number) => void
 }) {
   const today = currentISOWeek()
   const defaultWeek = today.year === year ? today.week : 1
-  const [empIndex, setEmpIndex] = useState<number>(0)
   const [week, setWeek] = useState<number>(defaultWeek)
   const totalWeeks = weeksInISOYear(year)
+  const emp = task ? employees[task.empIndex] : undefined
 
   // Reset selection whenever the dialog opens for a new task.
   useEffect(() => {
     if (!task) return
-    setEmpIndex(0)
     setWeek(today.year === year ? today.week : 1)
   }, [task, year, today.week, today.year])
 
@@ -496,26 +531,14 @@ function AssignDialog({
               Aufgabe zuweisen
             </Dialog.Title>
             <Dialog.Description className="mt-1 text-xs text-muted-foreground">
-              „{task?.text || 'Aufgabe'}" einem Mitarbeiter in einer KW zuordnen.
+              „{task?.text || 'Aufgabe'}" für{' '}
+              <span className="font-medium text-foreground">
+                {emp?.name || `Mitarbeiter ${(task?.empIndex ?? 0) + 1}`}
+              </span>{' '}
+              in eine KW schieben.
             </Dialog.Description>
           </div>
           <div className="space-y-3 px-5 py-4">
-            <label className="block space-y-1">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Mitarbeiter
-              </span>
-              <select
-                value={empIndex}
-                onChange={(e) => setEmpIndex(Number(e.target.value))}
-                className="w-full rounded-md border bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
-              >
-                {employees.map((e, i) => (
-                  <option key={e.id} value={i}>
-                    {e.name || `Mitarbeiter ${i + 1}`} ({e.branch.toUpperCase()})
-                  </option>
-                ))}
-              </select>
-            </label>
             <label className="block space-y-1">
               <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 Kalenderwoche {year}
@@ -541,8 +564,8 @@ function AssignDialog({
               Abbrechen
             </button>
             <button
-              onClick={() => onConfirm(empIndex, week)}
-              disabled={employees.length === 0}
+              onClick={() => onConfirm(week)}
+              disabled={!emp}
               className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Zuweisen

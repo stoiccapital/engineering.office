@@ -61,13 +61,14 @@ type State = {
     patch: Partial<Omit<WeekTodo, 'id'>>,
   ) => void
   removeTodo: (empIndex: number, week: number, id: string) => void
-  // Backlog pool of unscheduled tasks the PM has drafted.
-  addPoolTask: (text?: string) => void
+  // Backlog pool of unscheduled tasks the PM has drafted. Each pool task
+  // belongs to a specific employee column.
+  addPoolTask: (empIndex: number, text?: string) => void
   updatePoolTask: (id: string, text: string) => void
   removePoolTask: (id: string) => void
-  // Promote a pool task into a specific (empIndex, week) cell as a new WeekTodo.
+  // Promote a pool task into a KW cell of its own employee as a new WeekTodo.
   // The pool entry is removed on success.
-  assignPoolTask: (poolId: string, empIndex: number, week: number) => void
+  assignPoolTask: (poolId: string, week: number) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -175,7 +176,11 @@ export const usePlan = create<State>()((set, get) => ({
       const newE = e > empIndex ? e - 1 : e
       todos[cellKey(newE, Number(wStr))] = v
     }
-    set({ plan: { ...s.plan, employees, cells, todos } })
+    // reindex pool tasks: drop the removed employee's pool, shift higher down.
+    const pool: PoolTask[] = (s.plan.pool ?? [])
+      .filter((t) => t.empIndex !== empIndex)
+      .map((t) => ({ ...t, empIndex: t.empIndex > empIndex ? t.empIndex - 1 : t.empIndex }))
+    set({ plan: { ...s.plan, employees, cells, todos, pool } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -214,10 +219,10 @@ export const usePlan = create<State>()((set, get) => ({
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
-  addPoolTask: (text = '') => {
+  addPoolTask: (empIndex, text = '') => {
     const s = get()
     if (!s.plan) return
-    const pool = [...(s.plan.pool ?? []), { id: newId(), text }]
+    const pool = [...(s.plan.pool ?? []), { id: newId(), text, empIndex }]
     set({ plan: { ...s.plan, pool } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
@@ -238,12 +243,12 @@ export const usePlan = create<State>()((set, get) => ({
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
-  assignPoolTask: (poolId, empIndex, week) => {
+  assignPoolTask: (poolId, week) => {
     const s = get()
     if (!s.plan) return
     const poolEntry: PoolTask | undefined = (s.plan.pool ?? []).find((t) => t.id === poolId)
     if (!poolEntry) return
-    const k = cellKey(empIndex, week)
+    const k = cellKey(poolEntry.empIndex, week)
     const current = s.plan.todos?.[k] ?? []
     const todo: WeekTodo = { id: newId(), text: poolEntry.text, state: 'offen' }
     const todos = { ...(s.plan.todos ?? {}), [k]: [...current, todo] }

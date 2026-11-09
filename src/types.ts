@@ -71,12 +71,13 @@ export type Employee = {
   branch: Branch
 }
 
-// Backlog of todos the PM has prepared but not yet scheduled. When a team
-// member finishes early the PM promotes a PoolTask into a specific
-// (empIndex, week) cell, which spawns a WeekTodo and removes the pool entry.
+// Backlog of todos the PM has prepared but not yet scheduled. Each pool task
+// belongs to a specific employee column; promoting one into a week cell only
+// requires picking the KW (the employee is implicit).
 export type PoolTask = {
   id: string
   text: string
+  empIndex: number
 }
 
 export type QuartalPlan = {
@@ -90,9 +91,11 @@ export type QuartalPlan = {
 
 // Legacy shapes stored before this migration landed.
 type LegacyTodo = { id: string; text: string; done?: boolean; state?: TodoState; days?: number[]; progress?: number }
-type LegacyPlan = Omit<QuartalPlan, 'employees' | 'todos'> & {
+type LegacyPoolTask = { id: string; text: string; empIndex?: number }
+type LegacyPlan = Omit<QuartalPlan, 'employees' | 'todos' | 'pool'> & {
   employees: Array<string | Employee>
   todos?: Record<string, LegacyTodo[]>
+  pool?: LegacyPoolTask[]
 }
 
 function newId(): string {
@@ -119,7 +122,14 @@ export function migratePlan(input: QuartalPlan | LegacyPlan | null | undefined):
       progress: t.progress,
     }))
   }
-  return { year: input.year, employees, cells: input.cells ?? {}, todos }
+  // Pool tasks without an empIndex (shipped before the per-employee split)
+  // get parked on the first employee so nothing is lost.
+  const pool: PoolTask[] = (input.pool ?? []).map((t) => ({
+    id: t.id,
+    text: t.text,
+    empIndex: t.empIndex ?? 0,
+  }))
+  return { year: input.year, employees, cells: input.cells ?? {}, todos, pool }
 }
 
 export type ZielePersonRole = 'team' | 'ausschreibung' | 'verwaltung'
