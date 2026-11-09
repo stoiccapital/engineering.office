@@ -320,26 +320,19 @@ export function QuartalPlanTable() {
                   </tr>
                 )
               })}
+              <PoolRow
+                pool={plan.pool ?? []}
+                employeeCount={plan.employees.length}
+                groupCount={groups.length}
+                onAdd={() => addPoolTask('')}
+                onUpdate={updatePoolTask}
+                onRemove={removePoolTask}
+                onAssign={(task) => setAssignFor(task)}
+              />
             </tbody>
           </table>
         </div>
       </Section>
-
-      <div
-        className={cn(
-          // In fullscreen, cap the pool so the grid keeps most of the viewport
-          // and let the pool's own list scroll internally when long.
-          isFullscreen && 'mt-2 max-h-[30vh] shrink-0 overflow-auto',
-        )}
-      >
-        <AufgabenPool
-          pool={plan.pool ?? []}
-          onAdd={() => addPoolTask('')}
-          onUpdate={updatePoolTask}
-          onRemove={removePoolTask}
-          onAssign={(task) => setAssignFor(task)}
-        />
-      </div>
 
       <AssignDialog
         task={assignFor}
@@ -355,76 +348,112 @@ export function QuartalPlanTable() {
   )
 }
 
-function AufgabenPool({
+// Single table row that lives at the bottom of the week grid. "Pool" sits in
+// the Monat column; the KW column is a dash; the remaining columns merge into
+// one big cell carrying the pool tasks. Visually it reads as one more row of
+// the calendar, not a separate card.
+function PoolRow({
   pool,
+  employeeCount,
+  groupCount,
   onAdd,
   onUpdate,
   onRemove,
   onAssign,
 }: {
   pool: PoolTask[]
+  employeeCount: number
+  groupCount: number
   onAdd: () => void
   onUpdate: (id: string, text: string) => void
   onRemove: (id: string) => void
   onAssign: (task: PoolTask) => void
 }) {
+  // Employee columns + one trailing +-column per branch group.
+  const poolColSpan = employeeCount + groupCount
   return (
-    <Section
-      title="Aufgaben-Pool"
-      subtitle={
-        <>
-          <Num>{pool.length}</Num>{' '}
-          {pool.length === 1 ? 'ungeplante Aufgabe' : 'ungeplante Aufgaben'} · schiebst du bei
-          Bedarf in eine Woche
-        </>
-      }
-      action={
-        <button
-          onClick={onAdd}
-          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Aufgabe
-        </button>
-      }
-      padded={false}
-    >
-      {pool.length === 0 ? (
-        <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-          Noch keine Aufgaben im Pool.
-        </div>
-      ) : (
-        <ul className="divide-y">
+    <tr className="border-t-4 border-foreground/30">
+      <td className="sticky left-0 z-10 border-r bg-muted px-2 py-2 align-top text-xs font-semibold text-muted-foreground">
+        Pool
+      </td>
+      <td className="num sticky left-16 z-10 border-r bg-background px-2 py-2 text-right text-xs text-muted-foreground/40">
+        —
+      </td>
+      <td colSpan={poolColSpan} className="border-l p-0 align-top">
+        <div className="group/cell flex h-full flex-col gap-0.5 p-1.5">
           {pool.map((t) => (
-            <li key={t.id} className="group flex items-center gap-2 px-3 py-2">
-              <textarea
-                value={t.text}
-                onChange={(e) => onUpdate(t.id, e.target.value)}
-                placeholder="Aufgabe…"
-                rows={1}
-                className="min-w-0 flex-1 resize-none bg-transparent text-sm leading-snug outline-none placeholder:text-muted-foreground/50"
-                style={{ fieldSizing: 'content' } as React.CSSProperties}
-              />
-              <button
-                onClick={() => onAssign(t)}
-                disabled={!t.text.trim()}
-                className="shrink-0 rounded-md border bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                title={!t.text.trim() ? 'Text eingeben, dann zuweisen' : 'Zuweisen'}
-              >
-                Zuweisen…
-              </button>
-              <button
-                onClick={() => onRemove(t.id)}
-                className="shrink-0 rounded p-1 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                title="Löschen"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </li>
+            <PoolTaskRow
+              key={t.id}
+              task={t}
+              onUpdate={(text) => onUpdate(t.id, text)}
+              onAssign={() => onAssign(t)}
+              onRemove={() => onRemove(t.id)}
+            />
           ))}
-        </ul>
+          <button
+            onClick={onAdd}
+            className={cn(
+              'flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all',
+              pool.length === 0
+                ? 'text-muted-foreground hover:text-foreground'
+                : 'rounded border border-dashed text-muted-foreground hover:bg-accent hover:text-foreground',
+            )}
+            title="Aufgabe im Pool anlegen"
+          >
+            <Plus className="h-3 w-3" />
+            Aufgabe
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+function PoolTaskRow({
+  task,
+  onUpdate,
+  onAssign,
+  onRemove,
+}: {
+  task: PoolTask
+  onUpdate: (text: string) => void
+  onAssign: () => void
+  onRemove: () => void
+}) {
+  const tone = todoTone(task.text)
+  return (
+    <div
+      className={cn(
+        'group flex items-start gap-2 rounded px-1.5 py-0.5',
+        tone ? TONE_CLASSES[tone] : 'hover:bg-muted',
       )}
-    </Section>
+    >
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <textarea
+          value={task.text}
+          onChange={(e) => onUpdate(e.target.value)}
+          placeholder="Aufgabe…"
+          rows={1}
+          className="block w-full resize-none bg-transparent text-xs leading-snug outline-none placeholder:text-muted-foreground/50"
+          style={{ fieldSizing: 'content' } as React.CSSProperties}
+        />
+      </div>
+      <button
+        onClick={onAssign}
+        disabled={!task.text.trim()}
+        className="mt-0.5 shrink-0 rounded-md border bg-card px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        title={!task.text.trim() ? 'Text eingeben, dann zuweisen' : 'Zuweisen'}
+      >
+        Zuweisen…
+      </button>
+      <button
+        onClick={onRemove}
+        className="mt-0.5 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+        title="Löschen"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
   )
 }
 
