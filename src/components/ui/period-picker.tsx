@@ -88,24 +88,36 @@ export function PeriodPicker({
           className="z-50 w-56 rounded-md border bg-card p-2 text-sm shadow-md focus:outline-none"
         >
           {showYear && (
-            <div className="mb-2 flex items-center justify-between rounded-md border px-1 py-1">
-              <button
-                onClick={() => onYearChange!(year! - 1)}
-                className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Vorheriges Jahr"
-              >
-                ←
-              </button>
-              <span className="font-mono tabular-nums text-sm font-semibold">
-                {year}
-              </span>
-              <button
-                onClick={() => onYearChange!(year! + 1)}
-                className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Nächstes Jahr"
-              >
-                →
-              </button>
+            <div className="mb-2 space-y-1">
+              <div className="flex items-center justify-between rounded-md border px-1 py-1">
+                <button
+                  onClick={() => onYearChange!(year! - 1)}
+                  className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label="Vorheriges Jahr"
+                >
+                  ←
+                </button>
+                <span className="font-mono tabular-nums text-sm font-semibold">
+                  {year}
+                </span>
+                <button
+                  onClick={() => onYearChange!(year! + 1)}
+                  className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label="Nächstes Jahr"
+                >
+                  →
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                {yearChoices(year!).map((y) => (
+                  <QuarterChoice
+                    key={y}
+                    label={String(y)}
+                    active={year === y}
+                    onClick={() => onYearChange!(y)}
+                  />
+                ))}
+              </div>
             </div>
           )}
 
@@ -182,6 +194,19 @@ export function PeriodPicker({
       </Popover.Portal>
     </Popover.Root>
   )
+}
+
+function yearChoices(current: number): number[] {
+  const now = new Date().getFullYear()
+  // Default window: this year - 1 .. this year + 6 (8 years, 2 rows of 4).
+  // If the picked year is outside, slide the window so it's included.
+  let start = now - 1
+  let end = now + 6
+  if (current < start) start = current
+  if (current > end) end = current
+  const out: number[] = []
+  for (let y = start; y <= end; y++) out.push(y)
+  return out
 }
 
 function QuarterChoice({
