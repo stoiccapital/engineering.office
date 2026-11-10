@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
-import { Section } from '@/components/ui/section'
+import { ChevronDown } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { NumCell } from './NumCell'
 import { LoadingCard } from '@/components/ui/loading-card'
@@ -20,6 +19,8 @@ import {
 import { fmtDecimal, fmtEUR } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+const HIGHLIGHT_THRESHOLD_EUR = 20_000
+
 export function Umsatzkontrolle() {
   const data = useUmsatz((s) => s.data)
   const quarter = useUmsatz((s) => s.quarter)
@@ -30,7 +31,6 @@ export function Umsatzkontrolle() {
   const setZieleYear = useZiele((s) => s.setYear)
   const loadZiele = useZiele((s) => s.load)
 
-  // Zielkontrolle year drives Ziele year — teams and targets must come from the same year.
   useEffect(() => {
     if (zieleYear !== umsatzYear) setZieleYear(umsatzYear)
     else if (!ziele) void loadZiele()
@@ -62,98 +62,137 @@ export function Umsatzkontrolle() {
 
   if (!data || !ziele) return <LoadingCard>Lade Zielkontrolle…</LoadingCard>
 
+  if (teams.length === 0) {
+    return (
+      <div className="rounded-lg border bg-card p-6 text-center text-xs text-muted-foreground">
+        Keine Teams in Ziele für {umsatzYear}. Lege Teams in Ziele an, um Daten hier zu pflegen.
+      </div>
+    )
+  }
+
+  const visibleRechnungen = visibleSum(rechnungenTotal, filter.months)
+  const visibleForecast = visibleSum(forecastTotal, filter.months)
+  const visibleZiel = visibleSum(zielTotal, filter.months)
+  const visibleDiff = visibleSum(diffTotal, filter.months)
+  const visibleAbwFc = visibleSum(abwFcTotal, filter.months)
+  const pufferDEEnd = lastNonNull(pufferDE, filter.months)
+  const pufferPLEnd = lastNonNull(pufferPL, filter.months)
+
+  const colorLegend = (
+    <InfoTooltip>
+      <div className="space-y-2">
+        <div className="font-medium">Farbkodierung</div>
+        <div className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+          <span className="text-muted-foreground">Positiv ≥ {fmtEUR(HIGHLIGHT_THRESHOLD_EUR)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-sm bg-destructive" />
+          <span className="text-muted-foreground">Jede negative Abweichung</span>
+        </div>
+      </div>
+    </InfoTooltip>
+  )
+
   return (
     <div className="space-y-6">
-      <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        Teams, FTE und Zielvorgaben werden in <strong className="font-medium text-foreground">Ziele</strong> verwaltet.
-        Hier werden nur <strong className="font-medium text-foreground">Forecast</strong> und
-        <strong className="font-medium text-foreground"> Rechnungen</strong> gepflegt.
-      </div>
-
-      <Section
-        title="Zielkontrolle"
-        subtitle={`${teams.length} Teams · ${fmtDecimal(totalFte, 2)} FTE gesamt`}
-        padded={false}
+      <CollapsibleSection
+        title="Verbleibender Puffer (kumuliert)"
+        summary={
+          <>
+            <span>NL DE {fmtDeltaShort(pufferDEEnd)}</span>
+            <span className="text-border">·</span>
+            <span>NL PL {fmtDeltaShort(pufferPLEnd)}</span>
+          </>
+        }
+        action={colorLegend}
       >
-        <div className="space-y-6 p-4">
-          {teams.length === 0 ? (
-            <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
-              Keine Teams in Ziele für {umsatzYear}. Lege Teams in Ziele an, um Daten hier zu pflegen.
-            </div>
-          ) : (
-            <>
-              <TeamsOverview teams={teams} />
-              <MetricTable
-                title="Forecast"
-                metric="forecast"
-                teams={teams}
-                totals={forecastTotal}
-                editable
-                filter={filter}
-              />
-              <MetricTable
-                title="Gestellte Rechnungen"
-                metric="rechnungen"
-                teams={teams}
-                totals={rechnungenTotal}
-                editable
-                filter={filter}
-                trailing={(t) => <RechnungenTrailing team={t} visibleMonths={filter.months} />}
-                trailingTotalLabel="FTE Σ"
-                trailingTotal={
-                  <RechnungenTotalTrailing
-                    teams={teams}
-                    total={visibleSum(rechnungenTotal, filter.months)}
-                  />
-                }
-              />
-              <ZielvorgabenTable teams={teams} totals={zielTotal} filter={filter} />
-              <DerivedMetricTable
-                title="Differenz (Rg. − Ziel)"
-                teams={teams.map((t, i) => ({ name: t.name, values: diffByTeam[i].values, branch: t.branch }))}
-                totals={diffTotal}
-                colorDeltas
-                filter={filter}
-              />
-              <div className="mt-4 border-t pt-6">
-                <PufferRows deValues={pufferDE} plValues={pufferPL} filter={filter} />
-              </div>
-            </>
-          )}
-        </div>
-      </Section>
+        <table className="w-full border-collapse text-sm">
+          <HeaderRow filter={filter} />
+          <tbody>
+            <tr className="border-b hover:bg-accent">
+              <TeamNameCell name="Puffer NL DE" />
+              <MonthRow values={pufferDE} filter={filter} colorDeltas />
+            </tr>
+            <tr className="hover:bg-accent">
+              <TeamNameCell name="Puffer NL PL" />
+              <MonthRow values={pufferPL} filter={filter} colorDeltas />
+            </tr>
+          </tbody>
+        </table>
+      </CollapsibleSection>
 
-      {teams.length > 0 && (
-        <Section
-          title="Forecast Kontrolle"
-          padded={false}
-          action={
-            <InfoTooltip>
-              <div className="space-y-2">
-                <div className="font-medium">Farbkodierung</div>
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-                  <span className="text-muted-foreground">Forecast überschritten (&gt; 20 k)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
-                  <span className="text-muted-foreground">Forecast unterschritten (&lt; −20 k)</span>
-                </div>
-              </div>
-            </InfoTooltip>
-          }
-        >
-          <div className="p-4">
-            <DerivedMetricTable
-              title="Abweichung Forecast (Rg. − Forecast)"
-              teams={teams.map((t, i) => ({ name: t.name, values: abwFcByTeam[i].values, branch: t.branch }))}
-              totals={abwFcTotal}
-              colorDeltas
-              filter={filter}
-            />
-          </div>
-        </Section>
-      )}
+      <CollapsibleSection
+        title="Abweichung Forecast"
+        subtitle="Rechnungen − Forecast"
+        summary={fmtDeltaShort(visibleAbwFc)}
+      >
+        <DerivedMetricTable
+          teams={teams.map((t, i) => ({ name: t.name, values: abwFcByTeam[i].values, branch: t.branch }))}
+          totals={abwFcTotal}
+          colorDeltas
+          filter={filter}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Differenz"
+        subtitle="Rechnungen − Ziel"
+        summary={fmtDeltaShort(visibleDiff)}
+      >
+        <DerivedMetricTable
+          teams={teams.map((t, i) => ({ name: t.name, values: diffByTeam[i].values, branch: t.branch }))}
+          totals={diffTotal}
+          colorDeltas
+          filter={filter}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Gestellte Rechnungen"
+        summary={`Σ ${fmtEUR(visibleRechnungen)}`}
+      >
+        <MetricTable
+          metric="rechnungen"
+          teams={teams}
+          totals={rechnungenTotal}
+          editable
+          filter={filter}
+          trailing={(t) => <RechnungenTrailing team={t} visibleMonths={filter.months} />}
+          trailingTotalLabel="FTE Σ"
+          trailingTotal={<RechnungenTotalTrailing teams={teams} total={visibleRechnungen} />}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Forecast"
+        summary={`Σ ${fmtEUR(visibleForecast)}`}
+      >
+        <MetricTable
+          metric="forecast"
+          teams={teams}
+          totals={forecastTotal}
+          editable
+          filter={filter}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Zielvorgaben"
+        subtitle="aus Ziele"
+        summary={`Σ ${fmtEUR(visibleZiel)}`}
+        defaultOpen={false}
+      >
+        <ZielvorgabenTable teams={teams} totals={zielTotal} filter={filter} />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Teams aus Ziele"
+        summary={`${teams.length} Teams · ${fmtDecimal(totalFte, 2)} FTE`}
+        defaultOpen={false}
+      >
+        <TeamsOverview teams={teams} totalFte={totalFte} />
+      </CollapsibleSection>
     </div>
   )
 }
@@ -176,6 +215,16 @@ function visibleSum(values: MonthValues, months: readonly number[]): number {
   return months.reduce<number>((s, i) => s + (values[i] ?? 0), 0)
 }
 
+// Puffer is cumulative — the last non-null month in the visible range is the
+// running total users care about ("where do we stand right now").
+function lastNonNull(values: MonthValues, months: readonly number[]): number | null {
+  for (let i = months.length - 1; i >= 0; i--) {
+    const v = values[months[i]]
+    if (v !== null && v !== undefined) return v
+  }
+  return null
+}
+
 type SummableMetric = 'forecast' | 'rechnungen' | 'ziel'
 
 function sumMetric(teams: UmsatzTeamView[], metric: SummableMetric): MonthValues {
@@ -196,99 +245,95 @@ function branchCumulative(
   return cumulativeMonthValues(combined)
 }
 
-function CollapsibleBlock({
+function fmtDeltaShort(v: number | null): string {
+  if (v === null) return '—'
+  const sign = v > 0 ? '+' : ''
+  return `${sign}${fmtEUR(v)}`
+}
+
+function CollapsibleSection({
   title,
-  badge,
+  subtitle,
   summary,
+  action,
   defaultOpen = true,
   children,
 }: {
   title: React.ReactNode
-  badge?: React.ReactNode
+  subtitle?: React.ReactNode
   summary?: React.ReactNode
+  action?: React.ReactNode
   defaultOpen?: boolean
-  // Receives collapsed so the body can hide per-team rows but still render totals.
-  children: (collapsed: boolean) => React.ReactNode
+  children: React.ReactNode
 }) {
   const [collapsed, setCollapsed] = useState(!defaultOpen)
   return (
-    <div>
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="flex w-full items-center gap-1 rounded px-1 py-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-        aria-expanded={!collapsed}
-      >
-        {collapsed ? (
-          <ChevronRight className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5" />
+    <section className="rounded-lg border bg-card">
+      <div className="flex items-stretch">
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          className="flex min-w-0 flex-1 items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/30"
+        >
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform',
+              collapsed && '-rotate-90',
+            )}
+          />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold leading-none">{title}</div>
+            {subtitle && (
+              <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
+            )}
+          </div>
+          {summary && (
+            <div className="num ml-auto flex items-center gap-1.5 whitespace-nowrap pl-4 text-xs text-muted-foreground">
+              {summary}
+            </div>
+          )}
+        </button>
+        {action && (
+          <div className="flex items-center border-l px-2">{action}</div>
         )}
-        <span>{title}</span>
-        {badge && <span className="ml-1">{badge}</span>}
-        {summary && (
-          <span className="ml-auto font-mono tabular-nums text-muted-foreground">
-            {summary}
-          </span>
-        )}
-      </button>
-      <div className="overflow-auto">{children(collapsed)}</div>
-    </div>
+      </div>
+      {!collapsed && <div className={cn('overflow-auto border-t')}>{children}</div>}
+    </section>
   )
 }
 
-function TeamsOverview({ teams }: { teams: UmsatzTeamView[] }) {
-  const totalFte = teams.reduce((s, t) => s + (t.fte || 0), 0)
+function TeamsOverview({ teams, totalFte }: { teams: UmsatzTeamView[]; totalFte: number }) {
   return (
-    <CollapsibleBlock
-      title="Teams aus Ziele"
-      summary={
-        <>
-          {teams.length} Teams · {fmtDecimal(totalFte, 2)} FTE
-        </>
-      }
-    >
-      {(collapsed) => (
-        <table className="w-full border-collapse text-sm">
-          {!collapsed && (
-            <thead>
-              <tr className="border-b bg-muted/20 text-xs font-medium text-muted-foreground">
-                <th className="px-2 py-1.5 text-left">Team</th>
-                <th className="w-24 px-2 py-1.5 text-left">NL</th>
-                <th className="num w-24 px-2 py-1.5 text-right">FTE</th>
-              </tr>
-            </thead>
-          )}
-          <tbody>
-            {!collapsed &&
-              teams.map((t) => (
-                <tr key={t.id} className="border-b last:border-b-0">
-                  <td className="px-2 py-1.5 text-sm font-medium">{t.name}</td>
-                  <td className="px-2 py-1.5 text-xs text-muted-foreground">
-                    NL {t.branch.toUpperCase()}
-                  </td>
-                  <td className="num px-2 py-1.5 text-right font-mono text-sm tabular-nums">
-                    {fmtDecimal(t.fte, 2)}
-                  </td>
-                </tr>
-              ))}
-            <tr className={cn('font-semibold', !collapsed && 'border-t-2 border-foreground/20')}>
-              <td className="px-2 py-1.5 text-sm">Σ Gesamt</td>
-              <td className="px-2 py-1.5 text-xs text-muted-foreground">
-                {teams.length} Teams
-              </td>
-              <td className="num px-2 py-1.5 text-right font-mono text-sm tabular-nums">
-                {fmtDecimal(totalFte, 2)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      )}
-    </CollapsibleBlock>
+    <table className="w-full border-collapse text-sm">
+      <thead className="bg-muted/20">
+        <tr className="border-b text-xs font-medium text-muted-foreground">
+          <th className="px-2 py-1.5 text-left">Team</th>
+          <th className="w-24 px-2 py-1.5 text-left">NL</th>
+          <th className="num w-24 px-2 py-1.5">FTE</th>
+        </tr>
+      </thead>
+      <tbody>
+        {teams.map((t) => (
+          <tr key={t.id} className="border-b last:border-b-0">
+            <td className="px-2 py-1.5 text-sm font-medium">{t.name}</td>
+            <td className="px-2 py-1.5 text-xs text-muted-foreground">
+              NL {t.branch.toUpperCase()}
+            </td>
+            <td className="num px-2 py-1.5 text-sm">{fmtDecimal(t.fte, 2)}</td>
+          </tr>
+        ))}
+        <tr className="border-t border-foreground/40 font-semibold">
+          <td className="px-2 py-1.5 text-sm">Σ</td>
+          <td className="px-2 py-1.5 text-xs text-muted-foreground">{teams.length} Teams</td>
+          <td className="num px-2 py-1.5 text-sm">{fmtDecimal(totalFte, 2)}</td>
+        </tr>
+      </tbody>
+    </table>
   )
 }
 
 function MetricTable({
-  title,
   metric,
   teams,
   totals,
@@ -298,7 +343,6 @@ function MetricTable({
   trailingTotalLabel,
   trailingTotal,
 }: {
-  title: string
   metric: MetricKey
   teams: UmsatzTeamView[]
   totals: MonthValues
@@ -310,38 +354,27 @@ function MetricTable({
 }) {
   const updateCell = useUmsatz((s) => s.updateCell)
   return (
-    <CollapsibleBlock title={title}>
-      {(collapsed) => (
-        <table className="w-full border-collapse text-sm">
-          {!collapsed && (
-            <HeaderRow filter={filter} trailing={trailing ? trailingTotalLabel : undefined} />
-          )}
-          <tbody>
-            {!collapsed &&
-              teams.map((team) => (
-                <tr key={team.id} className="border-b last:border-b-0 hover:bg-accent">
-                  <TeamNameCell name={team.name} />
-                  <MonthRow
-                    values={team[metric]}
-                    filter={filter}
-                    onChange={
-                      editable
-                        ? (idx, v) => updateCell(team.id, metric, idx, v)
-                        : undefined
-                    }
-                  />
-                  {trailing && <td className="border-l">{trailing(team)}</td>}
-                </tr>
-              ))}
-            <tr className={cn('font-semibold', !collapsed && 'border-t-2 border-foreground/20')}>
-              <TeamNameCell name={`Gesamt ${title}`} />
-              <MonthRow values={totals} filter={filter} />
-              {trailingTotal && <td className="border-l">{trailingTotal}</td>}
-            </tr>
-          </tbody>
-        </table>
-      )}
-    </CollapsibleBlock>
+    <table className="w-full border-collapse text-sm">
+      <HeaderRow filter={filter} trailing={trailing ? trailingTotalLabel : undefined} />
+      <tbody>
+        {teams.map((team) => (
+          <tr key={team.id} className="border-b last:border-b-0 hover:bg-accent">
+            <TeamNameCell name={team.name} />
+            <MonthRow
+              values={team[metric]}
+              filter={filter}
+              onChange={editable ? (idx, v) => updateCell(team.id, metric, idx, v) : undefined}
+            />
+            {trailing && <td className="border-l">{trailing(team)}</td>}
+          </tr>
+        ))}
+        <tr className="border-t border-foreground/40 font-semibold">
+          <TeamNameCell name="Σ" />
+          <MonthRow values={totals} filter={filter} />
+          {trailingTotal && <td className="border-l">{trailingTotal}</td>}
+        </tr>
+      </tbody>
+    </table>
   )
 }
 
@@ -355,100 +388,51 @@ function ZielvorgabenTable({
   filter: QuarterFilter
 }) {
   return (
-    <CollapsibleBlock
-      title="Zielvorgaben"
-      badge={
-        <span className="rounded border bg-muted/40 px-1.5 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
-          aus Ziele
-        </span>
-      }
-    >
-      {(collapsed) => (
-        <table className="w-full border-collapse text-sm">
-          {!collapsed && <HeaderRow filter={filter} />}
-          <tbody>
-            {!collapsed &&
-              teams.map((team) => (
-                <tr key={team.id} className="border-b last:border-b-0">
-                  <TeamNameCell name={team.name} />
-                  <MonthRow values={team.ziel} filter={filter} />
-                </tr>
-              ))}
-            <tr className={cn('font-semibold', !collapsed && 'border-t-2 border-foreground/20')}>
-              <TeamNameCell name="Gesamt Zielvorgaben" />
-              <MonthRow values={totals} filter={filter} />
-            </tr>
-          </tbody>
-        </table>
-      )}
-    </CollapsibleBlock>
+    <table className="w-full border-collapse text-sm">
+      <HeaderRow filter={filter} />
+      <tbody>
+        {teams.map((team) => (
+          <tr key={team.id} className="border-b last:border-b-0">
+            <TeamNameCell name={team.name} />
+            <MonthRow values={team.ziel} filter={filter} />
+          </tr>
+        ))}
+        <tr className="border-t border-foreground/40 font-semibold">
+          <TeamNameCell name="Σ" />
+          <MonthRow values={totals} filter={filter} />
+        </tr>
+      </tbody>
+    </table>
   )
 }
 
 function DerivedMetricTable({
-  title,
   teams,
   totals,
   colorDeltas,
   filter,
 }: {
-  title: string
   teams: { name: string; values: MonthValues; branch: UmsatzBranch }[]
   totals: MonthValues
   colorDeltas?: boolean
   filter: QuarterFilter
 }) {
   return (
-    <CollapsibleBlock title={title}>
-      {(collapsed) => (
-        <table className="w-full border-collapse text-sm">
-          {!collapsed && <HeaderRow filter={filter} />}
-          <tbody>
-            {!collapsed &&
-              teams.map((team, i) => (
-                <tr key={i} className="border-b last:border-b-0">
-                  <TeamNameCell name={`Δ${team.name}`} />
-                  <MonthRow values={team.values} filter={filter} colorDeltas={colorDeltas} />
-                </tr>
-              ))}
-            <tr className={cn('font-semibold', !collapsed && 'border-t-2 border-foreground/20')}>
-              <TeamNameCell name="Σ Differenz" />
-              <MonthRow values={totals} filter={filter} colorDeltas={colorDeltas} />
-            </tr>
-          </tbody>
-        </table>
-      )}
-    </CollapsibleBlock>
-  )
-}
-
-function PufferRows({
-  deValues,
-  plValues,
-  filter,
-}: {
-  deValues: MonthValues
-  plValues: MonthValues
-  filter: QuarterFilter
-}) {
-  return (
-    <CollapsibleBlock title="Verbleibender Puffer (kumuliert)">
-      {(collapsed) => (
-        <table className="w-full border-collapse text-sm">
-          {!collapsed && <HeaderRow filter={filter} />}
-          <tbody>
-            <tr className={cn('hover:bg-accent', !collapsed && 'border-b')}>
-              <TeamNameCell name="Puffer NL DE" />
-              <MonthRow values={deValues} filter={filter} colorDeltas />
-            </tr>
-            <tr className="hover:bg-accent">
-              <TeamNameCell name="Puffer NL PL" />
-              <MonthRow values={plValues} filter={filter} colorDeltas />
-            </tr>
-          </tbody>
-        </table>
-      )}
-    </CollapsibleBlock>
+    <table className="w-full border-collapse text-sm">
+      <HeaderRow filter={filter} />
+      <tbody>
+        {teams.map((team, i) => (
+          <tr key={i} className="border-b last:border-b-0">
+            <TeamNameCell name={team.name} />
+            <MonthRow values={team.values} filter={filter} colorDeltas={colorDeltas} />
+          </tr>
+        ))}
+        <tr className="border-t border-foreground/40 font-semibold">
+          <TeamNameCell name="Σ" />
+          <MonthRow values={totals} filter={filter} colorDeltas={colorDeltas} />
+        </tr>
+      </tbody>
+    </table>
   )
 }
 
@@ -457,18 +441,18 @@ function HeaderRow({ filter, trailing }: { filter: QuarterFilter; trailing?: str
   return (
     <thead className="bg-muted/20">
       <tr className="border-b">
-        <th className="sticky left-0 z-10 min-w-[180px] bg-muted/20 px-2 py-2 text-left text-xs font-medium text-muted-foreground">
+        <th className="sticky left-0 z-10 min-w-[180px] border-r bg-muted/20 px-2 py-1.5 text-left text-xs font-medium text-muted-foreground">
           Team
         </th>
         {filter.months.map((idx) => {
           const q = quarterEnds.has(idx) ? Math.floor(idx / 3) : -1
           return (
             <Fragment key={idx}>
-              <th className="num min-w-[72px] px-2 py-2 text-right text-xs font-medium text-muted-foreground">
+              <th className="num min-w-[72px] px-2 py-1.5 text-xs font-medium text-muted-foreground">
                 {MONTH_LABELS[idx]}
               </th>
               {q !== -1 && (
-                <th className="num min-w-[88px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">
+                <th className="num min-w-[88px] border-l bg-muted/40 px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                   {QUARTER_LABELS[q]}
                 </th>
               )}
@@ -476,12 +460,12 @@ function HeaderRow({ filter, trailing }: { filter: QuarterFilter; trailing?: str
           )
         })}
         {filter.showTotal && (
-          <th className="num min-w-[96px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">
+          <th className="num min-w-[96px] border-l bg-muted/40 px-2 py-1.5 text-xs font-semibold text-muted-foreground">
             Σ
           </th>
         )}
         {trailing && (
-          <th className="num min-w-[120px] border-l bg-muted/40 px-2 py-2 text-right text-xs font-semibold text-muted-foreground">
+          <th className="num min-w-[120px] border-l bg-muted/40 px-2 py-1.5 text-xs font-semibold text-muted-foreground">
             {trailing}
           </th>
         )}
@@ -492,7 +476,7 @@ function HeaderRow({ filter, trailing }: { filter: QuarterFilter; trailing?: str
 
 function TeamNameCell({ name }: { name: string }) {
   return (
-    <td className="sticky left-0 z-10 min-w-[180px] whitespace-nowrap bg-card px-2 py-1.5 text-sm font-medium">
+    <td className="sticky left-0 z-10 min-w-[180px] whitespace-nowrap border-r bg-card px-2 py-1.5 text-sm font-medium">
       {name}
     </td>
   )
@@ -515,11 +499,7 @@ function MonthRow({
     cells.push(
       <td key={`m${i}`} className="px-0">
         {onChange ? (
-          <NumCell
-            value={values[i] ?? null}
-            onChange={(v) => onChange(i, v)}
-            className="text-right"
-          />
+          <NumCell value={values[i] ?? null} onChange={(v) => onChange(i, v)} />
         ) : (
           <ReadCell v={values[i] ?? null} colorDeltas={colorDeltas} />
         )}
@@ -554,24 +534,19 @@ function ReadCell({
   colorDeltas?: boolean
 }) {
   if (v === null) {
-    return (
-      <div className="num px-2 py-1.5 text-right text-sm text-muted-foreground/30">—</div>
-    )
+    return <div className="num px-2 py-1.5 text-sm text-muted-foreground/30">—</div>
   }
-  const tone =
-    colorDeltas && Math.abs(v) >= 20_000
-      ? v > 0
-        ? 'text-emerald-600'
-        : 'text-red-600'
-      : ''
+  // Negatives are always surfaced; positives only when they clear the threshold,
+  // so we don't light up noise above zero.
+  const tone = colorDeltas
+    ? v < 0
+      ? 'text-destructive'
+      : v >= HIGHLIGHT_THRESHOLD_EUR
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : ''
+    : ''
   return (
-    <div
-      className={cn(
-        'num px-2 py-1.5 text-right text-sm tabular-nums',
-        bold && 'font-semibold',
-        tone,
-      )}
-    >
+    <div className={cn('num px-2 py-1.5 text-sm tabular-nums', bold && 'font-semibold', tone)}>
       {fmtEUR(v)}
     </div>
   )
