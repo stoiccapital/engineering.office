@@ -16,7 +16,6 @@ import { Rechnungen } from '@/components/Rechnungen'
 import { Mitarbeiter } from '@/components/Mitarbeiter'
 import { Settings } from '@/components/Settings'
 import { BauwerkeTab } from '@/components/kostenschaetzung/BauwerkeTab'
-import { UebersichtTab } from '@/components/kostenschaetzung/UebersichtTab'
 import { HoaiTab } from '@/components/kostenschaetzung/HoaiTab'
 import { KatalogTab } from '@/components/kostenschaetzung/KatalogTab'
 import { KostenschaetzungSaveStatus } from '@/components/KostenschaetzungSaveStatus'
@@ -52,11 +51,10 @@ type View =
   | Exclude<ModuleId, 'plan_overview' | 'kostenschaetzung'>
   | 'freigaben'
   | 'ks_bauwerke'
-  | 'ks_uebersicht'
   | 'ks_hoai'
   | 'ks_katalog'
 
-const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_uebersicht', 'ks_hoai', 'ks_katalog']
+const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_hoai', 'ks_katalog']
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
   forecast: { title: 'Forecast', label: 'Forecast', icon: Table2 },
@@ -67,7 +65,6 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   umsatz: { title: 'Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
   ks_bauwerke: { title: 'Bauwerke', label: 'Bauwerke', icon: Building2 },
-  ks_uebersicht: { title: 'Übersicht', label: 'Übersicht', icon: FileText },
   ks_hoai: { title: 'HOAI-Honorar', label: 'HOAI-Honorar', icon: Calculator },
   ks_katalog: { title: 'Datenbank · Ril 808', label: 'Datenbank Ril 808', icon: Database },
   mitarbeiter: { title: 'Mitarbeiter', label: 'Mitarbeiter', icon: Users },
@@ -243,7 +240,6 @@ function Shell() {
   useEffect(() => {
     const isKsView =
       view === 'ks_bauwerke' ||
-      view === 'ks_uebersicht' ||
       view === 'ks_hoai' ||
       view === 'ks_katalog'
     if (isKsView && !kostenDoc) void loadKostenschaetzung()
@@ -301,7 +297,6 @@ function Shell() {
               {view === 'umsatz' && <UmsatzSaveStatus />}
               {view === 'rechnungen' && <RechnungenSaveStatus />}
               {(view === 'ks_bauwerke' ||
-                view === 'ks_uebersicht' ||
                 view === 'ks_hoai' ||
                 view === 'ks_katalog') && <KostenschaetzungSaveStatus />}
               <ViewPeriodPicker view={view} />
@@ -330,8 +325,6 @@ function Shell() {
           {view === 'rechnungen' && <Rechnungen />}
           {view === 'ks_bauwerke' &&
             (kostenDoc ? <BauwerkeTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
-          {view === 'ks_uebersicht' &&
-            (kostenDoc ? <UebersichtTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
           {view === 'ks_hoai' &&
             (kostenDoc ? <HoaiTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
           {view === 'ks_katalog' &&
@@ -468,7 +461,6 @@ function ViewPeriodPicker({ view }: { view: View }) {
     case 'rechnungen':
       return <RechnungenPicker />
     case 'ks_bauwerke':
-    case 'ks_uebersicht':
     case 'ks_hoai':
     case 'ks_katalog':
       return null
