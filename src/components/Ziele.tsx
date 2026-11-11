@@ -228,11 +228,12 @@ function BranchDashboard({
     <div className="bg-card p-4">
       <div className="mb-3 flex items-baseline justify-between">
         <div className="text-sm font-semibold">{branch.label}</div>
-        <div className="font-mono text-[11px] text-muted-foreground">
-          {fmtDecimal(revenueTotal, 2)} FTE operative Teams{halfLabel}
+        <div className="text-[11px] text-muted-foreground">
+          FTE-Pools{halfLabel}
         </div>
       </div>
-      <div className="mb-3 grid grid-cols-2 gap-2 rounded-md border bg-muted/30 p-2 text-xs">
+      <div className="mb-3 grid grid-cols-3 gap-2 rounded-md border bg-muted/30 p-2 text-xs">
+        <OverheadBadge label="Operative Teams" fte={revenueTotal} tone="emerald" prominent />
         <OverheadBadge label="Verwaltung" fte={verwaltungTotal} tone="blue" />
         <OverheadBadge label="Ausschreibung" fte={ausschreibungTotal} tone="violet" />
       </div>
@@ -361,20 +362,36 @@ function OverheadBadge({
   label,
   fte,
   tone,
+  prominent,
 }: {
   label: string
   fte: number
-  tone: 'blue' | 'violet'
+  tone: 'blue' | 'violet' | 'emerald'
+  prominent?: boolean
 }) {
   const classes =
     tone === 'blue'
       ? 'border-sky-500/30 bg-sky-50 text-sky-900 dark:bg-sky-500/10 dark:text-sky-200'
-      : 'border-violet-500/30 bg-violet-50 text-violet-900 dark:bg-violet-500/10 dark:text-violet-200'
+      : tone === 'violet'
+        ? 'border-violet-500/30 bg-violet-50 text-violet-900 dark:bg-violet-500/10 dark:text-violet-200'
+        : 'border-emerald-500/40 bg-emerald-50 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
   return (
-    <div className={cn('flex items-baseline justify-between rounded border px-2 py-1.5', classes)}>
-      <span className="text-[10px] font-semibold uppercase tracking-wide">{label}</span>
-      <span className="font-mono text-xs tabular-nums font-semibold">
-        {fmtDecimal(fte, 2)} FTE
+    <div
+      className={cn(
+        'flex flex-col rounded border px-2 py-1.5',
+        classes,
+      )}
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+        {label}
+      </span>
+      <span
+        className={cn(
+          'font-mono tabular-nums font-semibold',
+          prominent ? 'text-base' : 'text-xs',
+        )}
+      >
+        {fmtDecimal(fte, 2)} <span className="text-[10px] opacity-70">FTE</span>
       </span>
     </div>
   )
