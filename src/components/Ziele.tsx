@@ -229,7 +229,7 @@ function BranchDashboard({
       <div className="mb-3 flex items-baseline justify-between">
         <div className="text-sm font-semibold">{branch.label}</div>
         <div className="font-mono text-[11px] text-muted-foreground">
-          {fmtDecimal(revenueTotal, 2)} FTE Umsatzteams{halfLabel}
+          {fmtDecimal(revenueTotal, 2)} FTE operative Teams{halfLabel}
         </div>
       </div>
       <div className="mb-3 grid grid-cols-2 gap-2 rounded-md border bg-muted/30 p-2 text-xs">
@@ -238,7 +238,7 @@ function BranchDashboard({
       </div>
       {rows.length === 0 ? (
         <div className="py-4 text-center text-xs text-muted-foreground">
-          Keine Umsatzteams vorhanden.
+          Keine operativen Teams vorhanden.
         </div>
       ) : (
         <table className="w-full border-collapse text-sm">
