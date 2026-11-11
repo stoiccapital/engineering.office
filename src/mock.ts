@@ -219,6 +219,7 @@ const umsatz = new Map<number, Umsatzkontrolle>()
 const rechnungsplaene = new Map<string, Rechnungsplan>()
 let logo: string | null = null
 let roster: Roster | null = emptyRoster()
+let kostenschaetzung: unknown = null
 let access: AccessConfig | null = (() => {
   const cfg = emptyAccessConfig()
   cfg.roles = [
@@ -226,7 +227,7 @@ let access: AccessConfig | null = (() => {
       id: 'dev-admin',
       name: 'Admin (dev)',
       password: 'admin',
-      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele', 'umsatz', 'rechnungen', 'settings'],
+      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele', 'umsatz', 'rechnungen', 'kostenschaetzung', 'mitarbeiter', 'settings'],
     },
   ]
   return cfg
@@ -308,5 +309,11 @@ export const mock = {
   },
   setRoster(value: Roster) {
     roster = value
+  },
+  kostenschaetzung(): unknown {
+    return kostenschaetzung
+  },
+  setKostenschaetzung(value: unknown) {
+    kostenschaetzung = value
   },
 }

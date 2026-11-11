@@ -56,6 +56,9 @@ function accessForPath(pathname: string): Access | null {
   if (pathname === '/api/roster') {
     return { get: ['mitarbeiter'], put: ['mitarbeiter'] }
   }
+  if (pathname === '/api/kostenschaetzung') {
+    return { get: ['kostenschaetzung'], put: ['kostenschaetzung'] }
+  }
   if (pathname === '/api/settings/access') return { get: ['settings'], put: ['settings'] }
   return null
 }

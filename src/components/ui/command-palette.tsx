@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
-import { CalendarDays, CheckSquare, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Target } from 'lucide-react'
+import { Building2, Calculator, CalendarDays, CheckSquare, Database, FileText, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Target } from 'lucide-react'
 import { clearToken } from '@/api'
 import { cn } from '@/lib/utils'
 
-type View = 'forecast' | 'plan' | 'freigaben' | 'dashboard' | 'ziele' | 'umsatz'
+type View =
+  | 'forecast'
+  | 'plan'
+  | 'freigaben'
+  | 'dashboard'
+  | 'ziele'
+  | 'umsatz'
+  | 'ks_bauwerke'
+  | 'ks_uebersicht'
+  | 'ks_hoai'
+  | 'ks_katalog'
 
 type Props = {
   onNavigate: (view: View) => void
@@ -17,6 +27,10 @@ const ITEMS: { view: View; label: string; keywords: string; icon: typeof Table2 
   { view: 'plan', label: 'Quartalsplanung', keywords: 'plan quartalsplanung aufgaben mitarbeiter kw', icon: CalendarDays },
   { view: 'freigaben', label: 'Freigaben', keywords: 'freigaben validierung erledigt aufgaben pm', icon: CheckSquare },
   { view: 'umsatz', label: 'Zielkontrolle', keywords: 'umsatz zielkontrolle rechnungen puffer', icon: Gauge },
+  { view: 'ks_bauwerke', label: 'Kostenschätzung · Bauwerke', keywords: 'kosten schätzung bauwerk position abschnitt menge einheitspreis', icon: Building2 },
+  { view: 'ks_uebersicht', label: 'Kostenschätzung · Übersicht', keywords: 'kosten übersicht kostengruppe kg din 276 rollup anrechenbar', icon: FileText },
+  { view: 'ks_hoai', label: 'Kostenschätzung · HOAI-Honorar', keywords: 'hoai honorar objektplanung tragwerksplanung leistungsphase', icon: Calculator },
+  { view: 'ks_katalog', label: 'Kostenschätzung · Datenbank Ril 808', keywords: 'katalog ril 808 db baupreise datenbank suche', icon: Database },
 ]
 
 export function CommandPalette({ onNavigate }: Props) {

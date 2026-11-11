@@ -1,0 +1,31 @@
+{
+  "quartal": "Q3 2026",
+  "quelle": "DB Datenbank Baupreise Ril 808 — KGK 2022",
+  "count": 6719,
+  "roots": [
+    {
+      "name": "Bauwerk - Baukonstruktionen",
+      "count": 5465
+    },
+    {
+      "name": "Bauwerk - Technische Anlagen",
+      "count": 1012
+    },
+    {
+      "name": "Außenanlagen",
+      "count": 145
+    },
+    {
+      "name": "Herrichten und Erschließen",
+      "count": 75
+    },
+    {
+      "name": "Grundstück",
+      "count": 17
+    },
+    {
+      "name": "Baunebenkosten",
+      "count": 5
+    }
+  ]
+}

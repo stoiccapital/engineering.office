@@ -423,6 +423,7 @@ export type ModuleId =
   | 'ziele'
   | 'umsatz'
   | 'rechnungen'
+  | 'kostenschaetzung'
   | 'mitarbeiter'
   | 'settings'
 
@@ -434,6 +435,7 @@ export const MODULES: ModuleId[] = [
   'plan_overview',
   'umsatz',
   'rechnungen',
+  'kostenschaetzung',
   'mitarbeiter',
   'settings',
 ]
@@ -446,6 +448,7 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
   ziele: 'Ziele',
   umsatz: 'Zielkontrolle',
   rechnungen: 'Rechnungen',
+  kostenschaetzung: 'Kostenschätzung',
   mitarbeiter: 'Mitarbeiter',
   settings: 'Einstellungen',
 }
@@ -487,15 +490,15 @@ export type RolePreset = { name: string; modules: ModuleId[] }
 export const PRESET_ROLES: RolePreset[] = [
   {
     name: 'GF und Teamleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'mitarbeiter', 'settings'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'kostenschaetzung', 'mitarbeiter', 'settings'],
   },
   {
     name: 'Verwaltung',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'mitarbeiter'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'kostenschaetzung', 'mitarbeiter'],
   },
   {
     name: 'Projektleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'rechnungen', 'mitarbeiter'],
+    modules: ['dashboard', 'forecast', 'plan', 'rechnungen', 'kostenschaetzung', 'mitarbeiter'],
   },
   { name: 'Projektingenieur', modules: ['plan_overview'] },
   { name: 'Konstrukteur', modules: ['plan_overview'] },

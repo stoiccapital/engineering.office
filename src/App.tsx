@@ -15,6 +15,11 @@ import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
 import { Rechnungen } from '@/components/Rechnungen'
 import { Mitarbeiter } from '@/components/Mitarbeiter'
 import { Settings } from '@/components/Settings'
+import { BauwerkeTab } from '@/components/kostenschaetzung/BauwerkeTab'
+import { UebersichtTab } from '@/components/kostenschaetzung/UebersichtTab'
+import { HoaiTab } from '@/components/kostenschaetzung/HoaiTab'
+import { KatalogTab } from '@/components/kostenschaetzung/KatalogTab'
+import { KostenschaetzungSaveStatus } from '@/components/KostenschaetzungSaveStatus'
 import { UserPicker } from '@/components/UserPicker'
 import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
 import { UserMenu } from '@/components/ui/user-menu'
@@ -27,19 +32,31 @@ import { useZiele } from '@/ziele-store'
 import { useUmsatz } from '@/umsatz-store'
 import { useRechnungen } from '@/rechnungen-store'
 import { useRoster } from '@/roster-store'
+import { useKostenschaetzung } from '@/kostenschaetzung-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Briefcase, CalendarDays, CheckSquare, ChevronDown, ChevronRight, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
+import { Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Database, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
 const EINSTELLUNGEN_EXPANDED_KEY = 'eo:einstellungenExpanded'
+const KOSTENSCHAETZUNG_EXPANDED_KEY = 'eo:kostenschaetzungExpanded'
 
 // plan_overview isn't a separate nav entry — it collapses into 'plan' view
 // but with the overview-only tab inside PlanTabs.
 // 'freigaben' is a virtual view gated by the 'plan' module (any PM-capable role).
-type View = Exclude<ModuleId, 'plan_overview'> | 'freigaben'
+// 'ks_*' are virtual views under the 'kostenschaetzung' module; access is coarse
+// (if a role has 'kostenschaetzung', all four children are visible).
+type View =
+  | Exclude<ModuleId, 'plan_overview' | 'kostenschaetzung'>
+  | 'freigaben'
+  | 'ks_bauwerke'
+  | 'ks_uebersicht'
+  | 'ks_hoai'
+  | 'ks_katalog'
+
+const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_uebersicht', 'ks_hoai', 'ks_katalog']
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
   forecast: { title: 'Forecast', label: 'Forecast', icon: Table2 },
@@ -49,6 +66,10 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ziele: { title: 'Ziele', label: 'Ziele', icon: Target },
   umsatz: { title: 'Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
+  ks_bauwerke: { title: 'Bauwerke', label: 'Bauwerke', icon: Building2 },
+  ks_uebersicht: { title: 'Übersicht', label: 'Übersicht', icon: FileText },
+  ks_hoai: { title: 'HOAI-Honorar', label: 'HOAI-Honorar', icon: Calculator },
+  ks_katalog: { title: 'Datenbank · Ril 808', label: 'Datenbank Ril 808', icon: Database },
   mitarbeiter: { title: 'Mitarbeiter', label: 'Mitarbeiter', icon: Users },
   settings: { title: 'Rollen', label: 'Rollen', icon: SettingsIcon },
 }
@@ -68,6 +89,13 @@ const NAV: NavEntry[] = [
   },
   { kind: 'leaf', view: 'umsatz' },
   { kind: 'leaf', view: 'rechnungen' },
+  {
+    kind: 'group',
+    id: 'kostenschaetzung',
+    label: 'Kostenschätzung',
+    icon: Ruler,
+    children: KS_VIEWS,
+  },
   {
     kind: 'group',
     id: 'einstellungen',
@@ -127,6 +155,8 @@ function Shell() {
     for (const m of base) {
       // 'plan_overview' grants the Plan sidebar entry (read-only Übersicht).
       if (m === 'plan_overview') views.add('plan')
+      // 'kostenschaetzung' is coarse: grants all four virtual sub-views.
+      else if (m === 'kostenschaetzung') KS_VIEWS.forEach((v) => views.add(v))
       else views.add(m as View)
     }
     // Any role with full 'plan' edit access can validate submissions.
@@ -153,6 +183,9 @@ function Shell() {
   const [einstellungenExpanded, setEinstellungenExpanded] = useState<boolean>(
     () => localStorage.getItem(EINSTELLUNGEN_EXPANDED_KEY) !== '0',
   )
+  const [kostenschaetzungExpanded, setKostenschaetzungExpanded] = useState<boolean>(
+    () => localStorage.getItem(KOSTENSCHAETZUNG_EXPANDED_KEY) !== '0',
+  )
   const loadForecast = useForecast((s) => s.load)
   const period = useForecast((s) => s.period)
   const loadPlan = usePlan((s) => s.load)
@@ -165,6 +198,8 @@ function Shell() {
   const rechnungen = useRechnungen((s) => s.data)
   const loadRoster = useRoster((s) => s.load)
   const roster = useRoster((s) => s.roster)
+  const loadKostenschaetzung = useKostenschaetzung((s) => s.load)
+  const kostenDoc = useKostenschaetzung((s) => s.doc)
 
   useEffect(() => {
     void loadForecast()
@@ -206,6 +241,15 @@ function Shell() {
   }, [view, roster, loadRoster])
 
   useEffect(() => {
+    const isKsView =
+      view === 'ks_bauwerke' ||
+      view === 'ks_uebersicht' ||
+      view === 'ks_hoai' ||
+      view === 'ks_katalog'
+    if (isKsView && !kostenDoc) void loadKostenschaetzung()
+  }, [view, kostenDoc, loadKostenschaetzung])
+
+  useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
   }, [collapsed])
 
@@ -216,6 +260,10 @@ function Shell() {
   useEffect(() => {
     localStorage.setItem(EINSTELLUNGEN_EXPANDED_KEY, einstellungenExpanded ? '1' : '0')
   }, [einstellungenExpanded])
+
+  useEffect(() => {
+    localStorage.setItem(KOSTENSCHAETZUNG_EXPANDED_KEY, kostenschaetzungExpanded ? '1' : '0')
+  }, [kostenschaetzungExpanded])
 
   const meta = VIEW_META[view]
 
@@ -232,10 +280,12 @@ function Shell() {
         expandedByGroup={{
           operative: operativeExpanded,
           einstellungen: einstellungenExpanded,
+          kostenschaetzung: kostenschaetzungExpanded,
         }}
         onToggleGroup={(id) => {
           if (id === 'operative') setOperativeExpanded((v) => !v)
           else if (id === 'einstellungen') setEinstellungenExpanded((v) => !v)
+          else if (id === 'kostenschaetzung') setKostenschaetzungExpanded((v) => !v)
         }}
         freigabenCount={freigabenCount}
       />
@@ -250,6 +300,10 @@ function Shell() {
               {view === 'ziele' && <ZieleSaveStatus />}
               {view === 'umsatz' && <UmsatzSaveStatus />}
               {view === 'rechnungen' && <RechnungenSaveStatus />}
+              {(view === 'ks_bauwerke' ||
+                view === 'ks_uebersicht' ||
+                view === 'ks_hoai' ||
+                view === 'ks_katalog') && <KostenschaetzungSaveStatus />}
               <ViewPeriodPicker view={view} />
               {view === 'forecast' && <ImportDialog />}
             </div>
@@ -274,6 +328,14 @@ function Shell() {
           {view === 'ziele' && <Ziele />}
           {view === 'umsatz' && <Umsatzkontrolle />}
           {view === 'rechnungen' && <Rechnungen />}
+          {view === 'ks_bauwerke' &&
+            (kostenDoc ? <BauwerkeTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
+          {view === 'ks_uebersicht' &&
+            (kostenDoc ? <UebersichtTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
+          {view === 'ks_hoai' &&
+            (kostenDoc ? <HoaiTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
+          {view === 'ks_katalog' &&
+            (kostenDoc ? <KatalogTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
           {view === 'mitarbeiter' && <Mitarbeiter />}
           {view === 'settings' && <Settings />}
         </main>
@@ -405,6 +467,11 @@ function ViewPeriodPicker({ view }: { view: View }) {
       return <UmsatzPicker />
     case 'rechnungen':
       return <RechnungenPicker />
+    case 'ks_bauwerke':
+    case 'ks_uebersicht':
+    case 'ks_hoai':
+    case 'ks_katalog':
+      return null
     case 'mitarbeiter':
       return null
     case 'settings':
