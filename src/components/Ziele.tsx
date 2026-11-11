@@ -11,7 +11,7 @@ import {
   emptyTeamTargets,
   teamFTE,
   teamRevenueFTE,
-  teamTeilungsschluessel,
+  teamTeilungsschluesselFor,
   useZiele,
   type HalbjahrTargets,
   type HalbjahrView,
@@ -155,8 +155,10 @@ type DashboardRow = {
   teamId: string
   teamName: string
   revenueFTE: number
-  share: number // 0..1 — effective Teilungsschlüssel (manual override or auto)
-  isAuto: boolean
+  shareVerw: number
+  shareAussch: number
+  isAutoVerw: boolean
+  isAutoAussch: boolean
   verwaltungAllocated: number
   ausschreibungAllocated: number
 }
@@ -172,7 +174,7 @@ function BranchDashboard({
 }) {
   const updateTeilungsschluessel = useZiele((s) => s.updateTeilungsschluessel)
 
-  const { rows, verwaltungTotal, ausschreibungTotal, revenueTotal, shareSum, halfLabel } =
+  const { rows, verwaltungTotal, ausschreibungTotal, revenueTotal, shareSumVerw, shareSumAussch, halfLabel } =
     useMemo(() => {
       const alloc = computeBranchAllocations(branch)
       // Pick which pool to display: filter respects Halbjahr view; "Jahr"
@@ -187,38 +189,40 @@ function BranchDashboard({
       const revenue = pickBranch(alloc.operative, alloc.operativeH)
       const halfLabel =
         halbjahr === 'h1' ? ' H1' : halbjahr === 'h2' ? ' H2' : ''
-      const rs: DashboardRow[] = branch.teams
-        .map((t) => {
-          const revFTE =
-            halbjahr === 'h1'
-              ? teamRevenueFTE(t, 'h1')
-              : halbjahr === 'h2'
-                ? teamRevenueFTE(t, 'h2')
-                : teamRevenueFTE(t)
-          const share = teamTeilungsschluessel(t, alloc)
-          return {
-            teamId: t.id,
-            teamName: t.name || 'Unbenannt',
-            revenueFTE: revFTE,
-            share,
-            isAuto: t.teilungsschluessel === undefined,
-            verwaltungAllocated: verwaltung * share,
-            ausschreibungAllocated: ausschreibung * share,
-          }
-        })
-        .filter((r) => r.revenueFTE > 0)
-      const sum = rs.reduce((s, r) => s + r.share, 0)
+      const rs: DashboardRow[] = branch.teams.map((t) => {
+        const revFTE =
+          halbjahr === 'h1'
+            ? teamRevenueFTE(t, 'h1')
+            : halbjahr === 'h2'
+              ? teamRevenueFTE(t, 'h2')
+              : teamRevenueFTE(t)
+        const shareVerw = teamTeilungsschluesselFor(t, alloc, 'verwaltung')
+        const shareAussch = teamTeilungsschluesselFor(t, alloc, 'ausschreibung')
+        return {
+          teamId: t.id,
+          teamName: t.name || 'Unbenannt',
+          revenueFTE: revFTE,
+          shareVerw,
+          shareAussch,
+          isAutoVerw: t.teilungsschluessel?.verwaltung === undefined,
+          isAutoAussch: t.teilungsschluessel?.ausschreibung === undefined,
+          verwaltungAllocated: verwaltung * shareVerw,
+          ausschreibungAllocated: ausschreibung * shareAussch,
+        }
+      })
       return {
         rows: rs,
         verwaltungTotal: verwaltung,
         ausschreibungTotal: ausschreibung,
         revenueTotal: revenue,
-        shareSum: sum,
+        shareSumVerw: rs.reduce((s, r) => s + r.shareVerw, 0),
+        shareSumAussch: rs.reduce((s, r) => s + r.shareAussch, 0),
         halfLabel,
       }
     }, [branch, halbjahr])
 
-  const sumOk = Math.abs(shareSum - 1) < 0.001
+  const sumVerwOk = Math.abs(shareSumVerw - 1) < 0.001
+  const sumAusschOk = Math.abs(shareSumAussch - 1) < 0.001
 
   return (
     <div className="bg-card p-4">
@@ -246,8 +250,11 @@ function BranchDashboard({
               <th className="num px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">
                 FTE
               </th>
-              <th className="num w-28 px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">
-                Schlüssel
+              <th className="num w-24 px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">
+                Schl. Verw.
+              </th>
+              <th className="num w-24 px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">
+                Schl. Aussch.
               </th>
               <th className="num px-2 py-1.5 text-right text-[11px] font-medium text-muted-foreground">
                 Verw.
@@ -267,20 +274,41 @@ function BranchDashboard({
                 <td className="num px-1 py-1 text-right">
                   {locked ? (
                     <div className="num px-2 py-1 text-right text-sm text-muted-foreground">
-                      {fmtPct(r.share)}
-                      {r.isAuto && <span className="ml-1 text-[9px]">auto</span>}
+                      {fmtPct(r.shareVerw)}
+                      {r.isAutoVerw && <span className="ml-1 text-[9px]">auto</span>}
                     </div>
                   ) : (
                     <NumCell
-                      value={r.isAuto ? null : r.share}
+                      value={r.isAutoVerw ? null : r.shareVerw}
                       onChange={(v) =>
-                        updateTeilungsschluessel(branch.id, r.teamId, v)
+                        updateTeilungsschluessel(branch.id, r.teamId, 'verwaltung', v)
                       }
                       pct
-                      placeholder={fmtPct(r.share)}
+                      placeholder={fmtPct(r.shareVerw)}
                       className={cn(
                         'text-right font-semibold',
-                        r.isAuto && 'text-muted-foreground',
+                        r.isAutoVerw && 'text-muted-foreground',
+                      )}
+                    />
+                  )}
+                </td>
+                <td className="num px-1 py-1 text-right">
+                  {locked ? (
+                    <div className="num px-2 py-1 text-right text-sm text-muted-foreground">
+                      {fmtPct(r.shareAussch)}
+                      {r.isAutoAussch && <span className="ml-1 text-[9px]">auto</span>}
+                    </div>
+                  ) : (
+                    <NumCell
+                      value={r.isAutoAussch ? null : r.shareAussch}
+                      onChange={(v) =>
+                        updateTeilungsschluessel(branch.id, r.teamId, 'ausschreibung', v)
+                      }
+                      pct
+                      placeholder={fmtPct(r.shareAussch)}
+                      className={cn(
+                        'text-right font-semibold',
+                        r.isAutoAussch && 'text-muted-foreground',
                       )}
                     />
                   )}
@@ -300,17 +328,26 @@ function BranchDashboard({
               <td
                 className={cn(
                   'num px-2 py-1.5 text-right font-mono tabular-nums',
-                  !sumOk && 'text-destructive',
+                  !sumVerwOk && 'text-destructive',
                 )}
-                title={sumOk ? undefined : 'Sollte 100 % sein, sonst wird Overhead ungleich verteilt.'}
+                title={sumVerwOk ? undefined : 'Sollte 100 % sein, sonst wird Verwaltung ungleich verteilt.'}
               >
-                {fmtPct(shareSum)}
+                {fmtPct(shareSumVerw)}
+              </td>
+              <td
+                className={cn(
+                  'num px-2 py-1.5 text-right font-mono tabular-nums',
+                  !sumAusschOk && 'text-destructive',
+                )}
+                title={sumAusschOk ? undefined : 'Sollte 100 % sein, sonst wird Ausschreibung ungleich verteilt.'}
+              >
+                {fmtPct(shareSumAussch)}
               </td>
               <td className="num px-2 py-1.5 text-right font-mono tabular-nums">
-                {fmtDecimal(verwaltungTotal * shareSum, 2)}
+                {fmtDecimal(verwaltungTotal * shareSumVerw, 2)}
               </td>
               <td className="num px-2 py-1.5 text-right font-mono tabular-nums">
-                {fmtDecimal(ausschreibungTotal * shareSum, 2)}
+                {fmtDecimal(ausschreibungTotal * shareSumAussch, 2)}
               </td>
             </tr>
           </tbody>

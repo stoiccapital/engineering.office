@@ -158,15 +158,20 @@ export function personFTE(p: ZielePerson, half?: 'h1' | 'h2'): number {
   return ((p.fte.h1 ?? 0) + (p.fte.h2 ?? 0)) / 2
 }
 
+// Per-bucket allocation share (0..1). Undefined on a bucket means
+// "use the auto default = this team's operative FTE / branch operative FTE".
+// Summed across all teams of a branch each bucket should equal 1 to fully
+// allocate that overhead pool.
+export type Teilungsschluessel = {
+  verwaltung?: number
+  ausschreibung?: number
+}
+
 export type ZieleTeam = {
   id: string
   name: string
   people: ZielePerson[]
-  // Share of Verwaltung + Ausschreibung FTE this team carries (0..1). Undefined
-  // means "use the auto default = this team's operative FTE / branch operative
-  // FTE". Sum across operative teams of a branch should equal 1 to fully
-  // allocate overhead.
-  teilungsschluessel?: number
+  teilungsschluessel?: Teilungsschluessel
 }
 
 // Half-year split: PMs often expect different revenue-per-FTE in H1 vs H2.
@@ -198,8 +203,12 @@ export type Ziele = {
 type LegacyZielePerson = Omit<ZielePerson, 'fte'> & {
   fte: number | PersonFTE
 }
-type LegacyZieleTeam = Omit<ZieleTeam, 'people'> & {
+type LegacyZieleTeam = Omit<ZieleTeam, 'people' | 'teilungsschluessel'> & {
   people: LegacyZielePerson[]
+  // Legacy single Teilungsschlüssel applied to combined (Verw + Aussch) pool.
+  // Migrated to { verwaltung: n, ausschreibung: n } so the formula still sums
+  // to n×(verw+aussch) in isolation.
+  teilungsschluessel?: number | Teilungsschluessel
 }
 type LegacyZieleBranch = Omit<ZieleBranch, 'umsatzProFTE' | 'teams'> & {
   umsatzProFTE: number | UmsatzProFTE
@@ -213,6 +222,19 @@ function migratePersonFTE(fte: number | PersonFTE | undefined): PersonFTE {
   return { h1: fte.h1 ?? 0, h2: fte.h2 ?? 0 }
 }
 
+function migrateTeilungsschluessel(
+  ts: number | Teilungsschluessel | undefined,
+): Teilungsschluessel | undefined {
+  if (ts === undefined || ts === null) return undefined
+  if (typeof ts === 'number') return { verwaltung: ts, ausschreibung: ts }
+  const out: Teilungsschluessel = {}
+  if (typeof ts.verwaltung === 'number') out.verwaltung = ts.verwaltung
+  if (typeof ts.ausschreibung === 'number') out.ausschreibung = ts.ausschreibung
+  return out.verwaltung !== undefined || out.ausschreibung !== undefined
+    ? out
+    : undefined
+}
+
 export function migrateZiele(input: Ziele | LegacyZiele | null | undefined): Ziele | null {
   if (!input) return null
   const branches: ZieleBranch[] = input.branches.map((b) => {
@@ -221,6 +243,7 @@ export function migrateZiele(input: Ziele | LegacyZiele | null | undefined): Zie
       typeof u === 'number' ? { h1: u / 2, h2: u / 2 } : { h1: u.h1 ?? 0, h2: u.h2 ?? 0 }
     const teams: ZieleTeam[] = b.teams.map((t) => ({
       ...t,
+      teilungsschluessel: migrateTeilungsschluessel(t.teilungsschluessel),
       people: t.people.map((p) => ({ ...p, fte: migratePersonFTE(p.fte) })),
     }))
     return { ...b, umsatzProFTE, teams }
