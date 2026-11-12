@@ -76,6 +76,16 @@ export function monthlyZielFromZiele(team: ZieleTeam, branch: ZieleBranch): Mont
   return Array.from({ length: 12 }, (_, i) => (i < 6 ? h1Monthly : h2Monthly))
 }
 
+// A team is "productive" if it has at least one person who is not pure
+// Verwaltung — i.e. role === 'team' or role === 'ausschreibung'. Pure
+// overhead teams (Team Verwaltung) and empty teams are hidden in
+// Zielkontrolle since they neither carry a revenue target nor contribute
+// forecast/invoice numbers.
+function isProductiveTeam(team: ZieleTeam): boolean {
+  if (team.people.length === 0) return false
+  return team.people.some((p) => (p.role ?? 'team') !== 'verwaltung')
+}
+
 // Merge Ziele (source of teams + targets) with Umsatzkontrolle (forecast + rechnungen).
 // Teams come from Ziele; operational numbers are matched by id (post-migration).
 export function mergeUmsatz(
@@ -88,6 +98,7 @@ export function mergeUmsatz(
   const views: UmsatzTeamView[] = []
   for (const branch of ziele.branches) {
     for (const team of branch.teams) {
+      if (!isProductiveTeam(team)) continue
       const u = umsatzById.get(team.id)
       views.push({
         id: team.id,
