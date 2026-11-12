@@ -255,6 +255,17 @@ export function annualUmsatzProFTE(u: UmsatzProFTE): number {
   return (u.h1 ?? 0) + (u.h2 ?? 0)
 }
 
+export type ActivityKind = 'login' | 'view' | 'action'
+
+export type ActivityEvent = {
+  ts: string // ISO
+  user: string // kürzel (fallback: role name)
+  kind: ActivityKind
+  module?: ModuleId // for 'view'
+  action?: string // for 'action' (e.g. 'ziele.lock', 'role.create')
+  target?: string // optional context (e.g. role name, person name)
+}
+
 export type UmsatzBranch = 'de' | 'pl'
 export type MonthValues = (number | null)[] // length 12, Jan..Dez
 

@@ -1,5 +1,6 @@
 import type {
   AccessConfig,
+  ActivityEvent,
   Period,
   QuartalPlan,
   Rechnungsplan,
@@ -335,6 +336,30 @@ export async function saveRoster(data: Roster): Promise<void> {
   })
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
+}
+
+export async function fetchActivity(days = 7): Promise<ActivityEvent[]> {
+  if (mock.isDev) return mock.activityList(days)
+  const res = await fetch(`/api/activity?days=${days}`, { headers: headers() })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  return (await res.json()) as ActivityEvent[]
+}
+
+export async function logActivity(event: Omit<ActivityEvent, 'ts'>): Promise<void> {
+  if (mock.isDev) {
+    mock.logActivity(event)
+    return
+  }
+  try {
+    await fetch('/api/activity', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify(event),
+    })
+  } catch {
+    // Fire-and-forget: never let activity tracking break a user action.
+  }
 }
 
 export async function fetchKostenschaetzung(): Promise<unknown> {

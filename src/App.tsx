@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { KPIStrip } from '@/components/KPIStrip'
 import { ForecastTable } from '@/components/ForecastTable'
 import { SaveStatus } from '@/components/SaveStatus'
@@ -19,6 +19,8 @@ import { BauwerkeTab } from '@/components/kostenschaetzung/BauwerkeTab'
 import { HoaiTab } from '@/components/kostenschaetzung/HoaiTab'
 import { KatalogTab } from '@/components/kostenschaetzung/KatalogTab'
 import { KostenschaetzungSaveStatus } from '@/components/KostenschaetzungSaveStatus'
+import { Aktivitaet } from '@/components/Aktivitaet'
+import { logActivity } from '@/activity-store'
 import { UserPicker } from '@/components/UserPicker'
 import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
 import { UserMenu } from '@/components/ui/user-menu'
@@ -35,7 +37,7 @@ import { useKostenschaetzung } from '@/kostenschaetzung-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Database, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
+import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Database, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
@@ -53,6 +55,7 @@ type View =
   | 'ks_bauwerke'
   | 'ks_hoai'
   | 'ks_katalog'
+  | 'aktivitaet'
 
 const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_hoai', 'ks_katalog']
 
@@ -69,6 +72,7 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ks_katalog: { title: 'Datenbank · Ril 808', label: 'Datenbank Ril 808', icon: Database },
   mitarbeiter: { title: 'Mitarbeiter', label: 'Mitarbeiter', icon: Users },
   settings: { title: 'Rollen', label: 'Rollen', icon: SettingsIcon },
+  aktivitaet: { title: 'Aktivität', label: 'Aktivität', icon: Activity },
 }
 
 type NavEntry =
@@ -98,9 +102,21 @@ const NAV: NavEntry[] = [
     id: 'einstellungen',
     label: 'Einstellungen',
     icon: SettingsIcon,
-    children: ['mitarbeiter', 'settings'],
+    children: ['mitarbeiter', 'settings', 'aktivitaet'],
   },
 ]
+
+// Virtual views (ks_*, freigaben, aktivitaet) don't correspond to a ModuleId
+// directly. Map them back to the most meaningful module for the activity log
+// so admins see e.g. "Kostenschätzung" rather than "ks_bauwerke".
+function viewToModule(view: View): ModuleId | null {
+  if (view === 'freigaben') return 'plan'
+  if (view === 'ks_bauwerke' || view === 'ks_hoai' || view === 'ks_katalog') {
+    return 'kostenschaetzung'
+  }
+  if (view === 'aktivitaet') return 'settings'
+  return view as ModuleId
+}
 
 function filterNav(entries: NavEntry[], allowed: Set<View>): NavEntry[] {
   const out: NavEntry[] = []
@@ -158,6 +174,8 @@ function Shell() {
     }
     // Any role with full 'plan' edit access can validate submissions.
     if (base.has('plan')) views.add('freigaben')
+    // Activity log is admin-gated via the 'settings' module.
+    if (base.has('settings')) views.add('aktivitaet')
     return views
   }, [currentRole])
   const nav = useMemo(() => filterNav(NAV, allowed), [allowed])
@@ -245,6 +263,16 @@ function Shell() {
     if (isKsView && !kostenDoc) void loadKostenschaetzung()
   }, [view, kostenDoc, loadKostenschaetzung])
 
+  // Log module opens once per view change. Debounced via a ref so re-renders
+  // (e.g. from store subscriptions) don't double-fire.
+  const lastLoggedView = useRef<View | null>(null)
+  useEffect(() => {
+    if (lastLoggedView.current === view) return
+    lastLoggedView.current = view
+    const moduleId = viewToModule(view)
+    if (moduleId) logActivity({ kind: 'view', module: moduleId })
+  }, [view])
+
   useEffect(() => {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
   }, [collapsed])
@@ -331,6 +359,7 @@ function Shell() {
             (kostenDoc ? <KatalogTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
           {view === 'mitarbeiter' && <Mitarbeiter />}
           {view === 'settings' && <Settings />}
+          {view === 'aktivitaet' && <Aktivitaet />}
         </main>
       </div>
     </div>
@@ -467,6 +496,8 @@ function ViewPeriodPicker({ view }: { view: View }) {
     case 'mitarbeiter':
       return null
     case 'settings':
+      return null
+    case 'aktivitaet':
       return null
   }
 }

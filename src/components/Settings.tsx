@@ -3,6 +3,7 @@ import { Eye, EyeOff, Plus, Trash2, Undo2 } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { Button } from '@/components/ui/button'
 import { useAccess } from '@/access-store'
+import { logActivity } from '@/activity-store'
 import {
   MODULES,
   MODULE_LABELS,
@@ -70,6 +71,7 @@ export function Settings() {
   function handleAdd() {
     if (!canAdd) return
     void addRole(newName, newPassword, Array.from(newModules))
+    logActivity({ kind: 'action', action: 'role.create', target: newName })
     setNewName('')
     setNewPassword('')
     setNewPasswordVisible(false)
@@ -105,6 +107,7 @@ export function Settings() {
         return next
       })
       removeRole(role.id)
+      logActivity({ kind: 'action', action: 'role.delete', target: role.name })
     }, UNDO_MS)
   }
 

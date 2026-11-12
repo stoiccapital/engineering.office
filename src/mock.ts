@@ -1,4 +1,5 @@
 import type {
+  ActivityEvent,
   Period,
   PlanStatus,
   QuartalPlan,
@@ -220,6 +221,7 @@ const rechnungsplaene = new Map<string, Rechnungsplan>()
 let logo: string | null = null
 let roster: Roster | null = emptyRoster()
 let kostenschaetzung: unknown = null
+const activity: ActivityEvent[] = []
 let access: AccessConfig | null = (() => {
   const cfg = emptyAccessConfig()
   cfg.roles = [
@@ -315,5 +317,18 @@ export const mock = {
   },
   setKostenschaetzung(value: unknown) {
     kostenschaetzung = value
+  },
+  activityList(days: number): ActivityEvent[] {
+    const cutoff = new Date()
+    cutoff.setUTCDate(cutoff.getUTCDate() - days)
+    const cutoffIso = cutoff.toISOString()
+    return activity
+      .filter((e) => e.ts >= cutoffIso)
+      .slice()
+      .sort((a, b) => (a.ts < b.ts ? 1 : -1))
+  },
+  logActivity(event: Omit<ActivityEvent, 'ts'>) {
+    activity.push({ ...event, ts: new Date().toISOString() })
+    if (activity.length > 5000) activity.splice(0, activity.length - 5000)
   },
 }

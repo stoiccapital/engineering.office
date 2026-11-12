@@ -27,6 +27,7 @@ import type {
 } from '@/types'
 import { fmtDecimal, fmtEUR, fmtPct } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { logActivity } from '@/activity-store'
 
 export function Ziele() {
   const ziele = useZiele((s) => s.ziele)
@@ -48,10 +49,16 @@ export function Ziele() {
         canUnlock={canUnlock}
         onLock={() => {
           const by = currentRole?.name || 'Unbekannt'
-          if (confirm('Ziele sperren? Niemand kann mehr Werte ändern.')) lock(by)
+          if (confirm('Ziele sperren? Niemand kann mehr Werte ändern.')) {
+            lock(by)
+            logActivity({ kind: 'action', action: 'ziele.lock' })
+          }
         }}
         onUnlock={() => {
-          if (confirm('Ziele entsperren?')) unlock()
+          if (confirm('Ziele entsperren?')) {
+            unlock()
+            logActivity({ kind: 'action', action: 'ziele.unlock' })
+          }
         }}
       />
 

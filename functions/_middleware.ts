@@ -59,6 +59,10 @@ function accessForPath(pathname: string): Access | null {
   if (pathname === '/api/kostenschaetzung') {
     return { get: ['kostenschaetzung'], put: ['kostenschaetzung'] }
   }
+  if (pathname === '/api/activity') {
+    // GET admin-only; POST allowed for any authed user (writes own events).
+    return { get: ['settings'], put: ['*'] }
+  }
   if (pathname === '/api/settings/access') return { get: ['settings'], put: ['settings'] }
   return null
 }
@@ -126,7 +130,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
   if (!rule) return next() // unknown path — let the route 404 itself.
 
   const required = request.method === 'GET' ? rule.get : rule.put
-  const ok = required.some((m) => role.modules.includes(m))
+  // '*' = any authed user (role already validated above).
+  const ok = required.includes('*') || required.some((m) => role.modules.includes(m))
   if (!ok) return forbidden()
 
   return next()

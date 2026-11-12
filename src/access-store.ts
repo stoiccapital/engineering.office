@@ -5,6 +5,7 @@ import {
   fetchAccess,
   fetchPublicRoles,
   fetchPublicUsers,
+  logActivity as apiLogActivity,
   saveAccess,
   setRoleCredentials,
   setUserCredentials,
@@ -193,6 +194,7 @@ export const useAccess = create<State>()((set, get) => {
           currentUser: null,
         })
         await maybeLoadFullConfig(res.role.modules as ModuleId[])
+        void apiLogActivity({ kind: 'login', user: res.role.name })
         return true
       } catch {
         return false
@@ -213,6 +215,7 @@ export const useAccess = create<State>()((set, get) => {
           currentUser: res.user,
         })
         await maybeLoadFullConfig(res.role.modules as ModuleId[])
+        void apiLogActivity({ kind: 'login', user: res.user.kuerzel })
         return true
       } catch {
         return false

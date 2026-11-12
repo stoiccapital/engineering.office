@@ -6,6 +6,7 @@ import { MONTH_LABELS_DE, monthOfISOWeek } from '@/lib/iso-week'
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
 import { Check, X } from 'lucide-react'
+import { logActivity } from '@/activity-store'
 
 type PendingItem = {
   empIndex: number
@@ -56,6 +57,11 @@ export function Freigaben() {
     updateTodo(item.empIndex, item.week, item.todo.id, {
       state: 'erledigt',
       rejectReason: undefined,
+    })
+    logActivity({
+      kind: 'action',
+      action: 'freigabe.approve',
+      target: `${item.empName} · KW ${item.week}`,
     })
   }
 
