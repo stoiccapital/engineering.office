@@ -65,3 +65,29 @@ body {
 svg.lucide {
   stroke-width: 1.5;
 }
+
+/* Print layout — used by Bauwerke PDF export. Hides app chrome so the
+   preview content fills the page, and strips anything marked .no-print. */
+@media print {
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+  html, body {
+    background: white !important;
+  }
+  /* Hide the sidebar and the per-view header. */
+  aside, header {
+    display: none !important;
+  }
+  /* Action bars inside the preview, modal chrome, etc. */
+  .no-print {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  /* Keep tables from splitting rows across pages mid-row. */
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; page-break-after: auto; }
+}

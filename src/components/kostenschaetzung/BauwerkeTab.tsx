@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Eye,
   Plus,
   Search,
   Trash2,
@@ -15,6 +16,7 @@ import { NumCell } from '@/components/NumCell'
 import { TextCell } from '@/components/TextCell'
 import { cn } from '@/lib/utils'
 import { KatalogPicker } from './KatalogPicker'
+import { BauwerkeExport } from './BauwerkeExport'
 
 const fmtEUR2 = (v: number): string =>
   new Intl.NumberFormat('de-DE', {
@@ -42,6 +44,7 @@ export function BauwerkeTab() {
 
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [pickerSectionId, setPickerSectionId] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
 
   const bauwerk = useMemo(
     () => doc?.bauwerke.find((b) => b.id === activeId) ?? null,
@@ -50,6 +53,16 @@ export function BauwerkeTab() {
   const total = bauwerk ? bauwerkSum(bauwerk) : 0
 
   if (!doc) return null
+
+  if (showPreview && bauwerk) {
+    return (
+      <BauwerkeExport
+        bauwerk={bauwerk}
+        projectName={doc.projectName}
+        onClose={() => setShowPreview(false)}
+      />
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -84,6 +97,13 @@ export function BauwerkeTab() {
               onClick={() => duplicateBauwerk(bauwerk.id)}
             >
               <Copy className="mr-1 h-3.5 w-3.5" /> Duplizieren
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPreview(true)}
+            >
+              <Eye className="mr-1 h-3.5 w-3.5" /> Vorschau
             </Button>
             <Button
               variant="ghost"
