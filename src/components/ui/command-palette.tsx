@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
-import { Building2, Calculator, CalendarDays, CheckSquare, ClipboardList, Database, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Users } from 'lucide-react'
+import { Building2, Calculator, CalendarDays, CheckSquare, ClipboardList, Database, FolderKanban, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Users } from 'lucide-react'
 import { clearToken } from '@/api'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +16,7 @@ type View =
   | 'ks_hoai'
   | 'ks_katalog'
   | 'projekte'
+  | 'projektliste'
 
 type Props = {
   onNavigate: (view: View) => void
@@ -33,6 +34,7 @@ const ITEMS: { view: View; label: string; keywords: string; icon: typeof Table2 
   { view: 'ks_hoai', label: 'Kostenschätzung · HOAI-Honorar', keywords: 'hoai honorar objektplanung tragwerksplanung leistungsphase', icon: Calculator },
   { view: 'ks_katalog', label: 'Kostenschätzung · Datenbank Ril 808', keywords: 'katalog ril 808 db baupreise datenbank suche', icon: Database },
   { view: 'projekte', label: 'Projekte', keywords: 'projekte todo todos frist notizen schreibfläche', icon: ClipboardList },
+  { view: 'projektliste', label: 'Projektliste', keywords: 'projektliste controlling kosten forecast abrechnung portfolio excel import', icon: FolderKanban },
 ]
 
 export function CommandPalette({ onNavigate }: Props) {

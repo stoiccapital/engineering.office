@@ -3,6 +3,7 @@ import type {
   ActivityEvent,
   Period,
   ProjekteDoc,
+  ProjektlisteDoc,
   QuartalPlan,
   Rechnungsplan,
   Roster,
@@ -377,6 +378,28 @@ export async function saveProjects(data: ProjekteDoc): Promise<void> {
     return
   }
   const res = await fetch('/api/projects', {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify(data),
+  })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`save failed: ${res.status}`)
+}
+
+export async function fetchProjektliste(): Promise<ProjektlisteDoc | null> {
+  if (mock.isDev) return mock.projektliste()
+  const res = await fetch('/api/projektliste', { headers: headers() })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  return (await res.json()) as ProjektlisteDoc | null
+}
+
+export async function saveProjektliste(data: ProjektlisteDoc): Promise<void> {
+  if (mock.isDev) {
+    mock.setProjektliste(data)
+    return
+  }
+  const res = await fetch('/api/projektliste', {
     method: 'PUT',
     headers: headers(),
     body: JSON.stringify(data),

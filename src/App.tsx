@@ -23,6 +23,9 @@ import { Aktivitaet } from '@/components/Aktivitaet'
 import { Projekte } from '@/components/Projekte'
 import { ProjekteSaveStatus } from '@/components/ProjekteSaveStatus'
 import { myOpenTodoCount, useProjects } from '@/projects-store'
+import { Projektliste } from '@/components/Projektliste'
+import { ProjektlisteSaveStatus } from '@/components/ProjektlisteSaveStatus'
+import { useProjektliste } from '@/projektliste-store'
 import { logActivity } from '@/activity-store'
 import { UserPicker } from '@/components/UserPicker'
 import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
@@ -40,7 +43,7 @@ import { useKostenschaetzung } from '@/kostenschaetzung-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, ClipboardList, Database, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
+import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, ClipboardList, Database, FileText, FolderKanban, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 // Accordion mode — at most one sidebar group is expanded at a time.
@@ -75,6 +78,7 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ziele_kontrolle: { title: 'Ziele · Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
   projekte: { title: 'Projekte', label: 'Projekte', icon: ClipboardList },
+  projektliste: { title: 'Projektliste', label: 'Projektliste', icon: FolderKanban },
   ks_bauwerke: { title: 'Bauwerke', label: 'Bauwerke', icon: Building2 },
   ks_hoai: { title: 'HOAI-Honorar', label: 'HOAI-Honorar', icon: Calculator },
   ks_katalog: { title: 'Datenbank · Ril 808', label: 'Datenbank Ril 808', icon: Database },
@@ -104,6 +108,7 @@ const NAV: NavEntry[] = [
   },
   { kind: 'leaf', view: 'rechnungen' },
   { kind: 'leaf', view: 'projekte' },
+  { kind: 'leaf', view: 'projektliste' },
   {
     kind: 'group',
     id: 'kostenschaetzung',
@@ -193,6 +198,9 @@ function Shell() {
     // regardless of whether the stored role config already includes
     // the new ModuleId.
     views.add('projekte')
+    // Projektliste is a shared controlling view — same open-access rule
+    // so legacy roles don't need to be reconfigured on the server.
+    views.add('projektliste')
     return views
   }, [currentRole])
   const nav = useMemo(() => filterNav(NAV, allowed), [allowed])
@@ -230,6 +238,8 @@ function Shell() {
   const kostenDoc = useKostenschaetzung((s) => s.doc)
   const loadProjects = useProjects((s) => s.load)
   const projectsDoc = useProjects((s) => s.doc)
+  const loadProjektliste = useProjektliste((s) => s.load)
+  const projektlisteDoc = useProjektliste((s) => s.doc)
 
   useEffect(() => {
     void loadForecast()
@@ -296,6 +306,10 @@ function Shell() {
   useEffect(() => {
     if (view === 'projekte' && !projectsDoc) void loadProjects()
   }, [view, projectsDoc, loadProjects])
+
+  useEffect(() => {
+    if (view === 'projektliste' && !projektlisteDoc) void loadProjektliste()
+  }, [view, projektlisteDoc, loadProjektliste])
 
   // Log module opens once per view change. Debounced via a ref so re-renders
   // (e.g. from store subscriptions) don't double-fire.
@@ -367,6 +381,7 @@ function Shell() {
               {view === 'ziele_kontrolle' && <UmsatzSaveStatus />}
               {view === 'rechnungen' && <RechnungenSaveStatus />}
               {view === 'projekte' && <ProjekteSaveStatus />}
+              {view === 'projektliste' && <ProjektlisteSaveStatus />}
               {(view === 'ks_bauwerke' ||
                 view === 'ks_hoai' ||
                 view === 'ks_katalog') && <KostenschaetzungSaveStatus />}
@@ -396,6 +411,7 @@ function Shell() {
           {view === 'ziele_kontrolle' && <Umsatzkontrolle />}
           {view === 'rechnungen' && <Rechnungen />}
           {view === 'projekte' && <Projekte />}
+          {view === 'projektliste' && <Projektliste />}
           {view === 'ks_bauwerke' &&
             (kostenDoc ? <BauwerkeTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
           {view === 'ks_hoai' &&
@@ -544,6 +560,7 @@ function ViewPeriodPicker({ view }: { view: View }) {
     case 'rechnungen':
       return <RechnungenPicker />
     case 'projekte':
+    case 'projektliste':
       return null
     case 'ks_bauwerke':
     case 'ks_hoai':

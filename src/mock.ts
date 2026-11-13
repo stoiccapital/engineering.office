@@ -2,6 +2,7 @@ import type {
   ActivityEvent,
   Period,
   ProjekteDoc,
+  ProjektlisteDoc,
   PlanStatus,
   QuartalPlan,
   Quarter,
@@ -223,6 +224,7 @@ let logo: string | null = null
 let roster: Roster | null = emptyRoster()
 let kostenschaetzung: unknown = null
 let projects: ProjekteDoc | null = null
+let projektliste: ProjektlisteDoc | null = null
 const activity: ActivityEvent[] = []
 let access: AccessConfig | null = (() => {
   const cfg = emptyAccessConfig()
@@ -231,7 +233,7 @@ let access: AccessConfig | null = (() => {
       id: 'dev-admin',
       name: 'Admin (dev)',
       password: 'admin',
-      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter', 'settings'],
+      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter', 'settings'],
     },
   ]
   return cfg
@@ -325,6 +327,12 @@ export const mock = {
   },
   setProjects(value: ProjekteDoc) {
     projects = value
+  },
+  projektliste(): ProjektlisteDoc | null {
+    return projektliste
+  },
+  setProjektliste(value: ProjektlisteDoc) {
+    projektliste = value
   },
   activityList(days: number): ActivityEvent[] {
     const cutoff = new Date()

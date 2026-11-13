@@ -73,6 +73,9 @@ function accessForPath(pathname: string): Access | null {
       put: ['kostenschaetzung', 'ks_bauwerke', 'ks_hoai', 'ks_katalog'],
     }
   }
+  if (pathname === '/api/projektliste') {
+    return { get: ['*'], put: ['*'] }
+  }
   if (pathname === '/api/projects') {
     // Open to any authed user — projekte is a personal module that should
     // work out-of-the-box for every existing role, without an admin having
