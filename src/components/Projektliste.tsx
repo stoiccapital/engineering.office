@@ -1,13 +1,29 @@
-import { useMemo, useRef, useState } from 'react'
-import { AlertCircle, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  Plus,
+  Search,
+  Trash2,
+  Undo2,
+  Upload,
+  X,
+} from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { Section } from '@/components/ui/section'
 import { Button } from '@/components/ui/button'
 import { LoadingCard } from '@/components/ui/loading-card'
 import {
+  totalSums,
   useProjektliste,
   visibleRows,
+  type ImportMode,
+  type ProjektlisteSort,
+  type ProjektlisteSortCol,
 } from '@/projektliste-store'
+import { logActivity } from '@/activity-store'
 import {
   PROJEKTLISTE_STATUS_PRESETS,
   type ForecastFlag,
@@ -34,22 +50,26 @@ export function Projektliste() {
   const setSearch = useProjektliste((s) => s.setSearch)
   const statusFilter = useProjektliste((s) => s.statusFilter)
   const setStatusFilter = useProjektliste((s) => s.setStatusFilter)
+  const sort = useProjektliste((s) => s.sort)
+  const setSort = useProjektliste((s) => s.setSort)
   const addRow = useProjektliste((s) => s.addRow)
   const updateRow = useProjektliste((s) => s.updateRow)
   const removeRow = useProjektliste((s) => s.removeRow)
-  const importRows = useProjektliste((s) => s.importRows)
+  const stageImport = useProjektliste((s) => s.stageImport)
+  const setStagedMode = useProjektliste((s) => s.setStagedMode)
+  const cancelStagedImport = useProjektliste((s) => s.cancelStagedImport)
+  const commitStagedImport = useProjektliste((s) => s.commitStagedImport)
+  const undoLastImport = useProjektliste((s) => s.undoLastImport)
+  const stagedImport = useProjektliste((s) => s.stagedImport)
+  const lastImportBackup = useProjektliste((s) => s.lastImportBackup)
 
   const fileRef = useRef<HTMLInputElement>(null)
-  const [importResult, setImportResult] = useState<{
-    added: number
-    updated: number
-  } | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
 
   const shown = useMemo(() => {
     if (!doc) return []
-    return visibleRows(doc, search, statusFilter)
-  }, [doc, search, statusFilter])
+    return visibleRows(doc, search, statusFilter, sort)
+  }, [doc, search, statusFilter, sort])
 
   const statusOptions = useMemo(() => {
     if (!doc) return []
@@ -58,22 +78,26 @@ export function Projektliste() {
     return Array.from(seen).sort()
   }, [doc])
 
+  // Stable callbacks per row so React.memo on Row actually prevents
+  // re-renders during unrelated edits.
+  const onUpdateRow = useCallback(
+    (id: string, patch: Partial<ProjektlisteRow>) => updateRow(id, patch),
+    [updateRow],
+  )
+  const onRemoveRow = useCallback((id: string) => removeRow(id), [removeRow])
+
   if (!doc && status === 'loading') return <LoadingCard>Lade Projektliste…</LoadingCard>
   if (!doc) return <LoadingCard>Lade Projektliste…</LoadingCard>
 
-  const summe = {
-    kosten: shown.reduce((s, r) => s + (r.kostensumme ?? 0), 0),
-    gewinn: shown.reduce((s, r) => s + (r.gewinnVerlust ?? 0), 0),
-    forecast: shown.reduce((s, r) => s + (r.forecastGesamt ?? 0), 0),
-    abgerechnet: shown.reduce((s, r) => s + (r.abgerechnetGesamt ?? 0), 0),
-  }
+  const totals = totalSums(doc.rows)
+  const shownTotals = totalSums(shown)
+  const filtered = shown.length !== doc.rows.length
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    e.target.value = '' // reset input so the same file can be re-picked
+    e.target.value = ''
     if (!file) return
     setImportError(null)
-    setImportResult(null)
     try {
       const buffer = await file.arrayBuffer()
       const wb = XLSX.read(buffer, { type: 'array' })
@@ -82,8 +106,7 @@ export function Projektliste() {
         setImportError('Keine Zeilen im Blatt "Ausdruck" gefunden.')
         return
       }
-      const res = importRows(rows)
-      setImportResult(res)
+      stageImport(rows, 'merge')
     } catch (err) {
       setImportError((err as Error).message || 'Import fehlgeschlagen.')
     }
@@ -93,7 +116,11 @@ export function Projektliste() {
     <div className="space-y-4">
       <Section
         title="Projektliste"
-        subtitle={`${doc.rows.length} ${doc.rows.length === 1 ? 'Projekt' : 'Projekte'}${doc.importedAt ? ` · Import ${new Date(doc.importedAt).toLocaleDateString('de-DE')}` : ''}`}
+        subtitle={
+          filtered
+            ? `${shown.length} von ${doc.rows.length} Projekten · Filter aktiv${doc.importedAt ? ` · Import ${new Date(doc.importedAt).toLocaleDateString('de-DE')}` : ''}`
+            : `${doc.rows.length} ${doc.rows.length === 1 ? 'Projekt' : 'Projekte'}${doc.importedAt ? ` · Import ${new Date(doc.importedAt).toLocaleDateString('de-DE')}` : ''}`
+        }
         padded={false}
         action={
           <div className="flex items-center gap-2">
@@ -133,41 +160,59 @@ export function Projektliste() {
               <Upload className="mr-1 h-3.5 w-3.5" /> Import Excel
             </Button>
             <Button size="sm" onClick={() => addRow()}>
-              <Plus className="mr-1 h-3.5 w-3.5" /> Projekt
+              <Plus className="mr-1 h-3.5 w-3.5" /> Zeile
             </Button>
           </div>
         }
       >
-        {(importResult || importError) && (
+        {/* Portfolio summary band — always shows shown vs total */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b bg-muted/30 px-4 py-2 text-xs">
+          <SummaryStat
+            label="Projekte"
+            shown={shownTotals.count}
+            total={totals.count}
+            filtered={filtered}
+            numeric={false}
+          />
+          <SummaryStat
+            label="Kosten"
+            shown={shownTotals.kosten}
+            total={totals.kosten}
+            filtered={filtered}
+          />
+          <SummaryStat
+            label="Gewinn / Verlust"
+            shown={shownTotals.gewinn}
+            total={totals.gewinn}
+            filtered={filtered}
+            colorByValue
+          />
+          <SummaryStat
+            label="Forecast"
+            shown={shownTotals.forecast}
+            total={totals.forecast}
+            filtered={filtered}
+          />
+          <SummaryStat
+            label="Abgerechnet"
+            shown={shownTotals.abgerechnet}
+            total={totals.abgerechnet}
+            filtered={filtered}
+          />
+        </div>
+
+        {importError && (
           <div className="border-b px-4 py-2">
-            {importResult && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-900">
-                  Import ok
-                </span>
-                <span className="text-muted-foreground">
-                  {importResult.added} neu · {importResult.updated} aktualisiert
-                </span>
-                <button
-                  onClick={() => setImportResult(null)}
-                  className="ml-auto text-muted-foreground hover:text-foreground"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-            {importError && (
-              <div className="flex items-center gap-2 text-xs text-destructive">
-                <AlertCircle className="h-3.5 w-3.5" />
-                <span>{importError}</span>
-                <button
-                  onClick={() => setImportError(null)}
-                  className="ml-auto text-muted-foreground hover:text-foreground"
-                >
-                  ×
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-xs text-destructive">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>{importError}</span>
+              <button
+                onClick={() => setImportError(null)}
+                className="ml-auto text-muted-foreground hover:text-foreground"
+              >
+                ×
+              </button>
+            </div>
           </div>
         )}
 
@@ -175,22 +220,73 @@ export function Projektliste() {
           <table className="w-full min-w-[1800px] border-collapse text-[13px]">
             <thead className="bg-muted/60">
               <tr className="border-b text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                <th className="sticky left-0 z-10 w-72 bg-muted/60 px-3 py-2 text-left">
-                  Projekt
-                </th>
+                <SortHeader
+                  col="projekt"
+                  label="Projekt"
+                  sort={sort}
+                  onSort={setSort}
+                  className="sticky left-0 z-10 w-72 bg-muted/60"
+                />
                 <th className="w-16 px-2 py-2 text-left">NL</th>
-                <th className="w-32 px-2 py-2 text-left">Projektleiter</th>
-                <th className="w-36 px-2 py-2 text-left">Status</th>
-                <th className="w-32 px-2 py-2 text-right">Abrechn.-Stand</th>
+                <SortHeader
+                  col="projektleiter"
+                  label="Projektleiter"
+                  sort={sort}
+                  onSort={setSort}
+                  className="w-32"
+                />
+                <SortHeader
+                  col="status"
+                  label="Status"
+                  sort={sort}
+                  onSort={setSort}
+                  className="w-36"
+                />
+                <SortHeader
+                  col="abrechnungsstandEur"
+                  label="Abrechn.-Stand"
+                  sort={sort}
+                  onSort={setSort}
+                  className="w-32"
+                  align="right"
+                />
                 <th className="w-28 px-2 py-2 text-right">Personalk.</th>
                 <th className="w-28 px-2 py-2 text-right">direkte K.</th>
-                <th className="w-28 px-2 py-2 text-right">Kostensumme</th>
-                <th className="w-28 px-2 py-2 text-right">G / V</th>
+                <SortHeader
+                  col="kostensumme"
+                  label="Kostensumme"
+                  sort={sort}
+                  onSort={setSort}
+                  className="w-28"
+                  align="right"
+                />
+                <SortHeader
+                  col="gewinnVerlust"
+                  label="G / V"
+                  sort={sort}
+                  onSort={setSort}
+                  className="w-28"
+                  align="right"
+                />
                 <th className="px-2 py-2 text-left">Leistung</th>
-                <th className="w-32 px-2 py-2 text-right">Forecast Σ</th>
+                <SortHeader
+                  col="forecastGesamt"
+                  label="Forecast Σ"
+                  sort={sort}
+                  onSort={setSort}
+                  className="w-32"
+                  align="right"
+                />
                 <th className="w-28 px-2 py-2 text-right">Forecast PL</th>
                 <th className="w-28 px-2 py-2 text-right">Forecast DE</th>
-                <th className="w-28 px-2 py-2 text-right">Abger. Σ</th>
+                <SortHeader
+                  col="abgerechnetGesamt"
+                  label="Abger. Σ"
+                  sort={sort}
+                  onSort={setSort}
+                  className="w-28"
+                  align="right"
+                />
                 <th className="w-28 px-2 py-2 text-right">Abger. PL</th>
                 <th className="w-28 px-2 py-2 text-right">Abger. DE</th>
                 <th className="w-28 px-2 py-2 text-right">Offen DE</th>
@@ -202,9 +298,24 @@ export function Projektliste() {
               {shown.length === 0 ? (
                 <tr>
                   <td colSpan={19} className="px-4 py-10 text-center text-xs text-muted-foreground">
-                    {doc.rows.length === 0
-                      ? 'Noch keine Projektliste geladen. Klick auf „Import Excel", um ein Export-Sheet einzulesen.'
-                      : 'Keine Treffer.'}
+                    {doc.rows.length === 0 ? (
+                      <>
+                        Noch keine Projektliste geladen. Klick auf „Import Excel".
+                      </>
+                    ) : (
+                      <>
+                        Keine Treffer mit dem aktuellen Filter.
+                        <button
+                          onClick={() => {
+                            setSearch('')
+                            setStatusFilter('')
+                          }}
+                          className="ml-2 text-foreground underline underline-offset-2"
+                        >
+                          Filter zurücksetzen
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -212,65 +323,150 @@ export function Projektliste() {
                   <Row
                     key={r.id}
                     row={r}
-                    onUpdate={(patch) => updateRow(r.id, patch)}
-                    onRemove={() => removeRow(r.id)}
+                    onUpdate={onUpdateRow}
+                    onRemove={onRemoveRow}
                   />
                 ))
               )}
             </tbody>
-            {shown.length > 0 && (
-              <tfoot>
-                <tr className="border-t-2 bg-muted/60 font-semibold">
-                  <td className="sticky left-0 z-10 bg-muted/60 px-3 py-2">
-                    Σ {shown.length}
-                  </td>
-                  <td colSpan={6} />
-                  <td className="px-2 py-2 text-right font-mono tabular-nums">
-                    {fmtEUR(summe.kosten)}
-                  </td>
-                  <td
-                    className={cn(
-                      'px-2 py-2 text-right font-mono tabular-nums',
-                      summe.gewinn < 0 && 'text-destructive',
-                      summe.gewinn > 0 && 'text-emerald-700 dark:text-emerald-300',
-                    )}
-                  >
-                    {fmtEUR(summe.gewinn)}
-                  </td>
-                  <td />
-                  <td className="px-2 py-2 text-right font-mono tabular-nums">
-                    {fmtEUR(summe.forecast)}
-                  </td>
-                  <td colSpan={2} />
-                  <td className="px-2 py-2 text-right font-mono tabular-nums">
-                    {fmtEUR(summe.abgerechnet)}
-                  </td>
-                  <td colSpan={5} />
-                </tr>
-              </tfoot>
-            )}
           </table>
         </div>
       </Section>
+
+      <ImportPreviewDialog
+        preview={stagedImport}
+        onCancel={() => cancelStagedImport()}
+        onModeChange={setStagedMode}
+        onConfirm={() => {
+          const res = commitStagedImport()
+          logActivity({
+            kind: 'action',
+            action: 'projektliste.import',
+            target: `${res.added} neu · ${res.updated} aktualisiert`,
+          })
+        }}
+      />
+
+      {lastImportBackup && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 shadow-lg">
+            <span className="text-sm">
+              <strong className="font-semibold">Import angewendet.</strong>{' '}
+              <span className="text-muted-foreground">
+                Rückgängig für 15 Sekunden möglich.
+              </span>
+            </span>
+            <Button variant="ghost" size="sm" onClick={undoLastImport}>
+              <Undo2 className="mr-1 h-3.5 w-3.5" />
+              Rückgängig
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function Row({
+function SummaryStat({
+  label,
+  shown,
+  total,
+  filtered,
+  colorByValue,
+  numeric = true,
+}: {
+  label: string
+  shown: number
+  total: number
+  filtered: boolean
+  colorByValue?: boolean
+  numeric?: boolean
+}) {
+  const fmt = (v: number) => (numeric ? fmtEUR(v) : String(v))
+  const tone =
+    colorByValue && shown < 0
+      ? 'text-destructive'
+      : colorByValue && shown > 0
+        ? 'text-emerald-700 dark:text-emerald-300'
+        : 'text-foreground'
+  return (
+    <div className="inline-flex items-baseline gap-1.5">
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span className={cn('font-mono text-sm font-semibold tabular-nums', tone)}>
+        {fmt(shown)}
+      </span>
+      {filtered && (
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          / {fmt(total)}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function SortHeader({
+  col,
+  label,
+  sort,
+  onSort,
+  className,
+  align,
+}: {
+  col: ProjektlisteSortCol
+  label: string
+  sort: ProjektlisteSort
+  onSort: (s: ProjektlisteSort) => void
+  className?: string
+  align?: 'right'
+}) {
+  const active = sort.col === col
+  const dir = active ? sort.dir : 'asc'
+  const toggle = () => {
+    if (!active) onSort({ col, dir: 'asc' })
+    else onSort({ col, dir: dir === 'asc' ? 'desc' : 'asc' })
+  }
+  return (
+    <th className={cn('px-2 py-2', align === 'right' ? 'text-right' : 'text-left', className)}>
+      <button
+        type="button"
+        onClick={toggle}
+        className={cn(
+          'inline-flex items-center gap-1 hover:text-foreground',
+          align === 'right' && 'flex-row-reverse',
+          active && 'text-foreground',
+        )}
+      >
+        {label}
+        {active ? (
+          dir === 'asc' ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
+        ) : null}
+      </button>
+    </th>
+  )
+}
+
+// Row — memoized so typing in one cell doesn't re-render the other 314 rows.
+const Row = memo(function Row({
   row,
   onUpdate,
   onRemove,
 }: {
   row: ProjektlisteRow
-  onUpdate: (patch: Partial<ProjektlisteRow>) => void
-  onRemove: () => void
+  onUpdate: (id: string, patch: Partial<ProjektlisteRow>) => void
+  onRemove: (id: string) => void
 }) {
   const nlLabel = nlOf(row.fachbereich)
   const gv = row.gewinnVerlust ?? 0
   return (
     <tr className="group border-b last:border-b-0 align-middle hover:bg-accent/30">
       <td className="sticky left-0 z-10 bg-background px-3 py-1 group-hover:bg-accent/30">
-        <TextCell value={row.projekt} onChange={(v) => onUpdate({ projekt: v })} placeholder="Projektname" bold />
+        <TextCell value={row.projekt} onChange={(v) => onUpdate(row.id, { projekt: v })} placeholder="Projektname" bold />
       </td>
       <td className="px-2 py-1">
         <span
@@ -286,12 +482,12 @@ function Row({
         </span>
       </td>
       <td className="px-2 py-1">
-        <TextCell value={row.projektleiter} onChange={(v) => onUpdate({ projektleiter: v })} placeholder="PL" />
+        <TextCell value={row.projektleiter} onChange={(v) => onUpdate(row.id, { projektleiter: v })} placeholder="PL" />
       </td>
       <td className="px-2 py-1">
         <select
           value={row.status}
-          onChange={(e) => onUpdate({ status: e.target.value })}
+          onChange={(e) => onUpdate(row.id, { status: e.target.value })}
           className={cn(
             'h-6 w-full rounded border px-1.5 text-[11px] font-medium',
             STATUS_CHIP[row.status] ?? 'border-border bg-background text-muted-foreground',
@@ -309,21 +505,21 @@ function Row({
         </select>
       </td>
       <td className="px-2 py-1">
-        <NumCell value={row.abrechnungsstandEur} onChange={(v) => onUpdate({ abrechnungsstandEur: v })} />
+        <NumCell value={row.abrechnungsstandEur} onChange={(v) => onUpdate(row.id, { abrechnungsstandEur: v })} />
       </td>
       <td className="px-2 py-1">
-        <NumCell value={row.personalkosten} onChange={(v) => onUpdate({ personalkosten: v })} />
+        <NumCell value={row.personalkosten} onChange={(v) => onUpdate(row.id, { personalkosten: v })} />
       </td>
       <td className="px-2 py-1">
-        <NumCell value={row.direkteKosten} onChange={(v) => onUpdate({ direkteKosten: v })} />
+        <NumCell value={row.direkteKosten} onChange={(v) => onUpdate(row.id, { direkteKosten: v })} />
       </td>
       <td className="px-2 py-1">
-        <NumCell value={row.kostensumme} onChange={(v) => onUpdate({ kostensumme: v })} />
+        <NumCell value={row.kostensumme} onChange={(v) => onUpdate(row.id, { kostensumme: v })} />
       </td>
       <td className="px-2 py-1">
         <NumCell
           value={row.gewinnVerlust}
-          onChange={(v) => onUpdate({ gewinnVerlust: v })}
+          onChange={(v) => onUpdate(row.id, { gewinnVerlust: v })}
           className={cn(
             gv < 0 && 'text-destructive',
             gv > 0 && 'text-emerald-700 dark:text-emerald-300',
@@ -331,52 +527,52 @@ function Row({
         />
       </td>
       <td className="px-2 py-1">
-        <TextCell value={row.leistung} onChange={(v) => onUpdate({ leistung: v })} placeholder="Leistung in Worten" />
+        <TextCell value={row.leistung} onChange={(v) => onUpdate(row.id, { leistung: v })} placeholder="Leistung in Worten" />
       </td>
       <td className="px-2 py-1">
         <NumFlagCell
           value={row.forecastGesamt}
           flag={row.forecastGesamtFlag}
-          onChangeValue={(v) => onUpdate({ forecastGesamt: v })}
-          onChangeFlag={(f) => onUpdate({ forecastGesamtFlag: f })}
+          onChangeValue={(v) => onUpdate(row.id, { forecastGesamt: v })}
+          onChangeFlag={(f) => onUpdate(row.id, { forecastGesamtFlag: f })}
         />
       </td>
       <td className="px-2 py-1">
         <NumFlagCell
           value={row.forecastPl}
           flag={row.forecastPlFlag}
-          onChangeValue={(v) => onUpdate({ forecastPl: v })}
-          onChangeFlag={(f) => onUpdate({ forecastPlFlag: f })}
+          onChangeValue={(v) => onUpdate(row.id, { forecastPl: v })}
+          onChangeFlag={(f) => onUpdate(row.id, { forecastPlFlag: f })}
         />
       </td>
       <td className="px-2 py-1">
         <NumFlagCell
           value={row.forecastDe}
           flag={row.forecastDeFlag}
-          onChangeValue={(v) => onUpdate({ forecastDe: v })}
-          onChangeFlag={(f) => onUpdate({ forecastDeFlag: f })}
+          onChangeValue={(v) => onUpdate(row.id, { forecastDe: v })}
+          onChangeFlag={(f) => onUpdate(row.id, { forecastDeFlag: f })}
         />
       </td>
       <td className="px-2 py-1">
-        <NumCell value={row.abgerechnetGesamt} onChange={(v) => onUpdate({ abgerechnetGesamt: v })} />
+        <NumCell value={row.abgerechnetGesamt} onChange={(v) => onUpdate(row.id, { abgerechnetGesamt: v })} />
       </td>
       <td className="px-2 py-1">
-        <NumCell value={row.abgerechnetPl} onChange={(v) => onUpdate({ abgerechnetPl: v })} />
+        <NumCell value={row.abgerechnetPl} onChange={(v) => onUpdate(row.id, { abgerechnetPl: v })} />
       </td>
       <td className="px-2 py-1">
-        <NumCell value={row.abgerechnetDe} onChange={(v) => onUpdate({ abgerechnetDe: v })} />
+        <NumCell value={row.abgerechnetDe} onChange={(v) => onUpdate(row.id, { abgerechnetDe: v })} />
       </td>
       <td className="px-2 py-1">
-        <NumCell value={row.offenerForecastDe} onChange={(v) => onUpdate({ offenerForecastDe: v })} />
+        <NumCell value={row.offenerForecastDe} onChange={(v) => onUpdate(row.id, { offenerForecastDe: v })} />
       </td>
       <td className="px-2 py-1">
-        <NumCell value={row.offenerForecastPl} onChange={(v) => onUpdate({ offenerForecastPl: v })} />
+        <NumCell value={row.offenerForecastPl} onChange={(v) => onUpdate(row.id, { offenerForecastPl: v })} />
       </td>
       <td className="px-1 py-1 text-right">
         <button
-          onClick={onRemove}
+          onClick={() => onRemove(row.id)}
           className="rounded p-1 text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-          aria-label="Projekt löschen"
+          aria-label="Zeile löschen"
           title="Löschen"
         >
           <Trash2 className="h-3 w-3" />
@@ -384,7 +580,7 @@ function Row({
       </td>
     </tr>
   )
-}
+})
 
 function TextCell({
   value,
@@ -397,10 +593,23 @@ function TextCell({
   placeholder?: string
   bold?: boolean
 }) {
+  // Keep text edits local during focus so the Zustand store (and every
+  // other row) doesn't re-render on every keystroke. Commit on blur.
+  const [text, setText] = useState(value)
+  const [focused, setFocused] = useState(false)
+  if (!focused && text !== value) setText(value)
   return (
     <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      value={focused ? text : value}
+      onChange={(e) => setText(e.target.value)}
+      onFocus={() => {
+        setFocused(true)
+        setText(value)
+      }}
+      onBlur={() => {
+        setFocused(false)
+        if (text !== value) onChange(text)
+      }}
       placeholder={placeholder}
       className={cn(
         'w-full rounded bg-transparent px-1.5 py-0.5 text-[13px] outline-none focus:bg-background',
@@ -433,7 +642,7 @@ function NumCell({
       onBlur={() => {
         setFocused(false)
         const n = parseGermanNum(text)
-        onChange(n)
+        if (n !== value) onChange(n)
         setText(fmtNum(n))
       }}
       className={cn(
@@ -475,6 +684,129 @@ function NumFlagCell({
   )
 }
 
+function ImportPreviewDialog({
+  preview,
+  onCancel,
+  onModeChange,
+  onConfirm,
+}: {
+  preview: ReturnType<typeof useProjektliste.getState>['stagedImport']
+  onCancel: () => void
+  onModeChange: (m: ImportMode) => void
+  onConfirm: () => void
+}) {
+  return (
+    <Dialog.Root open={!!preview} onOpenChange={(o) => !o && onCancel()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card p-5 shadow-xl">
+          <Dialog.Title className="text-base font-semibold">
+            Import vorbereitet
+          </Dialog.Title>
+          <Dialog.Description className="mt-1 text-xs text-muted-foreground">
+            Prüfe die Diff-Vorschau und bestätige, um den Import anzuwenden.
+          </Dialog.Description>
+          {preview && (
+            <>
+              <div className="mt-4 space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Neue Projekte</span>
+                  <span className="font-mono font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                    + {preview.added}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Aktualisiert</span>
+                  <span className="font-mono font-semibold tabular-nums">
+                    ~ {preview.updated}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Nicht in der Datei vorhanden
+                  </span>
+                  <span
+                    className={cn(
+                      'font-mono font-semibold tabular-nums',
+                      preview.mode === 'replace'
+                        ? 'text-destructive'
+                        : 'text-muted-foreground',
+                    )}
+                  >
+                    {preview.mode === 'replace' ? '− ' : ''}
+                    {preview.keptOrRemoved}
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      ({preview.mode === 'replace' ? 'werden gelöscht' : 'bleiben erhalten'})
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-1.5">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Modus
+                </div>
+                <label className="flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm">
+                  <input
+                    type="radio"
+                    name="mode"
+                    checked={preview.mode === 'merge'}
+                    onChange={() => onModeChange('merge')}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <div className="font-medium">Zusammenführen</div>
+                    <div className="text-xs text-muted-foreground">
+                      Projekte, die nicht in der Datei sind, bleiben erhalten.
+                      Vorhandene Projekte werden aktualisiert.
+                    </div>
+                  </div>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm">
+                  <input
+                    type="radio"
+                    name="mode"
+                    checked={preview.mode === 'replace'}
+                    onChange={() => onModeChange('replace')}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <div className="font-medium">Komplett ersetzen</div>
+                    <div className="text-xs text-muted-foreground">
+                      Alle vorhandenen Projekte werden durch die importierten
+                      ersetzt. {preview.keptOrRemoved} Projekte würden gelöscht.
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={onCancel}>
+                  Abbrechen
+                </Button>
+                <Button size="sm" onClick={onConfirm}>
+                  Import anwenden
+                </Button>
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground">
+                Nach Anwendung bleibt 15 Sekunden lang ein „Rückgängig"-Hinweis.
+              </div>
+            </>
+          )}
+          <Dialog.Close asChild>
+            <button
+              className="absolute right-3 top-3 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Schließen"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </Dialog.Close>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
 function fmtNum(v: number | null): string {
   if (v === null || v === undefined) return ''
   return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(v)
@@ -504,8 +836,6 @@ function nlOf(fachbereich: string): 'DE' | 'PL' | '' {
 // ---------------------------------------------------------------------------
 
 function parseWorkbook(wb: XLSX.WorkBook): Omit<ProjektlisteRow, 'id' | 'updatedAt'>[] {
-  // Prefer the "Ausdruck" sheet; fall back to the first sheet so partial
-  // exports without that exact name still work.
   const name =
     wb.SheetNames.find((n) => n.toLowerCase().includes('ausdruck')) ??
     wb.SheetNames[0]
@@ -537,8 +867,6 @@ function mapRow(r: Record<string, unknown>): Omit<ProjektlisteRow, 'id' | 'updat
     forecastGesamt: num(r['Forecast Gesamt']),
     forecastGesamtFlag: flag(r['k/w']),
     forecastPl: num(r['Forecast PL']),
-    // After the first k/w column the sheet repeats the header. SheetJS
-    // disambiguates with " ", "_1", "_2" suffixes depending on version.
     forecastPlFlag: flag(r['k/w_1'] ?? r['k/w 1']),
     forecastDe: num(r['Forecast DE']),
     forecastDeFlag: flag(r['w/k'] ?? r['k/w_2'] ?? r['k/w 2']),
