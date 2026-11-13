@@ -40,10 +40,8 @@ import { cn } from '@/lib/utils'
 import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Database, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
-const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
-const EINSTELLUNGEN_EXPANDED_KEY = 'eo:einstellungenExpanded'
-const KOSTENSCHAETZUNG_EXPANDED_KEY = 'eo:kostenschaetzungExpanded'
-const ZIELE_EXPANDED_KEY = 'eo:zieleExpanded'
+// Accordion mode — at most one sidebar group is expanded at a time.
+const ACTIVE_GROUP_KEY = 'eo:activeGroup'
 
 // plan_overview isn't a separate nav entry — it collapses into 'plan' view
 // but with the overview-only tab inside PlanTabs.
@@ -202,17 +200,10 @@ function Shell() {
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1',
   )
-  const [operativeExpanded, setOperativeExpanded] = useState<boolean>(
-    () => localStorage.getItem(OPERATIVE_EXPANDED_KEY) !== '0',
-  )
-  const [einstellungenExpanded, setEinstellungenExpanded] = useState<boolean>(
-    () => localStorage.getItem(EINSTELLUNGEN_EXPANDED_KEY) !== '0',
-  )
-  const [kostenschaetzungExpanded, setKostenschaetzungExpanded] = useState<boolean>(
-    () => localStorage.getItem(KOSTENSCHAETZUNG_EXPANDED_KEY) !== '0',
-  )
-  const [zieleExpanded, setZieleExpanded] = useState<boolean>(
-    () => localStorage.getItem(ZIELE_EXPANDED_KEY) !== '0',
+  // Accordion: only one group open at a time. Opening another closes the
+  // previous one. null = all collapsed.
+  const [activeGroup, setActiveGroup] = useState<string | null>(
+    () => localStorage.getItem(ACTIVE_GROUP_KEY) || null,
   )
   const loadForecast = useForecast((s) => s.load)
   const period = useForecast((s) => s.period)
@@ -293,20 +284,22 @@ function Shell() {
   }, [collapsed])
 
   useEffect(() => {
-    localStorage.setItem(OPERATIVE_EXPANDED_KEY, operativeExpanded ? '1' : '0')
-  }, [operativeExpanded])
+    if (activeGroup) localStorage.setItem(ACTIVE_GROUP_KEY, activeGroup)
+    else localStorage.removeItem(ACTIVE_GROUP_KEY)
+  }, [activeGroup])
 
+  // Auto-open the group that contains the current view (e.g. after ⌘K jumps).
+  // Depends only on `view` so toggling a group header manually isn't
+  // immediately overridden back to the group of the active view.
   useEffect(() => {
-    localStorage.setItem(EINSTELLUNGEN_EXPANDED_KEY, einstellungenExpanded ? '1' : '0')
-  }, [einstellungenExpanded])
-
-  useEffect(() => {
-    localStorage.setItem(KOSTENSCHAETZUNG_EXPANDED_KEY, kostenschaetzungExpanded ? '1' : '0')
-  }, [kostenschaetzungExpanded])
-
-  useEffect(() => {
-    localStorage.setItem(ZIELE_EXPANDED_KEY, zieleExpanded ? '1' : '0')
-  }, [zieleExpanded])
+    const containing = NAV.find(
+      (e) => e.kind === 'group' && (e.children as View[]).includes(view),
+    )
+    if (containing && containing.kind === 'group') {
+      setActiveGroup(containing.id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view])
 
   const meta = VIEW_META[view]
 
@@ -321,16 +314,15 @@ function Shell() {
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed((v) => !v)}
         expandedByGroup={{
-          operative: operativeExpanded,
-          einstellungen: einstellungenExpanded,
-          kostenschaetzung: kostenschaetzungExpanded,
-          ziele: zieleExpanded,
+          operative: activeGroup === 'operative',
+          einstellungen: activeGroup === 'einstellungen',
+          kostenschaetzung: activeGroup === 'kostenschaetzung',
+          ziele: activeGroup === 'ziele',
         }}
         onToggleGroup={(id) => {
-          if (id === 'operative') setOperativeExpanded((v) => !v)
-          else if (id === 'einstellungen') setEinstellungenExpanded((v) => !v)
-          else if (id === 'kostenschaetzung') setKostenschaetzungExpanded((v) => !v)
-          else if (id === 'ziele') setZieleExpanded((v) => !v)
+          // Accordion toggle — clicking the active group collapses it, any
+          // other group opens (which implicitly closes the previous one).
+          setActiveGroup((prev) => (prev === id ? null : id))
         }}
         freigabenCount={freigabenCount}
       />
