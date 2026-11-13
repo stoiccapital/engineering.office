@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronRight, Flame, Maximize2, Minimize2, Plus, X } from 'lucide-react'
 import { Section } from '@/components/ui/section'
+import { AlwaysOnScrollbar } from '@/components/ui/always-on-scrollbar'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { Num } from '@/components/ui/num'
 
@@ -114,6 +115,7 @@ export function QuartalPlanTable() {
   }, [year])
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
@@ -211,8 +213,12 @@ export function QuartalPlanTable() {
           />
         )}
         <div
+          ref={scrollRef}
           className={cn(
-            'overflow-auto',
+            // Native horizontal scrollbar is hidden; the custom overlay below
+            // provides a persistently-visible drag target. Vertical native
+            // scrollbar stays — its fade-on-idle behaviour is standard.
+            'scroll-no-native-h overflow-x-scroll overflow-y-auto',
             // Cap to a viewport-height box when NOT in fullscreen so the
             // horizontal scrollbar sits near the viewport bottom instead of
             // forcing users to page-scroll to find it.
@@ -405,6 +411,9 @@ export function QuartalPlanTable() {
               />
             </tbody>
           </table>
+        </div>
+        <div className="border-t bg-background px-2 py-1.5">
+          <AlwaysOnScrollbar targetRef={scrollRef} />
         </div>
       </Section>
 

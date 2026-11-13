@@ -66,6 +66,20 @@ svg.lucide {
   stroke-width: 1.5;
 }
 
+/* Hide the native horizontal scrollbar on containers that use the custom
+   AlwaysOnScrollbar overlay. macOS trackpad auto-hide is impossible to
+   defeat with pure CSS, so we drive the scrollbar from a DOM strip instead. */
+.scroll-no-native-h::-webkit-scrollbar:horizontal {
+  display: none;
+}
+.scroll-no-native-h {
+  /* Firefox fallback — it has no per-axis hiding, so we leave its native
+     vertical bar alone and simply don't hide the horizontal one here.
+     Trackpad users on Firefox/macOS already get a persistent bar via the
+     scrollbar-color property below. */
+  scrollbar-color: #9ca3af transparent;
+}
+
 /* Print layout — used by Bauwerke PDF export. Hides app chrome so the
    preview content fills the page, and strips anything marked .no-print. */
 @media print {
