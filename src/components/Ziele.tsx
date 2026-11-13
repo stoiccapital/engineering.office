@@ -259,12 +259,30 @@ function BranchDashboard({
       const overheadAlloc = row
         ? row.verwaltungAllocated + row.ausschreibungAllocated
         : 0
+      // Pull Umsatzziel + Akquiseziel from computeTeamTargets so the tile
+      // mirrors what the Teams editor shows per team. Values follow the
+      // halbjahr picker (H1 / H2 / annual).
+      const targets = computeTeamTargets(t, branch)
+      const umsatz =
+        halbjahr === 'h1'
+          ? targets.umsatz.h1.halbjahr
+          : halbjahr === 'h2'
+            ? targets.umsatz.h2.halbjahr
+            : targets.umsatz.jahr
+      const akquise =
+        halbjahr === 'h1'
+          ? targets.akquise.h1.halbjahr
+          : halbjahr === 'h2'
+            ? targets.akquise.h2.halbjahr
+            : targets.akquise.jahr
       return {
         id: t.id,
         name: t.name || 'Unbenannt',
         effective: operative + overheadAlloc,
         operative,
         overheadAlloc,
+        umsatz,
+        akquise,
       }
     })
 
@@ -295,6 +313,9 @@ function BranchDashboard({
               effective={t.effective}
               operative={t.operative}
               overheadAlloc={t.overheadAlloc}
+              umsatz={t.umsatz}
+              akquise={t.akquise}
+              halfLabel={halfLabel}
             />
           ))}
         </div>
@@ -431,12 +452,19 @@ function TeamTile({
   effective,
   operative,
   overheadAlloc,
+  umsatz,
+  akquise,
+  halfLabel,
 }: {
   name: string
   effective: number
   operative: number
   overheadAlloc: number
+  umsatz: number
+  akquise: number
+  halfLabel: string
 }) {
+  const suffix = halfLabel.trim() || 'Jahr'
   return (
     <div className="flex flex-col rounded border bg-background px-2.5 py-2">
       <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -449,6 +477,24 @@ function TeamTile({
       <div className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
         {fmtDecimal(operative, 2)} + {fmtDecimal(overheadAlloc, 2)}{' '}
         <span className="text-[10px]">Overhead</span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-1 border-t pt-2">
+        <div>
+          <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Umsatzziel {suffix}
+          </div>
+          <div className="mt-0.5 font-mono text-xs font-semibold tabular-nums">
+            {fmtEUR(umsatz)}
+          </div>
+        </div>
+        <div>
+          <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Akquiseziel {suffix}
+          </div>
+          <div className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+            {fmtEUR(akquise)}
+          </div>
+        </div>
       </div>
     </div>
   )
