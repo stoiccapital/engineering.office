@@ -24,9 +24,9 @@ import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { Num } from '@/components/ui/num'
 
-type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | 'purple' | null
+export type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | 'purple' | null
 
-function todoTone(text: string): TodoTone {
+export function todoTone(text: string): TodoTone {
   const t = text.toLowerCase()
   if (t.includes('aufgabe')) return 'red'
   if (t.includes('abgabe')) return 'green'
@@ -36,13 +36,15 @@ function todoTone(text: string): TodoTone {
   return null
 }
 
-const TONE_CLASSES: Record<Exclude<TodoTone, null>, string> = {
+export const TONE_CLASSES: Record<Exclude<TodoTone, null>, string> = {
   red: 'text-red-700 dark:text-red-200 border-l-2 border-red-500 pl-1.5 bg-red-500/15',
   green: 'text-emerald-600 border-l-2 border-emerald-500 pl-1.5',
   yellow: 'text-amber-600 border-l-2 border-amber-500 pl-1.5',
   blue: 'text-sky-600 border-l-2 border-sky-500 pl-1.5',
   purple: 'text-violet-600 border-l-2 border-violet-500 pl-1.5',
 }
+
+export const URLAUB_DAYS_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr'] as const
 
 const LEGEND_CLASSES: Record<Exclude<TodoTone, null>, string> = {
   red: 'text-red-600 border-l-2 border-red-500',
@@ -52,7 +54,7 @@ const LEGEND_CLASSES: Record<Exclude<TodoTone, null>, string> = {
   purple: 'text-violet-600 border-l-2 border-violet-500',
 }
 
-const DAYS_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr'] as const
+const DAYS_LABELS = URLAUB_DAYS_LABELS
 
 export function QuartalPlanTable() {
   const year = usePlan((s) => s.year)

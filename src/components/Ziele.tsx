@@ -231,6 +231,21 @@ function BranchDashboard({
   const sumVerwOk = Math.abs(shareSumVerw - 1) < 0.001
   const sumAusschOk = Math.abs(shareSumAussch - 1) < 0.001
 
+  // Productive teams per branch: those that end up with any FTE assigned —
+  // operative or allocated overhead. Pure Verwaltung teams fall out here.
+  const teamTiles = rows
+    .map((r) => {
+      const overhead = r.verwaltungAllocated + r.ausschreibungAllocated
+      return {
+        id: r.teamId,
+        name: r.teamName,
+        operative: r.revenueFTE,
+        overhead,
+        effective: r.revenueFTE + overhead,
+      }
+    })
+    .filter((t) => t.operative > 0 || t.overhead > 0)
+
   return (
     <div className="bg-card p-4">
       <div className="mb-3 flex items-baseline justify-between">
@@ -239,6 +254,30 @@ function BranchDashboard({
           FTE-Pools{halfLabel}
         </div>
       </div>
+
+      {teamTiles.length > 0 && (
+        <div
+          className={cn(
+            'mb-3 grid gap-2',
+            teamTiles.length === 1
+              ? 'grid-cols-1'
+              : teamTiles.length === 2
+                ? 'grid-cols-2'
+                : 'grid-cols-3',
+          )}
+        >
+          {teamTiles.map((t) => (
+            <TeamTile
+              key={t.id}
+              name={t.name}
+              operative={t.operative}
+              overhead={t.overhead}
+              effective={t.effective}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="mb-3 grid grid-cols-3 gap-2 rounded-md border bg-muted/30 p-2 text-xs">
         <OverheadBadge label="Operative Teams" fte={revenueTotal} tone="emerald" prominent />
         <OverheadBadge label="Verwaltung" fte={verwaltungTotal} tone="blue" />
@@ -361,6 +400,35 @@ function BranchDashboard({
           </tbody>
         </table>
       )}
+    </div>
+  )
+}
+
+function TeamTile({
+  name,
+  operative,
+  overhead,
+  effective,
+}: {
+  name: string
+  operative: number
+  overhead: number
+  effective: number
+}) {
+  return (
+    <div className="flex flex-col rounded border bg-background px-2.5 py-2">
+      <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {name}
+      </div>
+      <div className="mt-0.5 font-mono text-base font-semibold tabular-nums">
+        {fmtDecimal(effective, 2)} <span className="text-[10px] opacity-70">FTE</span>
+      </div>
+      <div className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+        <span>{fmtDecimal(operative, 2)}</span>
+        <span className="mx-0.5">+</span>
+        <span>{fmtDecimal(overhead, 2)}</span>
+        <span className="ml-1 text-[10px]">Overhead</span>
+      </div>
     </div>
   )
 }

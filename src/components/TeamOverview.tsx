@@ -17,17 +17,24 @@ import {
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react'
 import { useRoster } from '@/roster-store'
-import { TeamFilterToggle } from '@/components/QuartalPlanTable'
+import {
+  TeamFilterToggle,
+  TONE_CLASSES,
+  URLAUB_DAYS_LABELS,
+  todoTone,
+} from '@/components/QuartalPlanTable'
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
 import { StateCycle } from '@/components/ui/state-cycle'
 
 const LOOKAHEAD_WEEKS = 6
 
+// Status badge tones mirror the Plan tab's tone palette so the colour language
+// stays consistent: Abgabe = emerald, Urlaub = sky, Abstimmen = amber.
 const STATUS_BADGE: Record<PlanStatus, string> = {
   abstimmen: 'bg-amber-100 text-amber-900',
   urlaub: 'bg-sky-100 text-sky-900',
-  abgabe: 'bg-destructive/15 text-destructive',
+  abgabe: 'bg-emerald-100 text-emerald-900',
 }
 
 export function TeamOverview() {
@@ -447,17 +454,25 @@ function WeekCell({
       {openTodos.length > 0 ? (
         <ul className="space-y-2">
           {openTodos.map((todo) => {
-            const isUrlaub = todo.text.toLowerCase().includes('urlaub')
+            const tone = todoTone(todo.text)
+            const isUrlaub = tone === 'blue'
             const pending = todo.state === 'zurFreigabe'
             const rejected = todo.state === 'inProgress' && !!todo.rejectReason
             return (
-              <li key={todo.id} className="space-y-0.5 text-xs leading-snug text-foreground">
+              <li
+                key={todo.id}
+                className={cn(
+                  'space-y-0.5 rounded px-1.5 py-0.5 text-xs leading-snug',
+                  tone ? TONE_CLASSES[tone] : 'text-foreground',
+                )}
+              >
                 <div className="flex items-start gap-1.5">
                   {!isUrlaub && <StateCycle state={todo.state} />}
                   <span className="min-w-0 flex-1 break-words">
                     {todo.text || <em className="text-muted-foreground/60">unbenannt</em>}
                   </span>
                 </div>
+                {isUrlaub && <UrlaubDays days={todo.days ?? []} />}
                 {pending && (
                   <div className="ml-4">
                     <span className="inline-flex items-center rounded bg-violet-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-violet-900">
@@ -579,6 +594,37 @@ function ProgressSlider({
       <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
         {clamped} %
       </span>
+    </div>
+  )
+}
+
+// Read-only equivalent of QuartalPlanTable's UrlaubDayPicker. Empty array
+// renders "ganze Woche"; otherwise the selected weekday codes are highlighted.
+function UrlaubDays({ days }: { days: number[] }) {
+  const all = days.length === 0
+  return (
+    <div className="ml-6 flex flex-wrap items-center gap-1 pt-0.5">
+      {all ? (
+        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-900">
+          ganze Woche
+        </span>
+      ) : (
+        URLAUB_DAYS_LABELS.map((lbl, i) => {
+          const d = i + 1
+          const on = days.includes(d)
+          return (
+            <span
+              key={d}
+              className={cn(
+                'inline-flex h-5 w-6 items-center justify-center rounded text-[10px] font-medium',
+                on ? 'bg-sky-100 text-sky-900' : 'text-muted-foreground/40',
+              )}
+            >
+              {lbl}
+            </span>
+          )
+        })
+      )}
     </div>
   )
 }
