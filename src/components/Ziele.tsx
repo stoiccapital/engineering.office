@@ -243,11 +243,11 @@ function BranchDashboard({
   const sumVerwOk = Math.abs(shareSumVerw - 1) < 0.001
   const sumAusschOk = Math.abs(shareSumAussch - 1) < 0.001
 
-  // Per-team tiles use the same FTE definition as Zielkontrolle (teamFTE,
-  // i.e. sum of every person on the team roster regardless of role) so the
-  // headcount number matches across both views. FTE respects the halbjahr
-  // selection so the tile and its Overhead-Allokation are in the same time
-  // scale. Pure overhead teams (everyone role='verwaltung') are hidden.
+  // Per-team tiles show the effective FTE each team ends up carrying for
+  // revenue targeting: operative FTE + allocated share of Verwaltung +
+  // Ausschreibung pools. The sub-line decomposes it ("6,39 + 1,40
+  // Overhead"). Both numbers respect the halbjahr selection. Pure overhead
+  // teams (everyone role='verwaltung') are hidden.
   const teamTiles = branch.teams
     .filter((t) => {
       if (t.people.length === 0) return false
@@ -255,17 +255,16 @@ function BranchDashboard({
     })
     .map((t) => {
       const row = rows.find((r) => r.teamId === t.id)
-      const fte =
-        halbjahr === 'h1'
-          ? teamFTE(t, 'h1')
-          : halbjahr === 'h2'
-            ? teamFTE(t, 'h2')
-            : teamFTE(t)
+      const operative = row ? row.revenueFTE : 0
+      const overheadAlloc = row
+        ? row.verwaltungAllocated + row.ausschreibungAllocated
+        : 0
       return {
         id: t.id,
         name: t.name || 'Unbenannt',
-        fte,
-        overheadAlloc: row ? row.verwaltungAllocated + row.ausschreibungAllocated : 0,
+        effective: operative + overheadAlloc,
+        operative,
+        overheadAlloc,
       }
     })
 
@@ -293,7 +292,8 @@ function BranchDashboard({
             <TeamTile
               key={t.id}
               name={t.name}
-              fte={t.fte}
+              effective={t.effective}
+              operative={t.operative}
               overheadAlloc={t.overheadAlloc}
             />
           ))}
@@ -428,11 +428,13 @@ function BranchDashboard({
 
 function TeamTile({
   name,
-  fte,
+  effective,
+  operative,
   overheadAlloc,
 }: {
   name: string
-  fte: number
+  effective: number
+  operative: number
   overheadAlloc: number
 }) {
   return (
@@ -441,11 +443,12 @@ function TeamTile({
         {name}
       </div>
       <div className="mt-0.5 font-mono text-base font-semibold tabular-nums">
-        {fmtDecimal(fte, 2)} <span className="text-[10px] opacity-70">FTE</span>
+        {fmtDecimal(effective, 2)}{' '}
+        <span className="text-[10px] opacity-70">FTE</span>
       </div>
       <div className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
-        + {fmtDecimal(overheadAlloc, 2)}{' '}
-        <span className="text-[10px]">Overhead-Allokation</span>
+        {fmtDecimal(operative, 2)} + {fmtDecimal(overheadAlloc, 2)}{' '}
+        <span className="text-[10px]">Overhead</span>
       </div>
     </div>
   )
