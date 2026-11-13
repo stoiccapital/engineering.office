@@ -233,18 +233,23 @@ function BranchDashboard({
 
   // Per-team tiles use the same FTE definition as Zielkontrolle (teamFTE,
   // i.e. sum of every person on the team roster regardless of role) so the
-  // headcount number matches across both views. Pure overhead teams
-  // (everyone role='verwaltung') are hidden — same rule as Zielkontrolle.
+  // headcount number matches across both views. Overhead-Allokation is the
+  // allocated share of the branch's Verwaltung + Ausschreibung pools via
+  // the team's Teilungsschlüssel. Pure overhead teams (everyone role=
+  // 'verwaltung') are hidden — same rule as Zielkontrolle.
   const teamTiles = branch.teams
-    .map((t) => ({
-      id: t.id,
-      name: t.name || 'Unbenannt',
-      fte: teamFTE(t),
-    }))
     .filter((t) => {
-      const team = branch.teams.find((x) => x.id === t.id)
-      if (!team || team.people.length === 0) return false
-      return team.people.some((p) => (p.role ?? 'team') !== 'verwaltung')
+      if (t.people.length === 0) return false
+      return t.people.some((p) => (p.role ?? 'team') !== 'verwaltung')
+    })
+    .map((t) => {
+      const row = rows.find((r) => r.teamId === t.id)
+      return {
+        id: t.id,
+        name: t.name || 'Unbenannt',
+        fte: teamFTE(t),
+        overheadAlloc: row ? row.verwaltungAllocated + row.ausschreibungAllocated : 0,
+      }
     })
 
   return (
@@ -268,7 +273,12 @@ function BranchDashboard({
           )}
         >
           {teamTiles.map((t) => (
-            <TeamTile key={t.id} name={t.name} fte={t.fte} />
+            <TeamTile
+              key={t.id}
+              name={t.name}
+              fte={t.fte}
+              overheadAlloc={t.overheadAlloc}
+            />
           ))}
         </div>
       )}
@@ -399,7 +409,15 @@ function BranchDashboard({
   )
 }
 
-function TeamTile({ name, fte }: { name: string; fte: number }) {
+function TeamTile({
+  name,
+  fte,
+  overheadAlloc,
+}: {
+  name: string
+  fte: number
+  overheadAlloc: number
+}) {
   return (
     <div className="flex flex-col rounded border bg-background px-2.5 py-2">
       <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -407,6 +425,10 @@ function TeamTile({ name, fte }: { name: string; fte: number }) {
       </div>
       <div className="mt-0.5 font-mono text-base font-semibold tabular-nums">
         {fmtDecimal(fte, 2)} <span className="text-[10px] opacity-70">FTE</span>
+      </div>
+      <div className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+        + {fmtDecimal(overheadAlloc, 2)}{' '}
+        <span className="text-[10px]">Overhead-Allokation</span>
       </div>
     </div>
   )
