@@ -74,7 +74,11 @@ function accessForPath(pathname: string): Access | null {
     }
   }
   if (pathname === '/api/projects') {
-    return { get: ['projekte'], put: ['projekte'] }
+    // Open to any authed user — projekte is a personal module that should
+    // work out-of-the-box for every existing role, without an admin having
+    // to add the new ModuleId first. UI still respects the projekte
+    // module for showing the sidebar entry.
+    return { get: ['*'], put: ['*'] }
   }
   if (pathname === '/api/activity') {
     // GET admin-only; POST allowed for any authed user (writes own events).

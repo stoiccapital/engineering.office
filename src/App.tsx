@@ -189,6 +189,10 @@ function Shell() {
     if (base.has('plan')) views.add('freigaben')
     // Activity log is admin-gated via the 'settings' module.
     if (base.has('settings')) views.add('aktivitaet')
+    // Projekte is a personal module available to every authed user,
+    // regardless of whether the stored role config already includes
+    // the new ModuleId.
+    views.add('projekte')
     return views
   }, [currentRole])
   const nav = useMemo(() => filterNav(NAV, allowed), [allowed])
