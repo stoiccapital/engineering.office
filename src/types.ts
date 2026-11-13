@@ -264,6 +264,23 @@ export const PROJEKT_STATUS_LABELS: Record<ProjektStatus, string> = {
   blockiert: 'Blockiert',
 }
 
+export type ProjektPriority = 'niedrig' | 'mittel' | 'hoch' | 'dringend'
+
+export const PROJEKT_PRIORITY_LABELS: Record<ProjektPriority, string> = {
+  niedrig: 'Niedrig',
+  mittel: 'Mittel',
+  hoch: 'Hoch',
+  dringend: 'Dringend',
+}
+
+// Sort-rank so "dringend" > "hoch" > "mittel" > "niedrig".
+export const PROJEKT_PRIORITY_RANK: Record<ProjektPriority, number> = {
+  dringend: 3,
+  hoch: 2,
+  mittel: 1,
+  niedrig: 0,
+}
+
 export type ProjektTodo = {
   id: string
   text: string
@@ -279,8 +296,11 @@ export type ProjektRow = {
   // List of sub-tasks the PM dispatches to team members.
   todos: ProjektTodo[]
   bemerkung: string
+  // ISO-date string (YYYY-MM-DD) when set via the date picker, or free text
+  // for legacy rows. isOverdue() only treats the ISO form as a real date.
   frist: string
   status: ProjektStatus
+  priority: ProjektPriority
   // Each project has exactly one owner (the kuerzel of the user who
   // created it). Only the owner can delete the row.
   ownerKuerzel: string

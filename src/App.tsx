@@ -22,7 +22,7 @@ import { KostenschaetzungSaveStatus } from '@/components/KostenschaetzungSaveSta
 import { Aktivitaet } from '@/components/Aktivitaet'
 import { Projekte } from '@/components/Projekte'
 import { ProjekteSaveStatus } from '@/components/ProjekteSaveStatus'
-import { useProjects } from '@/projects-store'
+import { myOpenTodoCount, useProjects } from '@/projects-store'
 import { logActivity } from '@/activity-store'
 import { UserPicker } from '@/components/UserPicker'
 import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
@@ -254,6 +254,19 @@ function Shell() {
     return n
   }, [plan])
 
+  // Keep projects loaded at app-level so the "my open todos" badge stays
+  // live even when the user hasn't opened the Projekte tab.
+  useEffect(() => {
+    if (!projectsDoc) void loadProjects()
+  }, [projectsDoc, loadProjects])
+
+  const currentUser = useAccess((s) => s.currentUser)
+  const myKuerzel = currentUser?.kuerzel ?? currentRole?.name ?? null
+  const projekteCount = useMemo(() => {
+    if (!projectsDoc) return 0
+    return myOpenTodoCount(projectsDoc, myKuerzel)
+  }, [projectsDoc, myKuerzel])
+
   useEffect(() => {
     const isZieleView =
       view === 'ziele_dashboard' || view === 'ziele_teams' || view === 'ziele_kontrolle'
@@ -339,6 +352,7 @@ function Shell() {
           // other group opens (which implicitly closes the previous one).
           setActiveGroup((prev) => (prev === id ? null : id))
         }}
+        projekteCount={projekteCount}
         freigabenCount={freigabenCount}
       />
 
@@ -407,6 +421,7 @@ function Sidebar({
   expandedByGroup,
   onToggleGroup,
   freigabenCount,
+  projekteCount,
 }: {
   nav: NavEntry[]
   view: View
@@ -416,6 +431,7 @@ function Sidebar({
   expandedByGroup: Record<string, boolean>
   onToggleGroup: (id: string) => void
   freigabenCount: number
+  projekteCount: number
 }) {
   return (
     <aside
@@ -443,7 +459,13 @@ function Sidebar({
                 label={VIEW_META[entry.view].label}
                 active={entry.view === view}
                 collapsed={collapsed}
-                badge={entry.view === 'freigaben' ? freigabenCount : 0}
+                badge={
+                  entry.view === 'freigaben'
+                    ? freigabenCount
+                    : entry.view === 'projekte'
+                      ? projekteCount
+                      : 0
+                }
                 onClick={() => onSelect(entry.view)}
               />
             )
