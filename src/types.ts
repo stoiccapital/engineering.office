@@ -255,6 +255,55 @@ export function annualUmsatzProFTE(u: UmsatzProFTE): number {
   return (u.h1 ?? 0) + (u.h2 ?? 0)
 }
 
+export type ProjektStatus = 'offen' | 'inArbeit' | 'erledigt' | 'blockiert'
+
+export const PROJEKT_STATUS_LABELS: Record<ProjektStatus, string> = {
+  offen: 'Offen',
+  inArbeit: 'In Arbeit',
+  erledigt: 'Erledigt',
+  blockiert: 'Blockiert',
+}
+
+export type ProjektTodo = {
+  id: string
+  text: string
+  // Assigned team member kuerzel. undefined = not yet dispatched.
+  assigneeKuerzel?: string
+  done: boolean
+  createdAt: string
+}
+
+export type ProjektRow = {
+  id: string
+  projekt: string
+  // List of sub-tasks the PM dispatches to team members.
+  todos: ProjektTodo[]
+  bemerkung: string
+  frist: string
+  status: ProjektStatus
+  // Each project has exactly one owner (the kuerzel of the user who
+  // created it). Only the owner can delete the row.
+  ownerKuerzel: string
+  // Assigned project manager (kuerzel). Optional — can be set later.
+  pmKuerzel?: string
+  // Multiple assignees working on the project.
+  assigneeKuerzels: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type ProjekteDoc = {
+  rows: ProjektRow[]
+  // Freie Schreibfläche is personal per user — stored as a map keyed by
+  // kuerzel inside the shared document so there's a single API.
+  notesByUser: Record<string, string>
+  updatedAt?: string
+}
+
+export function emptyProjekteDoc(): ProjekteDoc {
+  return { rows: [], notesByUser: {} }
+}
+
 export type ActivityKind = 'login' | 'view' | 'action'
 
 export type ActivityEvent = {
@@ -466,6 +515,7 @@ export type ModuleId =
   | 'plan'
   | 'plan_overview'
   | 'rechnungen'
+  | 'projekte'
   | 'ks_bauwerke'
   | 'ks_hoai'
   | 'ks_katalog'
@@ -481,6 +531,7 @@ export const MODULES: ModuleId[] = [
   'plan',
   'plan_overview',
   'rechnungen',
+  'projekte',
   'ks_bauwerke',
   'ks_hoai',
   'ks_katalog',
@@ -497,6 +548,7 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
   ziele_teams: 'Teams',
   ziele_kontrolle: 'Zielkontrolle',
   rechnungen: 'Rechnungen',
+  projekte: 'Projekte',
   ks_bauwerke: 'Bauwerke',
   ks_hoai: 'HOAI-Honorar',
   ks_katalog: 'Datenbank Ril 808',
@@ -511,6 +563,7 @@ export const MODULE_GROUPS: { label: string; modules: ModuleId[] }[] = [
   { label: 'Ziele', modules: ['ziele_dashboard', 'ziele_teams', 'ziele_kontrolle'] },
   { label: 'Operative Planung', modules: ['dashboard', 'forecast', 'plan', 'plan_overview'] },
   { label: 'Rechnungen', modules: ['rechnungen'] },
+  { label: 'Projekte', modules: ['projekte'] },
   { label: 'Kostenschätzung', modules: ['ks_bauwerke', 'ks_hoai', 'ks_katalog'] },
   { label: 'Einstellungen', modules: ['mitarbeiter', 'settings'] },
 ]
@@ -576,20 +629,20 @@ export type RolePreset = { name: string; modules: ModuleId[] }
 export const PRESET_ROLES: RolePreset[] = [
   {
     name: 'GF und Teamleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter', 'settings'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter', 'settings'],
   },
   {
     name: 'Verwaltung',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter'],
   },
   {
     name: 'Projektleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'rechnungen', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter'],
+    modules: ['dashboard', 'forecast', 'plan', 'rechnungen', 'projekte', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter'],
   },
-  { name: 'Projektingenieur', modules: ['plan_overview'] },
-  { name: 'Konstrukteur', modules: ['plan_overview'] },
-  { name: 'Azubis', modules: ['plan_overview'] },
-  { name: 'Werkstudenten', modules: ['plan_overview'] },
+  { name: 'Projektingenieur', modules: ['plan_overview', 'projekte'] },
+  { name: 'Konstrukteur', modules: ['plan_overview', 'projekte'] },
+  { name: 'Azubis', modules: ['plan_overview', 'projekte'] },
+  { name: 'Werkstudenten', modules: ['plan_overview', 'projekte'] },
 ]
 
 // Legacy export some callers still use for the name list only.

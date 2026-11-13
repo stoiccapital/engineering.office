@@ -2,6 +2,7 @@ import type {
   AccessConfig,
   ActivityEvent,
   Period,
+  ProjekteDoc,
   QuartalPlan,
   Rechnungsplan,
   Roster,
@@ -360,6 +361,28 @@ export async function logActivity(event: Omit<ActivityEvent, 'ts'>): Promise<voi
   } catch {
     // Fire-and-forget: never let activity tracking break a user action.
   }
+}
+
+export async function fetchProjects(): Promise<ProjekteDoc | null> {
+  if (mock.isDev) return mock.projects()
+  const res = await fetch('/api/projects', { headers: headers() })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  return (await res.json()) as ProjekteDoc | null
+}
+
+export async function saveProjects(data: ProjekteDoc): Promise<void> {
+  if (mock.isDev) {
+    mock.setProjects(data)
+    return
+  }
+  const res = await fetch('/api/projects', {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify(data),
+  })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
 export async function fetchKostenschaetzung(): Promise<unknown> {

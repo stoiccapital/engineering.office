@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
-import { Building2, Calculator, CalendarDays, CheckSquare, Database, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Users } from 'lucide-react'
+import { Building2, Calculator, CalendarDays, CheckSquare, ClipboardList, Database, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Users } from 'lucide-react'
 import { clearToken } from '@/api'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +15,7 @@ type View =
   | 'ks_bauwerke'
   | 'ks_hoai'
   | 'ks_katalog'
+  | 'projekte'
 
 type Props = {
   onNavigate: (view: View) => void
@@ -31,6 +32,7 @@ const ITEMS: { view: View; label: string; keywords: string; icon: typeof Table2 
   { view: 'ks_bauwerke', label: 'Kostenschätzung · Bauwerke', keywords: 'kosten schätzung bauwerk position abschnitt menge einheitspreis', icon: Building2 },
   { view: 'ks_hoai', label: 'Kostenschätzung · HOAI-Honorar', keywords: 'hoai honorar objektplanung tragwerksplanung leistungsphase', icon: Calculator },
   { view: 'ks_katalog', label: 'Kostenschätzung · Datenbank Ril 808', keywords: 'katalog ril 808 db baupreise datenbank suche', icon: Database },
+  { view: 'projekte', label: 'Projekte', keywords: 'projekte todo todos frist notizen schreibfläche', icon: ClipboardList },
 ]
 
 export function CommandPalette({ onNavigate }: Props) {

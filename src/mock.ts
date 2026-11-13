@@ -1,6 +1,7 @@
 import type {
   ActivityEvent,
   Period,
+  ProjekteDoc,
   PlanStatus,
   QuartalPlan,
   Quarter,
@@ -221,6 +222,7 @@ const rechnungsplaene = new Map<string, Rechnungsplan>()
 let logo: string | null = null
 let roster: Roster | null = emptyRoster()
 let kostenschaetzung: unknown = null
+let projects: ProjekteDoc | null = null
 const activity: ActivityEvent[] = []
 let access: AccessConfig | null = (() => {
   const cfg = emptyAccessConfig()
@@ -229,7 +231,7 @@ let access: AccessConfig | null = (() => {
       id: 'dev-admin',
       name: 'Admin (dev)',
       password: 'admin',
-      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter', 'settings'],
+      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter', 'settings'],
     },
   ]
   return cfg
@@ -317,6 +319,12 @@ export const mock = {
   },
   setKostenschaetzung(value: unknown) {
     kostenschaetzung = value
+  },
+  projects(): ProjekteDoc | null {
+    return projects
+  },
+  setProjects(value: ProjekteDoc) {
+    projects = value
   },
   activityList(days: number): ActivityEvent[] {
     const cutoff = new Date()

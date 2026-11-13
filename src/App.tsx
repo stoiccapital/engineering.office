@@ -20,6 +20,9 @@ import { HoaiTab } from '@/components/kostenschaetzung/HoaiTab'
 import { KatalogTab } from '@/components/kostenschaetzung/KatalogTab'
 import { KostenschaetzungSaveStatus } from '@/components/KostenschaetzungSaveStatus'
 import { Aktivitaet } from '@/components/Aktivitaet'
+import { Projekte } from '@/components/Projekte'
+import { ProjekteSaveStatus } from '@/components/ProjekteSaveStatus'
+import { useProjects } from '@/projects-store'
 import { logActivity } from '@/activity-store'
 import { UserPicker } from '@/components/UserPicker'
 import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
@@ -37,7 +40,7 @@ import { useKostenschaetzung } from '@/kostenschaetzung-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Database, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
+import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, ClipboardList, Database, FileText, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 // Accordion mode — at most one sidebar group is expanded at a time.
@@ -71,6 +74,7 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ziele_teams: { title: 'Ziele · Teams', label: 'Teams', icon: Users },
   ziele_kontrolle: { title: 'Ziele · Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
+  projekte: { title: 'Projekte', label: 'Projekte', icon: ClipboardList },
   ks_bauwerke: { title: 'Bauwerke', label: 'Bauwerke', icon: Building2 },
   ks_hoai: { title: 'HOAI-Honorar', label: 'HOAI-Honorar', icon: Calculator },
   ks_katalog: { title: 'Datenbank · Ril 808', label: 'Datenbank Ril 808', icon: Database },
@@ -99,6 +103,7 @@ const NAV: NavEntry[] = [
     children: ['dashboard', 'forecast', 'plan', 'freigaben'],
   },
   { kind: 'leaf', view: 'rechnungen' },
+  { kind: 'leaf', view: 'projekte' },
   {
     kind: 'group',
     id: 'kostenschaetzung',
@@ -219,6 +224,8 @@ function Shell() {
   const roster = useRoster((s) => s.roster)
   const loadKostenschaetzung = useKostenschaetzung((s) => s.load)
   const kostenDoc = useKostenschaetzung((s) => s.doc)
+  const loadProjects = useProjects((s) => s.load)
+  const projectsDoc = useProjects((s) => s.doc)
 
   useEffect(() => {
     void loadForecast()
@@ -268,6 +275,10 @@ function Shell() {
       view === 'ks_katalog'
     if (isKsView && !kostenDoc) void loadKostenschaetzung()
   }, [view, kostenDoc, loadKostenschaetzung])
+
+  useEffect(() => {
+    if (view === 'projekte' && !projectsDoc) void loadProjects()
+  }, [view, projectsDoc, loadProjects])
 
   // Log module opens once per view change. Debounced via a ref so re-renders
   // (e.g. from store subscriptions) don't double-fire.
@@ -337,6 +348,7 @@ function Shell() {
               {(view === 'ziele_dashboard' || view === 'ziele_teams') && <ZieleSaveStatus />}
               {view === 'ziele_kontrolle' && <UmsatzSaveStatus />}
               {view === 'rechnungen' && <RechnungenSaveStatus />}
+              {view === 'projekte' && <ProjekteSaveStatus />}
               {(view === 'ks_bauwerke' ||
                 view === 'ks_hoai' ||
                 view === 'ks_katalog') && <KostenschaetzungSaveStatus />}
@@ -365,6 +377,7 @@ function Shell() {
           {view === 'ziele_teams' && <ZieleTeamsPage />}
           {view === 'ziele_kontrolle' && <Umsatzkontrolle />}
           {view === 'rechnungen' && <Rechnungen />}
+          {view === 'projekte' && <Projekte />}
           {view === 'ks_bauwerke' &&
             (kostenDoc ? <BauwerkeTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
           {view === 'ks_hoai' &&
@@ -504,6 +517,8 @@ function ViewPeriodPicker({ view }: { view: View }) {
       return <UmsatzPicker />
     case 'rechnungen':
       return <RechnungenPicker />
+    case 'projekte':
+      return null
     case 'ks_bauwerke':
     case 'ks_hoai':
     case 'ks_katalog':

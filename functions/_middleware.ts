@@ -73,6 +73,9 @@ function accessForPath(pathname: string): Access | null {
       put: ['kostenschaetzung', 'ks_bauwerke', 'ks_hoai', 'ks_katalog'],
     }
   }
+  if (pathname === '/api/projects') {
+    return { get: ['projekte'], put: ['projekte'] }
+  }
   if (pathname === '/api/activity') {
     // GET admin-only; POST allowed for any authed user (writes own events).
     return { get: ['settings'], put: ['*'] }
