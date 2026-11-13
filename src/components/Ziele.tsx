@@ -245,10 +245,9 @@ function BranchDashboard({
 
   // Per-team tiles use the same FTE definition as Zielkontrolle (teamFTE,
   // i.e. sum of every person on the team roster regardless of role) so the
-  // headcount number matches across both views. Overhead-Allokation is the
-  // allocated share of the branch's Verwaltung + Ausschreibung pools via
-  // the team's Teilungsschlüssel. Pure overhead teams (everyone role=
-  // 'verwaltung') are hidden — same rule as Zielkontrolle.
+  // headcount number matches across both views. FTE respects the halbjahr
+  // selection so the tile and its Overhead-Allokation are in the same time
+  // scale. Pure overhead teams (everyone role='verwaltung') are hidden.
   const teamTiles = branch.teams
     .filter((t) => {
       if (t.people.length === 0) return false
@@ -256,10 +255,16 @@ function BranchDashboard({
     })
     .map((t) => {
       const row = rows.find((r) => r.teamId === t.id)
+      const fte =
+        halbjahr === 'h1'
+          ? teamFTE(t, 'h1')
+          : halbjahr === 'h2'
+            ? teamFTE(t, 'h2')
+            : teamFTE(t)
       return {
         id: t.id,
         name: t.name || 'Unbenannt',
-        fte: teamFTE(t),
+        fte,
         overheadAlloc: row ? row.verwaltungAllocated + row.ausschreibungAllocated : 0,
       }
     })

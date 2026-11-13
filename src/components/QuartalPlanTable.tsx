@@ -19,11 +19,27 @@ import {
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronRight, Flame, Maximize2, Minimize2, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Flame, GripVertical, Maximize2, Minimize2, Plus, X } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { AlwaysOnScrollbar } from '@/components/ui/always-on-scrollbar'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { Num } from '@/components/ui/num'
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 export type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | 'purple' | null
 
@@ -75,6 +91,28 @@ export function QuartalPlanTable() {
   const removePoolTask = usePlan((s) => s.removePoolTask)
   const assignPoolTask = usePlan((s) => s.assignPoolTask)
   const addRosterEmployee = usePlan((s) => s.addRosterEmployee)
+  const moveTodo = usePlan((s) => s.moveTodo)
+
+  // Drag-and-drop sensors: pointer requires 4 px travel so a plain click on
+  // a todo textarea still edits text instead of starting a drag.
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const from = active.data.current as { empIndex: number; week: number } | undefined
+    const to = over.data.current as { empIndex: number; week: number } | undefined
+    if (!from || !to) return
+    const toKey = cellKey(to.empIndex, to.week)
+    const toList = plan?.todos?.[toKey] ?? []
+    const overId = String(over.id)
+    const idx = toList.findIndex((t) => t.id === overId)
+    const toIndex = idx >= 0 ? idx : toList.length
+    moveTodo(from, to, String(active.id), toIndex)
+  }
 
   const roster = useRoster((s) => s.roster)
   const loadRoster = useRoster((s) => s.load)
@@ -173,6 +211,7 @@ export function QuartalPlanTable() {
       ref={containerRef}
       className={cn(isFullscreen && 'flex h-screen w-screen flex-col bg-background p-4')}
     >
+      <DndContext sensors={dndSensors} onDragEnd={onDragEnd}>
       <Section
         title={title}
         subtitle={subtitle}
@@ -382,6 +421,8 @@ export function QuartalPlanTable() {
                             >
                               <WeekTodosCell
                                 todos={todos}
+                                empIndex={empIndex}
+                                week={row.week}
                                 locked={isPast}
                                 onAdd={() => addTodo(empIndex, row.week)}
                                 onUpdate={(id, patch) => updateTodo(empIndex, row.week, id, patch)}
@@ -416,6 +457,7 @@ export function QuartalPlanTable() {
           <AlwaysOnScrollbar targetRef={scrollRef} />
         </div>
       </Section>
+      </DndContext>
 
       <AssignDialog
         task={assignFor}
@@ -725,12 +767,16 @@ function PrioStrip({ rows, forecastLabel }: { rows: ProjectRow[]; forecastLabel:
 
 function WeekTodosCell({
   todos,
+  empIndex,
+  week,
   locked,
   onAdd,
   onUpdate,
   onRemove,
 }: {
   todos: WeekTodo[]
+  empIndex: number
+  week: number
   locked: boolean
   onAdd: () => void
   onUpdate: (id: string, patch: Partial<Omit<WeekTodo, 'id'>>) => void
@@ -740,8 +786,15 @@ function WeekTodosCell({
   const [collapsed, setCollapsed] = useState(false)
   const collapsible = todos.length >= 2
   const isCollapsed = collapsible && collapsed
+  // Droppable area over the whole cell so todos can be dropped on empty
+  // cells (or into a gap below the last todo).
+  const { setNodeRef } = useDroppable({
+    id: `cell:${empIndex}:${week}`,
+    data: { empIndex, week },
+    disabled: locked,
+  })
   return (
-    <div className="group/cell flex h-full flex-col gap-0.5 p-1.5">
+    <div ref={setNodeRef} className="group/cell flex h-full flex-col gap-0.5 p-1.5">
       {collapsible && (
         <button
           onClick={() => setCollapsed((c) => !c)}
@@ -752,15 +805,24 @@ function WeekTodosCell({
           <Num>{todos.length}</Num> Aufgaben
         </button>
       )}
-      {!isCollapsed &&
-        todos.map((todo) => (
-          <TodoRow
-            key={todo.id}
-            todo={todo}
-            onUpdate={(patch) => onUpdate(todo.id, patch)}
-            onRemove={() => onRemove(todo.id)}
-          />
-        ))}
+      {!isCollapsed && (
+        <SortableContext
+          items={todos.map((t) => t.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {todos.map((todo) => (
+            <TodoRow
+              key={todo.id}
+              todo={todo}
+              empIndex={empIndex}
+              week={week}
+              locked={locked}
+              onUpdate={(patch) => onUpdate(todo.id, patch)}
+              onRemove={() => onRemove(todo.id)}
+            />
+          ))}
+        </SortableContext>
+      )}
       {!locked && !isCollapsed && (
         <button
           onClick={onAdd}
@@ -782,23 +844,51 @@ function WeekTodosCell({
 
 function TodoRow({
   todo,
+  empIndex,
+  week,
+  locked,
   onUpdate,
   onRemove,
 }: {
   todo: WeekTodo
+  empIndex: number
+  week: number
+  locked: boolean
   onUpdate: (patch: Partial<Omit<WeekTodo, 'id'>>) => void
   onRemove: () => void
 }) {
   const tone = todoTone(todo.text)
   const isUrlaub = tone === 'blue'
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: todo.id, data: { empIndex, week }, disabled: locked })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  }
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className={cn(
         'group flex flex-col gap-0.5 rounded px-1.5 py-0.5',
         tone ? TONE_CLASSES[tone] : 'hover:bg-muted',
+        isDragging && 'z-20 shadow-md',
       )}
     >
       <div className="flex items-start gap-2">
+        {!locked && (
+          <button
+            {...attributes}
+            {...listeners}
+            className="mt-0.5 shrink-0 cursor-grab touch-none text-muted-foreground/40 opacity-0 transition-opacity hover:text-muted-foreground group-hover:opacity-100 active:cursor-grabbing"
+            title="Verschieben"
+            aria-label="Aufgabe verschieben"
+            type="button"
+          >
+            <GripVertical className="h-3 w-3" />
+          </button>
+        )}
         {/* overflow-hidden on the wrapper caps the textarea's intrinsic width
             so fieldSizing: content grows only vertically, not horizontally. */}
         <div className="min-w-0 flex-1 overflow-hidden">

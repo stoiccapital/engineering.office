@@ -77,6 +77,14 @@ type State = {
   // Promote a pool task into a KW cell of its own employee as a new WeekTodo.
   // The pool entry is removed on success.
   assignPoolTask: (poolId: string, week: number) => void
+  // Move a todo between cells (reassign employee + week) or reorder within
+  // the same cell. Called from the drag-and-drop handler in QuartalPlanTable.
+  moveTodo: (
+    from: { empIndex: number; week: number },
+    to: { empIndex: number; week: number },
+    todoId: string,
+    toIndex: number,
+  ) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -281,6 +289,37 @@ export const usePlan = create<State>()((set, get) => ({
     const todos = { ...(s.plan.todos ?? {}), [k]: [...current, todo] }
     const pool = (s.plan.pool ?? []).filter((t) => t.id !== poolId)
     set({ plan: { ...s.plan, todos, pool } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  moveTodo: (from, to, todoId, toIndex) => {
+    const s = get()
+    if (!s.plan) return
+    const fromKey = cellKey(from.empIndex, from.week)
+    const fromList = s.plan.todos?.[fromKey] ?? []
+    const todo = fromList.find((t) => t.id === todoId)
+    if (!todo) return
+    const todos = { ...(s.plan.todos ?? {}) }
+
+    if (from.empIndex === to.empIndex && from.week === to.week) {
+      // In-cell reorder
+      const next = fromList.filter((t) => t.id !== todoId)
+      const clamped = Math.max(0, Math.min(toIndex, next.length))
+      next.splice(clamped, 0, todo)
+      todos[fromKey] = next
+    } else {
+      // Cross-cell move: drop from source, insert into target at toIndex.
+      const newFrom = fromList.filter((t) => t.id !== todoId)
+      if (newFrom.length === 0) delete todos[fromKey]
+      else todos[fromKey] = newFrom
+      const toKey = cellKey(to.empIndex, to.week)
+      const toList = [...(s.plan.todos?.[toKey] ?? [])]
+      const clamped = Math.max(0, Math.min(toIndex, toList.length))
+      toList.splice(clamped, 0, todo)
+      todos[toKey] = toList
+    }
+
+    set({ plan: { ...s.plan, todos } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 }))
