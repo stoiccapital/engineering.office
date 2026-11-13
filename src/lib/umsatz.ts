@@ -8,7 +8,7 @@ import type {
   ZieleTeam,
 } from '@/types'
 import { emptyMonthValues } from '@/types'
-import { computeTeamTargets, teamFTE } from '@/ziele-store'
+import { computeTeamTargets } from '@/ziele-store'
 
 export const MONTH_LABELS = [
   'Jan', 'Feb', 'Mrz', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
@@ -100,11 +100,19 @@ export function mergeUmsatz(
     for (const team of branch.teams) {
       if (!isProductiveTeam(team)) continue
       const u = umsatzById.get(team.id)
+      const targets = computeTeamTargets(team, branch)
+      const operativeFte =
+        (targets.operativeFTE.h1 + targets.operativeFTE.h2) / 2
+      const overheadAlloc =
+        (targets.overheadFTE.h1 + targets.overheadFTE.h2) / 2
       views.push({
         id: team.id,
         name: team.name,
         branch: branch.id,
-        fte: teamFTE(team),
+        operativeFte,
+        overheadAlloc,
+        // Effective FTE — matches the Ziele Dashboard tile headline.
+        fte: operativeFte + overheadAlloc,
         forecast: u?.forecast ?? emptyMonthValues(),
         rechnungen: u?.rechnungen ?? emptyMonthValues(),
         ziel: monthlyZielFromZiele(team, branch),

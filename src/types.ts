@@ -287,6 +287,14 @@ export type UmsatzTeamView = {
   id: string
   name: string
   branch: UmsatzBranch
+  // Annual-average FTE of role='team' people only. Same quantity the Ziele
+  // Dashboard tile uses as "operative".
+  operativeFte: number
+  // Annual-average allocated share of Verwaltung + Ausschreibung pools via
+  // the team's Teilungsschlüssel. Same quantity shown on the Ziele tiles.
+  overheadAlloc: number
+  // Sum: operative + overhead. The "effective" FTE used for revenue
+  // targeting. Mirrors the tile headline in the Ziele Dashboard.
   fte: number
   forecast: MonthValues
   rechnungen: MonthValues

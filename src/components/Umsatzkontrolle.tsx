@@ -304,6 +304,8 @@ function CollapsibleSection({
 }
 
 function TeamsOverview({ teams, totalFte }: { teams: UmsatzTeamView[]; totalFte: number }) {
+  const totalOperative = teams.reduce((s, t) => s + (t.operativeFte || 0), 0)
+  const totalOverhead = teams.reduce((s, t) => s + (t.overheadAlloc || 0), 0)
   return (
     <table className="w-full border-collapse text-sm">
       <thead className="bg-muted/20">
@@ -311,6 +313,8 @@ function TeamsOverview({ teams, totalFte }: { teams: UmsatzTeamView[]; totalFte:
           <th className="px-2 py-1.5 text-left">Team</th>
           <th className="w-24 px-2 py-1.5 text-left">NL</th>
           <th className="num w-24 px-2 py-1.5">FTE</th>
+          <th className="num w-28 px-2 py-1.5">Operative</th>
+          <th className="num w-28 px-2 py-1.5">Overhead</th>
         </tr>
       </thead>
       <tbody>
@@ -320,13 +324,23 @@ function TeamsOverview({ teams, totalFte }: { teams: UmsatzTeamView[]; totalFte:
             <td className="px-2 py-1.5 text-xs text-muted-foreground">
               NL {t.branch.toUpperCase()}
             </td>
-            <td className="num px-2 py-1.5 text-sm">{fmtDecimal(t.fte, 2)}</td>
+            <td className="num px-2 py-1.5 text-sm font-medium">
+              {fmtDecimal(t.fte, 2)}
+            </td>
+            <td className="num px-2 py-1.5 text-sm text-muted-foreground">
+              {fmtDecimal(t.operativeFte, 2)}
+            </td>
+            <td className="num px-2 py-1.5 text-sm text-muted-foreground">
+              {fmtDecimal(t.overheadAlloc, 2)}
+            </td>
           </tr>
         ))}
         <tr className="border-t border-foreground/40 font-semibold">
           <td className="px-2 py-1.5 text-sm">Σ</td>
           <td className="px-2 py-1.5 text-xs text-muted-foreground">{teams.length} Teams</td>
           <td className="num px-2 py-1.5 text-sm">{fmtDecimal(totalFte, 2)}</td>
+          <td className="num px-2 py-1.5 text-sm">{fmtDecimal(totalOperative, 2)}</td>
+          <td className="num px-2 py-1.5 text-sm">{fmtDecimal(totalOverhead, 2)}</td>
         </tr>
       </tbody>
     </table>
@@ -563,7 +577,12 @@ function RechnungenTrailing({
   const annualized = team.fte > 0 ? (summe / visibleMonths.length) * 12 / team.fte : null
   return (
     <div className="flex items-center justify-end gap-3 px-3 py-1.5 font-mono text-xs text-muted-foreground">
-      <span>{fmtDecimal(team.fte, 2)} FTE</span>
+      <span className="font-semibold text-foreground">
+        {fmtDecimal(team.fte, 2)} FTE
+      </span>
+      <span>
+        {fmtDecimal(team.operativeFte, 2)} op · {fmtDecimal(team.overheadAlloc, 2)} oh
+      </span>
       <span className="font-semibold text-foreground">
         {annualized !== null ? `${fmtEUR(annualized)} €/FTE p.a.` : '—'}
       </span>
@@ -573,10 +592,15 @@ function RechnungenTrailing({
 
 function RechnungenTotalTrailing({ teams, total }: { teams: UmsatzTeamView[]; total: number }) {
   const fte = teams.reduce((s, t) => s + (t.fte || 0), 0)
+  const operative = teams.reduce((s, t) => s + (t.operativeFte || 0), 0)
+  const overhead = teams.reduce((s, t) => s + (t.overheadAlloc || 0), 0)
   const perFte = fte > 0 ? total / fte : null
   return (
     <div className="flex items-center justify-end gap-3 px-3 py-1.5 font-mono text-xs font-semibold">
       <span>{fmtDecimal(fte, 2)} FTE</span>
+      <span className="font-normal text-muted-foreground">
+        {fmtDecimal(operative, 2)} op · {fmtDecimal(overhead, 2)} oh
+      </span>
       <span>{perFte !== null ? `${fmtEUR(perFte)} €/FTE` : '—'}</span>
     </div>
   )
