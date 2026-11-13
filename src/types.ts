@@ -450,26 +450,32 @@ export function emptyRoster(): Roster {
 // --- Access control (role-based: role name + password → modules) ----------
 
 export type ModuleId =
+  | 'ziele_dashboard'
+  | 'ziele_teams'
+  | 'ziele_kontrolle'
   | 'dashboard'
   | 'forecast'
   | 'plan'
   | 'plan_overview'
-  | 'ziele'
-  | 'umsatz'
   | 'rechnungen'
-  | 'kostenschaetzung'
+  | 'ks_bauwerke'
+  | 'ks_hoai'
+  | 'ks_katalog'
   | 'mitarbeiter'
   | 'settings'
 
 export const MODULES: ModuleId[] = [
-  'ziele',
+  'ziele_dashboard',
+  'ziele_teams',
+  'ziele_kontrolle',
   'dashboard',
   'forecast',
   'plan',
   'plan_overview',
-  'umsatz',
   'rechnungen',
-  'kostenschaetzung',
+  'ks_bauwerke',
+  'ks_hoai',
+  'ks_katalog',
   'mitarbeiter',
   'settings',
 ]
@@ -479,12 +485,50 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
   forecast: 'Forecast',
   plan: 'Quartalsplanung',
   plan_overview: 'Quartalsplanung (nur Übersicht)',
-  ziele: 'Ziele',
-  umsatz: 'Zielkontrolle',
+  ziele_dashboard: 'Dashboard',
+  ziele_teams: 'Teams',
+  ziele_kontrolle: 'Zielkontrolle',
   rechnungen: 'Rechnungen',
-  kostenschaetzung: 'Kostenschätzung',
+  ks_bauwerke: 'Bauwerke',
+  ks_hoai: 'HOAI-Honorar',
+  ks_katalog: 'Datenbank Ril 808',
   mitarbeiter: 'Mitarbeiter',
   settings: 'Einstellungen',
+}
+
+// Module grouping mirrors the sidebar structure so the Rollen settings read
+// "parent module, then its sub-modules". Chips rendered group-by-group make
+// it easier for admins to scan "who has which group" at a glance.
+export const MODULE_GROUPS: { label: string; modules: ModuleId[] }[] = [
+  { label: 'Ziele', modules: ['ziele_dashboard', 'ziele_teams', 'ziele_kontrolle'] },
+  { label: 'Operative Planung', modules: ['dashboard', 'forecast', 'plan', 'plan_overview'] },
+  { label: 'Rechnungen', modules: ['rechnungen'] },
+  { label: 'Kostenschätzung', modules: ['ks_bauwerke', 'ks_hoai', 'ks_katalog'] },
+  { label: 'Einstellungen', modules: ['mitarbeiter', 'settings'] },
+]
+
+// Backwards compatibility: expand deprecated coarse IDs ('ziele', 'umsatz',
+// 'kostenschaetzung') to their fine-grained children so stored role data
+// keeps working. Called when loading access config from KV / mock.
+const KNOWN_MODULES = new Set<string>(MODULES)
+export function migrateModuleIds(mods: string[]): ModuleId[] {
+  const out = new Set<ModuleId>()
+  for (const m of mods) {
+    if (m === 'ziele') {
+      out.add('ziele_dashboard')
+      out.add('ziele_teams')
+    } else if (m === 'umsatz') {
+      out.add('ziele_dashboard')
+      out.add('ziele_kontrolle')
+    } else if (m === 'kostenschaetzung') {
+      out.add('ks_bauwerke')
+      out.add('ks_hoai')
+      out.add('ks_katalog')
+    } else if (KNOWN_MODULES.has(m)) {
+      out.add(m as ModuleId)
+    }
+  }
+  return Array.from(out)
 }
 
 export type Role = {
@@ -524,15 +568,15 @@ export type RolePreset = { name: string; modules: ModuleId[] }
 export const PRESET_ROLES: RolePreset[] = [
   {
     name: 'GF und Teamleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'kostenschaetzung', 'mitarbeiter', 'settings'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter', 'settings'],
   },
   {
     name: 'Verwaltung',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele', 'umsatz', 'rechnungen', 'kostenschaetzung', 'mitarbeiter'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter'],
   },
   {
     name: 'Projektleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'rechnungen', 'kostenschaetzung', 'mitarbeiter'],
+    modules: ['dashboard', 'forecast', 'plan', 'rechnungen', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter'],
   },
   { name: 'Projektingenieur', modules: ['plan_overview'] },
   { name: 'Konstrukteur', modules: ['plan_overview'] },

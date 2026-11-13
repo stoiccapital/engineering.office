@@ -29,7 +29,21 @@ import { fmtDecimal, fmtEUR, fmtPct } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { logActivity } from '@/activity-store'
 
-export function Ziele() {
+// Dashboard page — read-only FTE pool summary. Lives under the Ziele sidebar
+// group as its own sub-view.
+export function ZieleDashboardPage() {
+  const ziele = useZiele((s) => s.ziele)
+  if (!ziele) return <LoadingCard>Lade Ziele…</LoadingCard>
+  return (
+    <div className="space-y-6">
+      <DashboardSection />
+    </div>
+  )
+}
+
+// Teams page — Lock bar + per-branch editor (teams, people, Umsatz/FTE,
+// Teilungsschlüssel). This is where the actual planning happens.
+export function ZieleTeamsPage() {
   const ziele = useZiele((s) => s.ziele)
   const halbjahr = useZiele((s) => s.halbjahr)
   const lock = useZiele((s) => s.lock)
@@ -61,8 +75,6 @@ export function Ziele() {
           }
         }}
       />
-
-      <DashboardSection />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {ziele.branches.map((b) => (

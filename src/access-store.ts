@@ -17,6 +17,7 @@ import {
 import {
   displayUserName,
   emptyAccessConfig,
+  migrateModuleIds,
   type AccessConfig,
   type ModuleId,
   type Role,
@@ -69,7 +70,17 @@ function readLS(key: string): string | null {
 
 function hydrate(raw: AccessConfig | null): AccessConfig {
   if (!raw) return emptyAccessConfig()
-  return { roles: raw.roles ?? [], users: raw.users ?? [] }
+  // Expand legacy coarse module IDs (ziele, umsatz, kostenschaetzung) to
+  // their fine-grained equivalents so existing stored roles keep working.
+  const roles = (raw.roles ?? []).map((r) => ({
+    ...r,
+    modules: migrateModuleIds(r.modules ?? []),
+  }))
+  return { roles, users: raw.users ?? [] }
+}
+
+function migrateSessionModules(modules: unknown): ModuleId[] {
+  return migrateModuleIds(Array.isArray(modules) ? (modules as string[]) : [])
 }
 
 export const useAccess = create<State>()((set, get) => {
@@ -127,10 +138,10 @@ export const useAccess = create<State>()((set, get) => {
             const res = await signInUser(pubUser.kuerzel, pw)
             if (res) {
               set({
-                currentRole: { id: res.role.id, name: res.role.name, modules: res.role.modules as ModuleId[] },
+                currentRole: { id: res.role.id, name: res.role.name, modules: migrateSessionModules(res.role.modules) },
                 currentUser: res.user ?? { id: pubUser.id, kuerzel: pubUser.kuerzel, displayName: pubUser.displayName },
               })
-              await maybeLoadFullConfig(res.role.modules as ModuleId[])
+              await maybeLoadFullConfig(migrateSessionModules(res.role.modules))
               return
             }
           }
@@ -166,7 +177,7 @@ export const useAccess = create<State>()((set, get) => {
           const res = await signInRole(roleId, pw)
           if (res) {
             set({
-              currentRole: { id: res.role.id, name: res.role.name, modules: res.role.modules as ModuleId[] },
+              currentRole: { id: res.role.id, name: res.role.name, modules: migrateSessionModules(res.role.modules) },
             })
             return
           }
@@ -190,10 +201,10 @@ export const useAccess = create<State>()((set, get) => {
         setRoleCredentials(roleId, password)
         localStorage.setItem(CURRENT_ROLE_KEY, roleId)
         set({
-          currentRole: { id: res.role.id, name: res.role.name, modules: res.role.modules as ModuleId[] },
+          currentRole: { id: res.role.id, name: res.role.name, modules: migrateSessionModules(res.role.modules) },
           currentUser: null,
         })
-        await maybeLoadFullConfig(res.role.modules as ModuleId[])
+        await maybeLoadFullConfig(migrateSessionModules(res.role.modules))
         void apiLogActivity({ kind: 'login', user: res.role.name })
         return true
       } catch {
@@ -211,10 +222,10 @@ export const useAccess = create<State>()((set, get) => {
         clearRoleCredentials()
         localStorage.removeItem(CURRENT_ROLE_KEY)
         set({
-          currentRole: { id: res.role.id, name: res.role.name, modules: res.role.modules as ModuleId[] },
+          currentRole: { id: res.role.id, name: res.role.name, modules: migrateSessionModules(res.role.modules) },
           currentUser: res.user,
         })
-        await maybeLoadFullConfig(res.role.modules as ModuleId[])
+        await maybeLoadFullConfig(migrateSessionModules(res.role.modules))
         void apiLogActivity({ kind: 'login', user: res.user.kuerzel })
         return true
       } catch {

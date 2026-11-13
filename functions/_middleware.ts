@@ -44,12 +44,23 @@ function accessForPath(pathname: string): Access | null {
     return { get: ['dashboard', 'forecast'], put: ['forecast'] }
   }
   if (pathname.startsWith('/api/plan/')) {
-    return { get: ['plan', 'plan_overview'], put: ['plan'] }
+    // Employees with plan_overview need PUT to save their own progress
+    // updates / Freigabe submissions from the Übersicht tab. Admin-level
+    // edits (adding people, poolTasks, cells) still happen only from the
+    // Plan tab which is UI-gated behind the full 'plan' module.
+    return { get: ['plan', 'plan_overview'], put: ['plan', 'plan_overview'] }
   }
   if (pathname.startsWith('/api/ziele/')) {
-    return { get: ['ziele', 'umsatz'], put: ['ziele'] }
+    // get: any role with any Ziele sub-module (dashboard, teams, kontrolle)
+    // or the legacy 'ziele'/'umsatz' IDs.
+    return {
+      get: ['ziele', 'umsatz', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle'],
+      put: ['ziele', 'ziele_teams'],
+    }
   }
-  if (pathname.startsWith('/api/umsatz/')) return { get: ['umsatz'], put: ['umsatz'] }
+  if (pathname.startsWith('/api/umsatz/')) {
+    return { get: ['umsatz', 'ziele_kontrolle'], put: ['umsatz', 'ziele_kontrolle'] }
+  }
   if (pathname.startsWith('/api/rechnungsplan/')) {
     return { get: ['rechnungen'], put: ['rechnungen'] }
   }
@@ -57,7 +68,10 @@ function accessForPath(pathname: string): Access | null {
     return { get: ['mitarbeiter'], put: ['mitarbeiter'] }
   }
   if (pathname === '/api/kostenschaetzung') {
-    return { get: ['kostenschaetzung'], put: ['kostenschaetzung'] }
+    return {
+      get: ['kostenschaetzung', 'ks_bauwerke', 'ks_hoai', 'ks_katalog'],
+      put: ['kostenschaetzung', 'ks_bauwerke', 'ks_hoai', 'ks_katalog'],
+    }
   }
   if (pathname === '/api/activity') {
     // GET admin-only; POST allowed for any authed user (writes own events).

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
-import { Building2, Calculator, CalendarDays, CheckSquare, Database, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Target } from 'lucide-react'
+import { Building2, Calculator, CalendarDays, CheckSquare, Database, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Users } from 'lucide-react'
 import { clearToken } from '@/api'
 import { cn } from '@/lib/utils'
 
@@ -9,8 +9,9 @@ type View =
   | 'plan'
   | 'freigaben'
   | 'dashboard'
-  | 'ziele'
-  | 'umsatz'
+  | 'ziele_dashboard'
+  | 'ziele_teams'
+  | 'ziele_kontrolle'
   | 'ks_bauwerke'
   | 'ks_hoai'
   | 'ks_katalog'
@@ -20,12 +21,13 @@ type Props = {
 }
 
 const ITEMS: { view: View; label: string; keywords: string; icon: typeof Table2 }[] = [
-  { view: 'ziele', label: 'Ziele', keywords: 'ziele targets fte umsatz akquise', icon: Target },
+  { view: 'ziele_dashboard', label: 'Ziele · Dashboard', keywords: 'ziele dashboard fte pools teams teilungsschlüssel übersicht', icon: LayoutDashboard },
+  { view: 'ziele_teams', label: 'Ziele · Teams', keywords: 'ziele teams mitarbeiter fte umsatz akquise bearbeiten', icon: Users },
+  { view: 'ziele_kontrolle', label: 'Ziele · Zielkontrolle', keywords: 'zielkontrolle umsatz rechnungen puffer monatlich', icon: Gauge },
   { view: 'dashboard', label: 'Dashboard', keywords: 'dashboard kpi forecast überblick', icon: LayoutDashboard },
   { view: 'forecast', label: 'Forecast', keywords: 'forecast projekte abgerechnet quartal', icon: Table2 },
   { view: 'plan', label: 'Quartalsplanung', keywords: 'plan quartalsplanung aufgaben mitarbeiter kw', icon: CalendarDays },
   { view: 'freigaben', label: 'Freigaben', keywords: 'freigaben validierung erledigt aufgaben pm', icon: CheckSquare },
-  { view: 'umsatz', label: 'Zielkontrolle', keywords: 'umsatz zielkontrolle rechnungen puffer', icon: Gauge },
   { view: 'ks_bauwerke', label: 'Kostenschätzung · Bauwerke', keywords: 'kosten schätzung bauwerk position abschnitt menge einheitspreis', icon: Building2 },
   { view: 'ks_hoai', label: 'Kostenschätzung · HOAI-Honorar', keywords: 'hoai honorar objektplanung tragwerksplanung leistungsphase', icon: Calculator },
   { view: 'ks_katalog', label: 'Kostenschätzung · Datenbank Ril 808', keywords: 'katalog ril 808 db baupreise datenbank suche', icon: Database },

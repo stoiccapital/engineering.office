@@ -10,7 +10,7 @@ import { PlanTabs } from '@/components/PlanTabs'
 import { Freigaben } from '@/components/Freigaben'
 import { ImportDialog } from '@/components/ImportDialog'
 import { Dashboard } from '@/components/Dashboard'
-import { Ziele } from '@/components/Ziele'
+import { ZieleDashboardPage, ZieleTeamsPage } from '@/components/Ziele'
 import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
 import { Rechnungen } from '@/components/Rechnungen'
 import { Mitarbeiter } from '@/components/Mitarbeiter'
@@ -43,6 +43,7 @@ const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 const OPERATIVE_EXPANDED_KEY = 'eo:operativeExpanded'
 const EINSTELLUNGEN_EXPANDED_KEY = 'eo:einstellungenExpanded'
 const KOSTENSCHAETZUNG_EXPANDED_KEY = 'eo:kostenschaetzungExpanded'
+const ZIELE_EXPANDED_KEY = 'eo:zieleExpanded'
 
 // plan_overview isn't a separate nav entry — it collapses into 'plan' view
 // but with the overview-only tab inside PlanTabs.
@@ -50,22 +51,27 @@ const KOSTENSCHAETZUNG_EXPANDED_KEY = 'eo:kostenschaetzungExpanded'
 // 'ks_*' are virtual views under the 'kostenschaetzung' module; access is coarse
 // (if a role has 'kostenschaetzung', all four children are visible).
 type View =
-  | Exclude<ModuleId, 'plan_overview' | 'kostenschaetzung'>
+  | Exclude<ModuleId, 'plan_overview' | 'kostenschaetzung' | 'ziele' | 'umsatz'>
   | 'freigaben'
   | 'ks_bauwerke'
   | 'ks_hoai'
   | 'ks_katalog'
+  | 'ziele_dashboard'
+  | 'ziele_teams'
+  | 'ziele_kontrolle'
   | 'aktivitaet'
 
 const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_hoai', 'ks_katalog']
+const ZIELE_VIEWS: View[] = ['ziele_dashboard', 'ziele_teams', 'ziele_kontrolle']
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
   forecast: { title: 'Forecast', label: 'Forecast', icon: Table2 },
   plan: { title: 'Quartalsplanung', label: 'Quartalsplanung', icon: CalendarDays },
   freigaben: { title: 'Freigaben', label: 'Freigaben', icon: CheckSquare },
   dashboard: { title: 'Dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  ziele: { title: 'Ziele', label: 'Ziele', icon: Target },
-  umsatz: { title: 'Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
+  ziele_dashboard: { title: 'Ziele · Dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  ziele_teams: { title: 'Ziele · Teams', label: 'Teams', icon: Users },
+  ziele_kontrolle: { title: 'Ziele · Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
   ks_bauwerke: { title: 'Bauwerke', label: 'Bauwerke', icon: Building2 },
   ks_hoai: { title: 'HOAI-Honorar', label: 'HOAI-Honorar', icon: Calculator },
@@ -80,7 +86,13 @@ type NavEntry =
   | { kind: 'group'; id: string; label: string; icon: typeof Table2; children: View[] }
 
 const NAV: NavEntry[] = [
-  { kind: 'leaf', view: 'ziele' },
+  {
+    kind: 'group',
+    id: 'ziele',
+    label: 'Ziele',
+    icon: Target,
+    children: ZIELE_VIEWS,
+  },
   {
     kind: 'group',
     id: 'operative',
@@ -88,7 +100,6 @@ const NAV: NavEntry[] = [
     icon: Briefcase,
     children: ['dashboard', 'forecast', 'plan', 'freigaben'],
   },
-  { kind: 'leaf', view: 'umsatz' },
   { kind: 'leaf', view: 'rechnungen' },
   {
     kind: 'group',
@@ -106,15 +117,14 @@ const NAV: NavEntry[] = [
   },
 ]
 
-// Virtual views (ks_*, freigaben, aktivitaet) don't correspond to a ModuleId
-// directly. Map them back to the most meaningful module for the activity log
-// so admins see e.g. "Kostenschätzung" rather than "ks_bauwerke".
+// Virtual views (ks_*, ziele_*, freigaben, aktivitaet) don't correspond to a
+// ModuleId directly. Map them back to the most meaningful module for the
+// activity log so admins see e.g. "Kostenschätzung" rather than "ks_bauwerke".
 function viewToModule(view: View): ModuleId | null {
   if (view === 'freigaben') return 'plan'
-  if (view === 'ks_bauwerke' || view === 'ks_hoai' || view === 'ks_katalog') {
-    return 'kostenschaetzung'
-  }
   if (view === 'aktivitaet') return 'settings'
+  // Every other View now maps 1:1 to a ModuleId after the ziele/umsatz/
+  // kostenschaetzung split.
   return view as ModuleId
 }
 
@@ -168,8 +178,8 @@ function Shell() {
     for (const m of base) {
       // 'plan_overview' grants the Plan sidebar entry (read-only Übersicht).
       if (m === 'plan_overview') views.add('plan')
-      // 'kostenschaetzung' is coarse: grants all four virtual sub-views.
-      else if (m === 'kostenschaetzung') KS_VIEWS.forEach((v) => views.add(v))
+      // Every other ModuleId maps 1:1 to a View now that ziele / umsatz /
+      // kostenschaetzung have been split into their sub-module IDs.
       else views.add(m as View)
     }
     // Any role with full 'plan' edit access can validate submissions.
@@ -180,8 +190,8 @@ function Shell() {
   }, [currentRole])
   const nav = useMemo(() => filterNav(NAV, allowed), [allowed])
 
-  const firstAllowed: View = allowed.has('ziele')
-    ? 'ziele'
+  const firstAllowed: View = allowed.has('ziele_dashboard')
+    ? 'ziele_dashboard'
     : ((Array.from(allowed)[0] as View) ?? 'forecast')
 
   const [view, setView] = useState<View>(firstAllowed)
@@ -200,6 +210,9 @@ function Shell() {
   )
   const [kostenschaetzungExpanded, setKostenschaetzungExpanded] = useState<boolean>(
     () => localStorage.getItem(KOSTENSCHAETZUNG_EXPANDED_KEY) !== '0',
+  )
+  const [zieleExpanded, setZieleExpanded] = useState<boolean>(
+    () => localStorage.getItem(ZIELE_EXPANDED_KEY) !== '0',
   )
   const loadForecast = useForecast((s) => s.load)
   const period = useForecast((s) => s.period)
@@ -240,11 +253,13 @@ function Shell() {
   }, [plan])
 
   useEffect(() => {
-    if (view === 'ziele' && !ziele) void loadZiele()
+    const isZieleView =
+      view === 'ziele_dashboard' || view === 'ziele_teams' || view === 'ziele_kontrolle'
+    if (isZieleView && !ziele) void loadZiele()
   }, [view, ziele, loadZiele])
 
   useEffect(() => {
-    if (view === 'umsatz' && !umsatz) void loadUmsatz()
+    if (view === 'ziele_kontrolle' && !umsatz) void loadUmsatz()
   }, [view, umsatz, loadUmsatz])
 
   useEffect(() => {
@@ -289,6 +304,10 @@ function Shell() {
     localStorage.setItem(KOSTENSCHAETZUNG_EXPANDED_KEY, kostenschaetzungExpanded ? '1' : '0')
   }, [kostenschaetzungExpanded])
 
+  useEffect(() => {
+    localStorage.setItem(ZIELE_EXPANDED_KEY, zieleExpanded ? '1' : '0')
+  }, [zieleExpanded])
+
   const meta = VIEW_META[view]
 
   return (
@@ -305,11 +324,13 @@ function Shell() {
           operative: operativeExpanded,
           einstellungen: einstellungenExpanded,
           kostenschaetzung: kostenschaetzungExpanded,
+          ziele: zieleExpanded,
         }}
         onToggleGroup={(id) => {
           if (id === 'operative') setOperativeExpanded((v) => !v)
           else if (id === 'einstellungen') setEinstellungenExpanded((v) => !v)
           else if (id === 'kostenschaetzung') setKostenschaetzungExpanded((v) => !v)
+          else if (id === 'ziele') setZieleExpanded((v) => !v)
         }}
         freigabenCount={freigabenCount}
       />
@@ -321,8 +342,8 @@ function Shell() {
             <div className="flex items-center gap-4">
               {view === 'forecast' && <SaveStatus />}
               {view === 'plan' && <PlanSaveStatus />}
-              {view === 'ziele' && <ZieleSaveStatus />}
-              {view === 'umsatz' && <UmsatzSaveStatus />}
+              {(view === 'ziele_dashboard' || view === 'ziele_teams') && <ZieleSaveStatus />}
+              {view === 'ziele_kontrolle' && <UmsatzSaveStatus />}
               {view === 'rechnungen' && <RechnungenSaveStatus />}
               {(view === 'ks_bauwerke' ||
                 view === 'ks_hoai' ||
@@ -348,8 +369,9 @@ function Shell() {
           {view === 'freigaben' &&
             (plan ? <Freigaben /> : <LoadingCard>Lade Freigaben…</LoadingCard>)}
           {view === 'dashboard' && <Dashboard />}
-          {view === 'ziele' && <Ziele />}
-          {view === 'umsatz' && <Umsatzkontrolle />}
+          {view === 'ziele_dashboard' && <ZieleDashboardPage />}
+          {view === 'ziele_teams' && <ZieleTeamsPage />}
+          {view === 'ziele_kontrolle' && <Umsatzkontrolle />}
           {view === 'rechnungen' && <Rechnungen />}
           {view === 'ks_bauwerke' &&
             (kostenDoc ? <BauwerkeTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
@@ -475,7 +497,8 @@ function Sidebar({
 
 function ViewPeriodPicker({ view }: { view: View }) {
   switch (view) {
-    case 'ziele':
+    case 'ziele_dashboard':
+    case 'ziele_teams':
       return <ZielePicker />
     case 'dashboard':
       return <DashboardPicker />
@@ -485,7 +508,7 @@ function ViewPeriodPicker({ view }: { view: View }) {
       return <PlanPicker />
     case 'freigaben':
       return <FreigabenPicker />
-    case 'umsatz':
+    case 'ziele_kontrolle':
       return <UmsatzPicker />
     case 'rechnungen':
       return <RechnungenPicker />
