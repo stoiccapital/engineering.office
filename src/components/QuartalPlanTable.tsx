@@ -210,7 +210,15 @@ export function QuartalPlanTable() {
             forecastLabel={`${forecastQuarter} ${forecastYear}`}
           />
         )}
-        <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
+        <div
+          className={cn(
+            'overflow-auto',
+            // Cap to a viewport-height box when NOT in fullscreen so the
+            // horizontal scrollbar sits near the viewport bottom instead of
+            // forcing users to page-scroll to find it.
+            isFullscreen ? 'min-h-0 flex-1' : 'max-h-[calc(100vh-240px)]',
+          )}
+        >
           <table className="w-full border-collapse text-sm">
             {/* Pin Monat + KW column widths so sticky left offsets line up
                 exactly with the column edges — prevents the horizontal gap
