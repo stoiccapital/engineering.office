@@ -3,7 +3,7 @@ interface Env {
 }
 
 const KEY = 'settings:logo'
-const MAX_LEN = 700_000 // ~500 KB raw image after base64 overhead
+const MAX_LEN = 14_000_000 // ~10 MB raw image after base64 overhead
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   const dataUrl = await env.FORECAST_KV.get(KEY)

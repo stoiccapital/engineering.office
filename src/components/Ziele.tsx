@@ -231,20 +231,21 @@ function BranchDashboard({
   const sumVerwOk = Math.abs(shareSumVerw - 1) < 0.001
   const sumAusschOk = Math.abs(shareSumAussch - 1) < 0.001
 
-  // Productive teams per branch: those that end up with any FTE assigned —
-  // operative or allocated overhead. Pure Verwaltung teams fall out here.
-  const teamTiles = rows
-    .map((r) => {
-      const overhead = r.verwaltungAllocated + r.ausschreibungAllocated
-      return {
-        id: r.teamId,
-        name: r.teamName,
-        operative: r.revenueFTE,
-        overhead,
-        effective: r.revenueFTE + overhead,
-      }
+  // Per-team tiles use the same FTE definition as Zielkontrolle (teamFTE,
+  // i.e. sum of every person on the team roster regardless of role) so the
+  // headcount number matches across both views. Pure overhead teams
+  // (everyone role='verwaltung') are hidden — same rule as Zielkontrolle.
+  const teamTiles = branch.teams
+    .map((t) => ({
+      id: t.id,
+      name: t.name || 'Unbenannt',
+      fte: teamFTE(t),
+    }))
+    .filter((t) => {
+      const team = branch.teams.find((x) => x.id === t.id)
+      if (!team || team.people.length === 0) return false
+      return team.people.some((p) => (p.role ?? 'team') !== 'verwaltung')
     })
-    .filter((t) => t.operative > 0 || t.overhead > 0)
 
   return (
     <div className="bg-card p-4">
@@ -267,13 +268,7 @@ function BranchDashboard({
           )}
         >
           {teamTiles.map((t) => (
-            <TeamTile
-              key={t.id}
-              name={t.name}
-              operative={t.operative}
-              overhead={t.overhead}
-              effective={t.effective}
-            />
+            <TeamTile key={t.id} name={t.name} fte={t.fte} />
           ))}
         </div>
       )}
@@ -404,30 +399,14 @@ function BranchDashboard({
   )
 }
 
-function TeamTile({
-  name,
-  operative,
-  overhead,
-  effective,
-}: {
-  name: string
-  operative: number
-  overhead: number
-  effective: number
-}) {
+function TeamTile({ name, fte }: { name: string; fte: number }) {
   return (
     <div className="flex flex-col rounded border bg-background px-2.5 py-2">
       <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {name}
       </div>
       <div className="mt-0.5 font-mono text-base font-semibold tabular-nums">
-        {fmtDecimal(effective, 2)} <span className="text-[10px] opacity-70">FTE</span>
-      </div>
-      <div className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
-        <span>{fmtDecimal(operative, 2)}</span>
-        <span className="mx-0.5">+</span>
-        <span>{fmtDecimal(overhead, 2)}</span>
-        <span className="ml-1 text-[10px]">Overhead</span>
+        {fmtDecimal(fte, 2)} <span className="text-[10px] opacity-70">FTE</span>
       </div>
     </div>
   )
