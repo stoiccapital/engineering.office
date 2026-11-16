@@ -4,7 +4,6 @@ import { usePlan, cellKey } from '@/plan-store'
 import {
   PLAN_STATUS_LABELS,
   type Branch,
-  type Employee,
   type PlanStatus,
   type WeekTodo,
 } from '@/types'
@@ -22,6 +21,7 @@ import {
   TONE_CLASSES,
   URLAUB_DAYS_LABELS,
   todoTone,
+  type PlanGroup,
 } from '@/components/QuartalPlanTable'
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
@@ -94,11 +94,9 @@ export function TeamOverview() {
   }, [year, offset])
 
   // Keep original indices so plan.cells/todos keys stay valid, but group by
-  // branch for display so this matches the Plan view's Team Deutschland /
-  // Team Polen layout.
-  const groups = useMemo(() => {
-    type Group = { branch: Branch; label: string; items: { emp: Employee; empIndex: number }[] }
-    if (!plan) return [] as Group[]
+  // roster location for display so this matches the Plan view's layout.
+  const groups = useMemo<PlanGroup[]>(() => {
+    if (!plan) return []
     const indexed = plan.employees.map((emp, empIndex) => ({ emp, empIndex }))
     const filtered = indexed.filter((entry) => {
       if (teamFilter === 'all') return true
@@ -107,11 +105,37 @@ export function TeamOverview() {
       const rosterEmp = roster.employees.find((r) => r.id === linkId)
       return rosterEmp?.teamId === teamFilter
     })
-    const all: Group[] = [
-      { branch: 'de' as Branch, label: 'Team Deutschland', items: filtered.filter((e) => e.emp.branch === 'de') },
-      { branch: 'pl' as Branch, label: 'Team Polen', items: filtered.filter((e) => e.emp.branch === 'pl') },
-    ]
-    return all.filter((g) => g.items.length > 0)
+    const map = new Map<string, PlanGroup>()
+    const ensure = (key: string, label: string, branch: Branch): PlanGroup => {
+      let g = map.get(key)
+      if (!g) {
+        g = { key, label, branch, items: [] }
+        map.set(key, g)
+      }
+      return g
+    }
+    if (roster) {
+      for (const loc of roster.locations) {
+        ensure(`loc:${loc.id}`, loc.name || 'Standort', loc.name === 'Polen' ? 'pl' : 'de')
+      }
+    }
+    for (const entry of filtered) {
+      const linkId = entry.emp.rosterEmployeeId
+      const rosterEmp = linkId ? roster?.employees.find((r) => r.id === linkId) : undefined
+      if (rosterEmp) {
+        const team = rosterEmp.teamId ? roster?.teams.find((t) => t.id === rosterEmp.teamId) : undefined
+        const loc = team?.locationId ? roster?.locations.find((l) => l.id === team.locationId) : undefined
+        if (loc) {
+          ensure(`loc:${loc.id}`, loc.name || 'Standort', loc.name === 'Polen' ? 'pl' : 'de').items.push(entry)
+        } else {
+          ensure('no-loc', 'Ohne Standort', entry.emp.branch).items.push(entry)
+        }
+      } else {
+        const branch = entry.emp.branch
+        ensure(`branch:${branch}`, branch.toUpperCase(), branch).items.push(entry)
+      }
+    }
+    return Array.from(map.values()).filter((g) => g.items.length > 0)
   }, [plan, teamFilter, roster])
 
   if (!plan) return null
@@ -179,7 +203,7 @@ export function TeamOverview() {
                 <th className="sticky left-0 z-30 bg-muted" colSpan={2}></th>
                 {groups.map((g, gi) => (
                   <th
-                    key={g.branch}
+                    key={g.key}
                     colSpan={Math.max(1, g.items.length)}
                     className={cn(
                       'px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground',
@@ -205,7 +229,7 @@ export function TeamOverview() {
                   KW
                 </th>
                 {groups.map((g, gi) => (
-                  <Fragment key={`emp-th-${g.branch}`}>
+                  <Fragment key={`emp-th-${g.key}`}>
                     {g.items.map(({ emp }, i) => (
                       <th
                         key={emp.id}
@@ -282,7 +306,7 @@ export function TeamOverview() {
                       {row.week}
                     </td>
                     {groups.map((g, gi) => (
-                      <Fragment key={`row-${row.week}-${g.branch}`}>
+                      <Fragment key={`row-${row.week}-${g.key}`}>
                         {g.items.map(({ empIndex }, i) => {
                           const key = cellKey(empIndex, row.week)
                           const status = plan.cells[key]

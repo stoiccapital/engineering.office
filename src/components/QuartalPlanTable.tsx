@@ -80,7 +80,6 @@ export function QuartalPlanTable() {
   const setTeamFilter = usePlan((s) => s.setTeamFilter)
   const plan = usePlan((s) => s.plan)
   const renameEmployee = usePlan((s) => s.renameEmployee)
-  const setEmployeeBranch = usePlan((s) => s.setEmployeeBranch)
   const addEmployee = usePlan((s) => s.addEmployee)
   const removeEmployee = usePlan((s) => s.removeEmployee)
   const addTodo = usePlan((s) => s.addTodo)
@@ -189,7 +188,9 @@ export function QuartalPlanTable() {
 
   if (!plan) return null
 
-  // Keep original indices so cell/todo keys stay stable, but group by branch for layout.
+  // Keep original indices so cell/todo keys stay stable, but group by
+  // roster location for layout. Legacy employees (no roster link) fall
+  // back to a group labeled by their branch letter.
   const indexed: { emp: Employee; empIndex: number }[] = plan.employees.map((emp, i) => ({ emp, empIndex: i }))
   // Apply team filter: when a roster team id is picked, keep only employees
   // whose roster-linked team matches. Legacy (unlinked) rows are filtered out
@@ -201,12 +202,7 @@ export function QuartalPlanTable() {
     const rosterEmp = roster.employees.find((r) => r.id === linkId)
     return rosterEmp?.teamId === teamFilter
   })
-  const deEmployees = filtered.filter((e) => e.emp.branch === 'de')
-  const plEmployees = filtered.filter((e) => e.emp.branch === 'pl')
-  const groups: { branch: Branch; label: string; items: typeof indexed }[] = [
-    { branch: 'de' as Branch, label: 'Team Deutschland', items: deEmployees },
-    { branch: 'pl' as Branch, label: 'Team Polen', items: plEmployees },
-  ].filter((g) => g.items.length > 0)
+  const groups = buildPlanGroups(filtered, roster)
 
   const prioRows = forecastPeriod?.rows.filter((r) => r.prio) ?? []
 
@@ -221,7 +217,7 @@ export function QuartalPlanTable() {
   )
   const subtitle = (
     <>
-      <Num>{plan.employees.length}</Num> Mitarbeiter (<Num>{deEmployees.length}</Num> DE · <Num>{plEmployees.length}</Num> PL) ·{' '}
+      <Num>{plan.employees.length}</Num> Mitarbeiter ·{' '}
       <Num>{weekRows.length}</Num> Wochen · <Num>{todoCount}</Num> Aufgaben
     </>
   )
@@ -298,7 +294,7 @@ export function QuartalPlanTable() {
                 <th className="sticky left-0 z-30 bg-muted" colSpan={2}></th>
                 {groups.map((g, gi) => (
                   <th
-                    key={g.branch}
+                    key={g.key}
                     colSpan={Math.max(1, g.items.length) + 1}
                     className={cn(
                       'px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground',
@@ -323,7 +319,7 @@ export function QuartalPlanTable() {
                   KW
                 </th>
                 {groups.map((g, gi) => (
-                  <Fragment key={`th-${g.branch}`}>
+                  <Fragment key={`th-${g.key}`}>
                     {g.items.map(({ emp, empIndex }, i) => {
                       const link = rosterLinkFor(emp, roster)
                       return (
@@ -354,26 +350,6 @@ export function QuartalPlanTable() {
                                 className="w-full rounded bg-foreground/[0.03] px-1 py-0.5 text-sm font-semibold text-foreground outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
                               />
                             )}
-                            {link ? (
-                              <span
-                                title="Standort wird im Mitarbeiter-Modul gepflegt"
-                                className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
-                              >
-                                {emp.branch.toUpperCase()}
-                              </span>
-                            ) : (
-                              <select
-                                value={emp.branch}
-                                onChange={(e) =>
-                                  setEmployeeBranch(empIndex, e.target.value as Branch)
-                                }
-                                title="Team wechseln"
-                                className="rounded border bg-background px-1 py-0.5 text-[10px] font-mono font-semibold text-muted-foreground outline-none"
-                              >
-                                <option value="de">DE</option>
-                                <option value="pl">PL</option>
-                              </select>
-                            )}
                             <button
                               onClick={() => setMoveAllFromIndex(empIndex)}
                               className="opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
@@ -395,7 +371,7 @@ export function QuartalPlanTable() {
                       )
                     })}
                     <th
-                      key={`add-${g.branch}`}
+                      key={`add-${g.key}`}
                       className={cn(
                         'w-10 px-1 py-2',
                         g.items.length === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
@@ -444,7 +420,7 @@ export function QuartalPlanTable() {
                       {row.week}
                     </td>
                     {groups.map((g, gi) => (
-                      <Fragment key={`row-${row.week}-${g.branch}`}>
+                      <Fragment key={`row-${row.week}-${g.key}`}>
                         {g.items.map(({ emp, empIndex }, i) => {
                           const key = cellKey(empIndex, row.week)
                           const todos = plan.todos?.[key] ?? []
@@ -561,7 +537,7 @@ function PoolRow({
   onAssign,
 }: {
   pool: PoolTask[]
-  groups: { branch: Branch; label: string; items: { emp: Employee; empIndex: number }[] }[]
+  groups: PlanGroup[]
   onAdd: (empIndex: number) => void
   onUpdate: (id: string, text: string) => void
   onRemove: (id: string) => void
@@ -582,7 +558,7 @@ function PoolRow({
         —
       </td>
       {groups.map((g, gi) => (
-        <Fragment key={`pool-${g.branch}`}>
+        <Fragment key={`pool-${g.key}`}>
           {g.items.map(({ empIndex }, i) => {
             const tasks = pool.filter((t) => t.empIndex === empIndex)
             return (
@@ -1194,6 +1170,53 @@ function branchForRosterEmployee(r: RosterEmployee, roster: Roster | null): Bran
   if (!team?.locationId) return 'de'
   const loc = roster.locations.find((l) => l.id === team.locationId)
   return loc?.name === 'Polen' ? 'pl' : 'de'
+}
+
+// Group plan employees by their roster-location name. Legacy (unlinked)
+// employees fall into a per-branch bucket labeled "DE" / "PL". Group order
+// follows the roster.locations[] order so the layout stays stable when the
+// admin renames a location.
+export type PlanGroup = {
+  key: string
+  label: string
+  branch: Branch
+  items: { emp: Employee; empIndex: number }[]
+}
+function buildPlanGroups(
+  entries: { emp: Employee; empIndex: number }[],
+  roster: Roster | null,
+): PlanGroup[] {
+  const groups = new Map<string, PlanGroup>()
+  const ensure = (key: string, label: string, branch: Branch): PlanGroup => {
+    let g = groups.get(key)
+    if (!g) {
+      g = { key, label, branch, items: [] }
+      groups.set(key, g)
+    }
+    return g
+  }
+  if (roster) {
+    for (const loc of roster.locations) {
+      ensure(`loc:${loc.id}`, loc.name || 'Standort', loc.name === 'Polen' ? 'pl' : 'de')
+    }
+  }
+  for (const entry of entries) {
+    const linkId = entry.emp.rosterEmployeeId
+    const rosterEmp = linkId ? roster?.employees.find((r) => r.id === linkId) : undefined
+    if (rosterEmp) {
+      const team = rosterEmp.teamId ? roster?.teams.find((t) => t.id === rosterEmp.teamId) : undefined
+      const loc = team?.locationId ? roster?.locations.find((l) => l.id === team.locationId) : undefined
+      if (loc) {
+        ensure(`loc:${loc.id}`, loc.name || 'Standort', loc.name === 'Polen' ? 'pl' : 'de').items.push(entry)
+      } else {
+        ensure('no-loc', 'Ohne Standort', entry.emp.branch).items.push(entry)
+      }
+    } else {
+      const branch = entry.emp.branch
+      ensure(`branch:${branch}`, branch.toUpperCase(), branch).items.push(entry)
+    }
+  }
+  return Array.from(groups.values()).filter((g) => g.items.length > 0)
 }
 
 function RosterPickerDialog({
