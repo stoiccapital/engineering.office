@@ -19,7 +19,7 @@ import {
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronRight, Flame, GripVertical, Maximize2, Minimize2, Plus, X } from 'lucide-react'
+import { ArrowRightLeft, ChevronDown, ChevronRight, Flame, GripVertical, Maximize2, Minimize2, Plus, X } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { AlwaysOnScrollbar } from '@/components/ui/always-on-scrollbar'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
@@ -92,6 +92,7 @@ export function QuartalPlanTable() {
   const assignPoolTask = usePlan((s) => s.assignPoolTask)
   const addRosterEmployee = usePlan((s) => s.addRosterEmployee)
   const moveTodo = usePlan((s) => s.moveTodo)
+  const moveAllTodos = usePlan((s) => s.moveAllTodos)
 
   // Drag-and-drop sensors: pointer requires 4 px travel so a plain click on
   // a todo textarea still edits text instead of starting a drag.
@@ -140,6 +141,7 @@ export function QuartalPlanTable() {
 
   const [assignFor, setAssignFor] = useState<PoolTask | null>(null)
   const [rosterPickerOpen, setRosterPickerOpen] = useState(false)
+  const [moveAllFromIndex, setMoveAllFromIndex] = useState<number | null>(null)
 
   const forecastPeriod = useForecast((s) => s.period)
   const forecastYear = useForecast((s) => s.year)
@@ -372,6 +374,13 @@ export function QuartalPlanTable() {
                                 <option value="pl">PL</option>
                               </select>
                             )}
+                            <button
+                              onClick={() => setMoveAllFromIndex(empIndex)}
+                              className="opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                              title="Alle Aufgaben auf anderen Mitarbeiter übertragen"
+                            >
+                              <ArrowRightLeft className="h-3.5 w-3.5" />
+                            </button>
                             {!link && (
                               <button
                                 onClick={() => removeEmployee(empIndex)}
@@ -498,6 +507,17 @@ export function QuartalPlanTable() {
         onConfirm={(week) => {
           if (assignFor) assignPoolTask(assignFor.id, week)
           setAssignFor(null)
+        }}
+      />
+
+      <MoveAllTodosDialog
+        fromEmpIndex={moveAllFromIndex}
+        employees={plan.employees}
+        roster={roster}
+        onCancel={() => setMoveAllFromIndex(null)}
+        onConfirm={(toEmpIndex) => {
+          if (moveAllFromIndex !== null) moveAllTodos(moveAllFromIndex, toEmpIndex)
+          setMoveAllFromIndex(null)
         }}
       />
 
@@ -757,6 +777,108 @@ function AssignDialog({
               className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Zuweisen
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
+function MoveAllTodosDialog({
+  fromEmpIndex,
+  employees,
+  roster,
+  onCancel,
+  onConfirm,
+}: {
+  fromEmpIndex: number | null
+  employees: Employee[]
+  roster: Roster | null
+  onCancel: () => void
+  onConfirm: (toEmpIndex: number) => void
+}) {
+  const open = fromEmpIndex !== null
+  const [toEmpIndex, setToEmpIndex] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!open) setToEmpIndex(null)
+  }, [open])
+
+  const displayName = (emp: Employee): string => {
+    const link = rosterLinkFor(emp, roster)
+    return link?.displayName || emp.name || 'Unbenannt'
+  }
+  const fromEmp = fromEmpIndex !== null ? employees[fromEmpIndex] : undefined
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => !o && onCancel()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
+          <div className="border-b px-5 py-4">
+            <Dialog.Title className="text-sm font-semibold">
+              Alle Aufgaben übertragen
+            </Dialog.Title>
+            <Dialog.Description className="mt-1 text-xs text-muted-foreground">
+              Alle Wochen-Aufgaben und Pool-Einträge von{' '}
+              <span className="font-medium text-foreground">
+                {fromEmp ? displayName(fromEmp) : '—'}
+              </span>{' '}
+              auf einen anderen Mitarbeiter verschieben.
+            </Dialog.Description>
+          </div>
+          <div className="max-h-80 overflow-auto">
+            {employees.length <= 1 ? (
+              <div className="px-5 py-8 text-center text-xs text-muted-foreground">
+                Kein weiterer Mitarbeiter im Plan.
+              </div>
+            ) : (
+              <ul className="divide-y">
+                {employees.map((emp, i) => {
+                  if (i === fromEmpIndex) return null
+                  const active = toEmpIndex === i
+                  const link = rosterLinkFor(emp, roster)
+                  return (
+                    <li key={emp.id}>
+                      <button
+                        onClick={() => setToEmpIndex(i)}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-3 px-5 py-2.5 text-left transition-colors hover:bg-accent',
+                          active && 'bg-accent/60',
+                        )}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">{displayName(emp)}</div>
+                          {link && (
+                            <div className="truncate font-mono text-[10px] text-muted-foreground">
+                              {link.contextLabel}
+                            </div>
+                          )}
+                        </div>
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {emp.branch.toUpperCase()}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3">
+            <button
+              onClick={onCancel}
+              className="rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={() => toEmpIndex !== null && onConfirm(toEmpIndex)}
+              disabled={toEmpIndex === null}
+              className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Übertragen
             </button>
           </div>
         </Dialog.Content>

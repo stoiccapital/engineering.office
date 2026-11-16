@@ -85,6 +85,9 @@ type State = {
     todoId: string,
     toIndex: number,
   ) => void
+  // Move every week-todo and pool task of `fromEmpIndex` onto `toEmpIndex`.
+  // Existing target lists are preserved; moved todos are appended after them.
+  moveAllTodos: (fromEmpIndex: number, toEmpIndex: number) => void
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -329,6 +332,25 @@ export const usePlan = create<State>()((set, get) => ({
     }
 
     set({ plan: { ...s.plan, todos } })
+    scheduleSave(get, (p) => set(p as Partial<State>))
+  },
+
+  moveAllTodos: (fromEmpIndex, toEmpIndex) => {
+    const s = get()
+    if (!s.plan || fromEmpIndex === toEmpIndex) return
+    const todos: Record<string, WeekTodo[]> = { ...(s.plan.todos ?? {}) }
+    const sourceKeys = Object.keys(todos).filter((k) => Number(k.split(':')[0]) === fromEmpIndex)
+    for (const k of sourceKeys) {
+      const [, wStr] = k.split(':')
+      const sourceList = todos[k]
+      delete todos[k]
+      const toKey = cellKey(toEmpIndex, Number(wStr))
+      todos[toKey] = [...(todos[toKey] ?? []), ...sourceList]
+    }
+    const pool: PoolTask[] = (s.plan.pool ?? []).map((t) =>
+      t.empIndex === fromEmpIndex ? { ...t, empIndex: toEmpIndex } : t,
+    )
+    set({ plan: { ...s.plan, todos, pool } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 }))
