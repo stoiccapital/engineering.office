@@ -120,6 +120,24 @@ export function QuartalPlanTable() {
     if (!roster) void loadRoster()
   }, [roster, loadRoster])
 
+  // Auto-sync: every roster employee not yet linked in the plan gets added.
+  // Legacy manually-added employees (no rosterEmployeeId) are untouched.
+  // Dismissed ids (explicitly removed from the plan) are skipped so removal
+  // sticks until the user re-adds them via "Aus Roster".
+  useEffect(() => {
+    if (!plan || !roster) return
+    const linked = new Set(
+      plan.employees.map((e) => e.rosterEmployeeId).filter((id): id is string => !!id),
+    )
+    const dismissed = new Set(plan.dismissedRosterEmployeeIds ?? [])
+    for (const r of roster.employees) {
+      if (linked.has(r.id) || dismissed.has(r.id)) continue
+      const display =
+        [r.vorname, r.name].filter((s) => s.trim().length > 0).join(' ') || 'Unbenannt'
+      addRosterEmployee(r.id, display, branchForRosterEmployee(r, roster))
+    }
+  }, [plan, roster, addRosterEmployee])
+
   const [assignFor, setAssignFor] = useState<PoolTask | null>(null)
   const [rosterPickerOpen, setRosterPickerOpen] = useState(false)
 
@@ -334,22 +352,35 @@ export function QuartalPlanTable() {
                                 className="w-full rounded bg-foreground/[0.03] px-1 py-0.5 text-sm font-semibold text-foreground outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
                               />
                             )}
-                            <select
-                              value={emp.branch}
-                              onChange={(e) => setEmployeeBranch(empIndex, e.target.value as Branch)}
-                              title="Team wechseln"
-                              className="rounded border bg-background px-1 py-0.5 text-[10px] font-mono font-semibold text-muted-foreground outline-none"
-                            >
-                              <option value="de">DE</option>
-                              <option value="pl">PL</option>
-                            </select>
-                            <button
-                              onClick={() => removeEmployee(empIndex)}
-                              className="opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                              title="Mitarbeiter aus Plan entfernen"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
+                            {link ? (
+                              <span
+                                title="Standort wird im Mitarbeiter-Modul gepflegt"
+                                className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground"
+                              >
+                                {emp.branch.toUpperCase()}
+                              </span>
+                            ) : (
+                              <select
+                                value={emp.branch}
+                                onChange={(e) =>
+                                  setEmployeeBranch(empIndex, e.target.value as Branch)
+                                }
+                                title="Team wechseln"
+                                className="rounded border bg-background px-1 py-0.5 text-[10px] font-mono font-semibold text-muted-foreground outline-none"
+                              >
+                                <option value="de">DE</option>
+                                <option value="pl">PL</option>
+                              </select>
+                            )}
+                            {!link && (
+                              <button
+                                onClick={() => removeEmployee(empIndex)}
+                                className="opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                                title="Mitarbeiter aus Plan entfernen"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </th>
                       )
@@ -484,9 +515,14 @@ export function QuartalPlanTable() {
         onPick={(r) => {
           const display =
             [r.vorname, r.name].filter((s) => s.trim().length > 0).join(' ') || 'Unbenannt'
-          // Default branch to 'de' — PM can switch via existing DE/PL dropdown
-          // in the column header.
-          addRosterEmployee(r.id, display, 'de')
+          addRosterEmployee(r.id, display, branchForRosterEmployee(r, roster))
+        }}
+        onPickAll={(list) => {
+          for (const r of list) {
+            const display =
+              [r.vorname, r.name].filter((s) => s.trim().length > 0).join(' ') || 'Unbenannt'
+            addRosterEmployee(r.id, display, branchForRosterEmployee(r, roster))
+          }
         }}
       />
     </div>
@@ -1028,18 +1064,30 @@ function rosterLinkFor(
   }
 }
 
+// Derive DE/PL grouping from a roster employee via team → location. Falls back
+// to 'de' when the employee has no team or the team's location doesn't resolve.
+function branchForRosterEmployee(r: RosterEmployee, roster: Roster | null): Branch {
+  if (!roster || !r.teamId) return 'de'
+  const team = roster.teams.find((t) => t.id === r.teamId)
+  if (!team?.locationId) return 'de'
+  const loc = roster.locations.find((l) => l.id === team.locationId)
+  return loc?.name === 'Polen' ? 'pl' : 'de'
+}
+
 function RosterPickerDialog({
   open,
   onClose,
   roster,
   linkedIds,
   onPick,
+  onPickAll,
 }: {
   open: boolean
   onClose: () => void
   roster: Roster | null
   linkedIds: Set<string>
   onPick: (rosterEmp: RosterEmployee) => void
+  onPickAll: (list: RosterEmployee[]) => void
 }) {
   const available = useMemo(
     () => (roster?.employees ?? []).filter((e) => !linkedIds.has(e.id)),
@@ -1098,7 +1146,17 @@ function RosterPickerDialog({
               </ul>
             )}
           </div>
-          <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3">
+          <div className="flex items-center justify-between gap-2 border-t bg-muted/30 px-5 py-3">
+            <button
+              onClick={() => {
+                onPickAll(available)
+                onClose()
+              }}
+              disabled={available.length === 0}
+              className="rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Alle hinzufügen (<Num>{available.length}</Num>)
+            </button>
             <button
               onClick={onClose}
               className="rounded-md border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent"

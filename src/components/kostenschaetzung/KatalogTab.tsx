@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Info, Search } from 'lucide-react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Section } from '@/components/ui/section'
 import { cn } from '@/lib/utils'
 import katalogData from '@/features/kostenschaetzung/data/katalog.json'
@@ -11,6 +12,7 @@ import type {
 
 const CATALOG = katalogData as KatalogEntry[]
 const META = katalogMeta as KatalogMeta
+const KATALOG_GRID = '6rem minmax(0, 1fr) 3.5rem 7rem'
 
 const fmtPrice = (v: number | null | undefined): string => {
   if (v === null || v === undefined || Number.isNaN(v)) return '—'
@@ -37,16 +39,26 @@ export function KatalogTab() {
         e.kgkBezeichnung ?? ''
       } ${e.erlaeuterung ?? ''}`.toLowerCase()
       return hay.includes(needle)
-    }).slice(0, 500)
+    })
   }, [q, rootFilter])
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: results.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 48,
+    overscan: 10,
+  })
+  const virtualRows = virtualizer.getVirtualItems()
+  const totalSize = virtualizer.getTotalSize()
 
   return (
     <Section
       title={META.quelle}
       subtitle={`Preisstand ${META.quartal} · ${META.count} Einträge · schreibgeschützt`}
       padded={false}
-      className="h-[calc(100vh-180px)]"
-      contentClassName="flex min-h-0 h-full"
+      className="flex h-[calc(100vh-180px)] flex-col"
+      contentClassName="flex min-h-0 flex-1"
     >
       <aside className="w-56 shrink-0 overflow-y-auto border-r">
         <div className="border-b px-3 py-2 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -82,55 +94,64 @@ export function KatalogTab() {
             {results.length} / {META.count}
           </span>
         </div>
-        <div className="flex-1 overflow-y-auto">
-          <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 z-10 bg-muted/90 backdrop-blur">
-              <tr className="border-b text-muted-foreground">
-                <th className="w-24 px-2 py-2 text-left font-medium">KGK</th>
-                <th className="px-2 py-2 text-left font-medium">Bezeichnung</th>
-                <th className="w-14 px-2 py-2 text-left font-medium">Einh.</th>
-                <th className="w-28 px-2 py-2 text-right font-medium">Preis · Q3 2026</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((e) => {
+        <div
+          className="sticky top-0 z-10 grid border-b bg-muted/90 px-2 py-2 text-xs font-medium text-muted-foreground backdrop-blur"
+          style={{ gridTemplateColumns: KATALOG_GRID }}
+        >
+          <div>KGK</div>
+          <div>Bezeichnung</div>
+          <div>Einh.</div>
+          <div className="text-right">Preis · Q3 2026</div>
+        </div>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+          {results.length === 0 ? (
+            <div className="px-3 py-10 text-center text-xs text-muted-foreground">
+              Keine Ergebnisse.
+            </div>
+          ) : (
+            <div
+              className="relative w-full"
+              style={{ height: totalSize }}
+            >
+              {virtualRows.map((vr) => {
+                const e = results[vr.index]
+                if (!e) return null
                 const active = selected?.id === e.id
                 return (
-                  <tr
+                  <div
                     key={e.id}
+                    data-index={vr.index}
+                    ref={virtualizer.measureElement}
                     onClick={() => setSelected(e)}
                     className={cn(
-                      'cursor-pointer border-b last:border-b-0 hover:bg-accent/40',
+                      'absolute left-0 right-0 grid cursor-pointer border-b px-2 py-2 text-xs hover:bg-accent/40',
                       active && 'bg-accent/60',
                     )}
+                    style={{
+                      transform: `translateY(${vr.start}px)`,
+                      gridTemplateColumns: KATALOG_GRID,
+                    }}
                   >
-                    <td className="px-2 py-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                    <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
                       {e.kgkCode}
-                    </td>
-                    <td className="px-2 py-1.5">
+                    </div>
+                    <div className="pr-2">
                       <div className="leading-tight">{e.bezeichnung}</div>
                       {e.erlaeuterung && (
                         <div className="mt-0.5 text-[11px] text-muted-foreground">
                           {e.erlaeuterung}
                         </div>
                       )}
-                    </td>
-                    <td className="px-2 py-1.5 text-muted-foreground">{e.einheit}</td>
-                    <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                    </div>
+                    <div className="text-muted-foreground">{e.einheit}</div>
+                    <div className="text-right font-mono tabular-nums">
                       {fmtPrice(e.preis)}
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 )
               })}
-              {results.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-10 text-center text-xs text-muted-foreground">
-                    Keine Ergebnisse.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            </div>
+          )}
         </div>
       </div>
 

@@ -185,14 +185,23 @@ export const usePlan = create<State>()((set, get) => ({
       rosterEmployeeId,
     }
     const employees = [...s.plan.employees, newEmp]
-    set({ plan: { ...s.plan, employees } })
+    const dismissedRosterEmployeeIds = (s.plan.dismissedRosterEmployeeIds ?? []).filter(
+      (id) => id !== rosterEmployeeId,
+    )
+    set({ plan: { ...s.plan, employees, dismissedRosterEmployeeIds } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
   removeEmployee: (empIndex) => {
     const s = get()
     if (!s.plan) return
+    const removed = s.plan.employees[empIndex]
     const employees = s.plan.employees.filter((_, i) => i !== empIndex)
+    const dismissedRosterEmployeeIds = removed?.rosterEmployeeId
+      ? Array.from(
+          new Set([...(s.plan.dismissedRosterEmployeeIds ?? []), removed.rosterEmployeeId]),
+        )
+      : s.plan.dismissedRosterEmployeeIds ?? []
     // reindex cells: drop removed column, shift higher indices down by 1
     const cells: Record<string, PlanStatus> = {}
     for (const [k, v] of Object.entries(s.plan.cells)) {
@@ -215,7 +224,7 @@ export const usePlan = create<State>()((set, get) => ({
     const pool: PoolTask[] = (s.plan.pool ?? [])
       .filter((t) => t.empIndex !== empIndex)
       .map((t) => ({ ...t, empIndex: t.empIndex > empIndex ? t.empIndex - 1 : t.empIndex }))
-    set({ plan: { ...s.plan, employees, cells, todos, pool } })
+    set({ plan: { ...s.plan, employees, cells, todos, pool, dismissedRosterEmployeeIds } })
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 

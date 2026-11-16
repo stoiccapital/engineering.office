@@ -91,6 +91,10 @@ export type QuartalPlan = {
   // Key `${empIndex}:${week}` -> todos for that employee/week cell.
   todos?: Record<string, WeekTodo[]>
   pool?: PoolTask[]
+  // Roster-linked employee ids the PM has explicitly removed from this plan.
+  // The auto-sync (QuartalPlanTable) skips these so removal sticks across
+  // renders/reloads. Re-adding via "Aus Roster" clears the id from the list.
+  dismissedRosterEmployeeIds?: string[]
 }
 
 // Legacy shapes stored before this migration landed.
@@ -114,6 +118,7 @@ export function migratePlan(input: QuartalPlan | LegacyPlan | null | undefined):
       id: e.id ?? newId(),
       name: e.name,
       branch: (e.branch ?? 'de') as Branch,
+      ...(e.rosterEmployeeId ? { rosterEmployeeId: e.rosterEmployeeId } : {}),
     },
   )
   const todos: Record<string, WeekTodo[]> = {}
@@ -133,7 +138,14 @@ export function migratePlan(input: QuartalPlan | LegacyPlan | null | undefined):
     text: t.text,
     empIndex: t.empIndex ?? 0,
   }))
-  return { year: input.year, employees, cells: input.cells ?? {}, todos, pool }
+  return {
+    year: input.year,
+    employees,
+    cells: input.cells ?? {},
+    todos,
+    pool,
+    dismissedRosterEmployeeIds: input.dismissedRosterEmployeeIds ?? [],
+  }
 }
 
 export type ZielePersonRole = 'team' | 'ausschreibung' | 'verwaltung'

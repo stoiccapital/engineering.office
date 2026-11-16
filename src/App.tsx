@@ -48,6 +48,7 @@ import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 // Accordion mode — at most one sidebar group is expanded at a time.
 const ACTIVE_GROUP_KEY = 'eo:activeGroup'
+const VIEW_KEY = 'eo:view'
 
 // plan_overview isn't a separate nav entry — it collapses into 'plan' view
 // but with the overview-only tab inside PlanTabs.
@@ -209,11 +210,18 @@ function Shell() {
     ? 'ziele_dashboard'
     : ((Array.from(allowed)[0] as View) ?? 'forecast')
 
-  const [view, setView] = useState<View>(firstAllowed)
+  const [view, setView] = useState<View>(() => {
+    const stored = localStorage.getItem(VIEW_KEY) as View | null
+    return stored && allowed.has(stored) ? stored : firstAllowed
+  })
 
   useEffect(() => {
     if (!allowed.has(view)) setView(firstAllowed)
   }, [view, allowed, firstAllowed])
+
+  useEffect(() => {
+    localStorage.setItem(VIEW_KEY, view)
+  }, [view])
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1',
   )

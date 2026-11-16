@@ -18,7 +18,6 @@ import type {
 import {
   emptyAccessConfig,
   emptyRechnungsplan,
-  emptyRoster,
   rechnungsplanKey,
 } from './types'
 import { defaultUmsatz, defaultZiele } from './lib/seeds'
@@ -129,14 +128,54 @@ function seedPeriod(year: number, quarter: Quarter): Period {
   }
 }
 
+const LOC_DE = 'loc-de'
+const LOC_PL = 'loc-pl'
+const TEAM_BRUECKEN = 'team-de-bruecken'
+const TEAM_TRAGWERK = 'team-de-tragwerk'
+const TEAM_ENERGIE = 'team-de-energie'
+const TEAM_STATYKA = 'team-pl-statyka'
+const TEAM_PRUEFUNG = 'team-pl-pruefung'
+
+function seedRoster(): Roster {
+  return {
+    locations: [
+      { id: LOC_DE, name: 'Deutschland' },
+      { id: LOC_PL, name: 'Polen' },
+    ],
+    teams: [
+      { id: TEAM_BRUECKEN, name: 'Brücken',  locationId: LOC_DE, color: '#2563eb' },
+      { id: TEAM_TRAGWERK, name: 'Tragwerk', locationId: LOC_DE, color: '#16a34a' },
+      { id: TEAM_ENERGIE,  name: 'Energie',  locationId: LOC_DE, color: '#d97706' },
+      { id: TEAM_STATYKA,  name: 'Statyka',  locationId: LOC_PL, color: '#db2777' },
+      { id: TEAM_PRUEFUNG, name: 'Prüfung',  locationId: LOC_PL, color: '#7c3aed' },
+    ],
+    employees: [
+      { id: 'emp-de-01', vorname: 'Matthias',   name: 'Merkin',       teamId: TEAM_BRUECKEN },
+      { id: 'emp-de-02', vorname: 'Sophie',     name: 'Hartmann',     teamId: TEAM_BRUECKEN },
+      { id: 'emp-de-03', vorname: 'Lukas',      name: 'Becker',       teamId: TEAM_BRUECKEN },
+      { id: 'emp-de-04', vorname: 'Thomas',     name: 'Völker',       teamId: TEAM_TRAGWERK },
+      { id: 'emp-de-05', vorname: 'Robert',     name: 'Fischer',      teamId: TEAM_TRAGWERK },
+      { id: 'emp-de-06', vorname: 'Birgit',     name: 'Weiß',         teamId: TEAM_TRAGWERK },
+      { id: 'emp-de-07', vorname: 'Daniel',     name: 'Keller',       teamId: TEAM_ENERGIE },
+      { id: 'emp-de-08', vorname: 'Franziska',  name: 'Schulz',       teamId: TEAM_ENERGIE },
+      { id: 'emp-pl-01', vorname: 'Adam',       name: 'Kowalski',     teamId: TEAM_STATYKA },
+      { id: 'emp-pl-02', vorname: 'Jakub',      name: 'Wiśniewski',   teamId: TEAM_STATYKA },
+      { id: 'emp-pl-03', vorname: 'Piotr',      name: 'Zieliński',    teamId: TEAM_STATYKA },
+      { id: 'emp-pl-04', vorname: 'Katarzyna',  name: 'Nowak',        teamId: TEAM_PRUEFUNG },
+      { id: 'emp-pl-05', vorname: 'Marek',      name: 'Lewandowski',  teamId: TEAM_PRUEFUNG },
+    ],
+  }
+}
+
 function seedPlan(year: number): QuartalPlan {
-  const employees: Employee[] = [
-    { id: crypto.randomUUID(), name: 'M. Merkin',    branch: 'de' },
-    { id: crypto.randomUUID(), name: 'T. Völker',    branch: 'de' },
-    { id: crypto.randomUUID(), name: 'A. Kowalski',  branch: 'pl' },
-    { id: crypto.randomUUID(), name: 'K. Nowak',     branch: 'pl' },
-    { id: crypto.randomUUID(), name: 'J. Wiśniewski',branch: 'pl' },
-  ]
+  const r = roster ?? seedRoster()
+  const teamLoc = new Map(r.teams.map((t) => [t.id, t.locationId]))
+  const employees: Employee[] = r.employees.map((e) => ({
+    id: crypto.randomUUID(),
+    name: [e.vorname, e.name].filter((s) => s.trim().length > 0).join(' '),
+    branch: teamLoc.get(e.teamId ?? '') === LOC_PL ? 'pl' : 'de',
+    rosterEmployeeId: e.id,
+  }))
   const cells: Record<string, PlanStatus> = {}
   const todos: Record<string, WeekTodo[]> = {}
   const w = currentIsoWeek()
@@ -152,7 +191,7 @@ function seedPlan(year: number): QuartalPlan {
   todos[`3:${w}`] = [
     { id: crypto.randomUUID(), text: 'Abstimmen Prüfstatik mit Dezernat', state: 'inProgress' },
   ]
-  todos[`4:${w + 2}`] = [{ id: crypto.randomUUID(), text: 'Urlaub Zakopane', state: 'offen' }]
+  todos[`8:${w + 2}`] = [{ id: crypto.randomUUID(), text: 'Urlaub Zakopane', state: 'offen' }]
   return { year, employees, cells, todos }
 }
 
@@ -221,7 +260,7 @@ const ziele = new Map<number, Ziele>()
 const umsatz = new Map<number, Umsatzkontrolle>()
 const rechnungsplaene = new Map<string, Rechnungsplan>()
 let logo: string | null = null
-let roster: Roster | null = emptyRoster()
+let roster: Roster | null = seedRoster()
 let kostenschaetzung: unknown = null
 let projects: ProjekteDoc | null = null
 let projektliste: ProjektlisteDoc | null = null
