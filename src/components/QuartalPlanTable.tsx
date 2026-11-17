@@ -41,7 +41,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-export type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | 'purple' | null
+export type TodoTone = 'red' | 'green' | 'yellow' | 'blue' | 'purple' | 'orange' | null
 
 export function todoTone(text: string): TodoTone {
   const t = text.toLowerCase()
@@ -49,6 +49,7 @@ export function todoTone(text: string): TodoTone {
   if (t.includes('abgabe')) return 'green'
   if (t.includes('abstimmen')) return 'yellow'
   if (t.includes('urlaub')) return 'blue'
+  if (t.includes('home office') || t.includes('homeoffice')) return 'orange'
   if (t.includes('pufferarbeiten')) return 'purple'
   return null
 }
@@ -58,6 +59,7 @@ export const TONE_CLASSES: Record<Exclude<TodoTone, null>, string> = {
   green: 'text-emerald-600 border-l-2 border-emerald-500 pl-1.5',
   yellow: 'text-amber-600 border-l-2 border-amber-500 pl-1.5',
   blue: 'text-sky-600 border-l-2 border-sky-500 pl-1.5',
+  orange: 'text-orange-600 border-l-2 border-orange-500 pl-1.5',
   purple: 'text-violet-600 border-l-2 border-violet-500 pl-1.5',
 }
 
@@ -68,7 +70,14 @@ const LEGEND_CLASSES: Record<Exclude<TodoTone, null>, string> = {
   green: 'text-emerald-600 border-l-2 border-emerald-500',
   yellow: 'text-amber-600 border-l-2 border-amber-500',
   blue: 'text-sky-600 border-l-2 border-sky-500',
+  orange: 'text-orange-600 border-l-2 border-orange-500',
   purple: 'text-violet-600 border-l-2 border-violet-500',
+}
+
+// Day-picker color themes per tone — reused by both Urlaub and Home Office.
+const DAY_PICKER_THEMES: Record<'blue' | 'orange', { on: string; hover: string }> = {
+  blue: { on: 'bg-sky-100 text-sky-900', hover: 'hover:bg-sky-50 hover:text-sky-900' },
+  orange: { on: 'bg-orange-100 text-orange-900', hover: 'hover:bg-orange-50 hover:text-orange-900' },
 }
 
 const DAYS_LABELS = URLAUB_DAYS_LABELS
@@ -992,7 +1001,7 @@ function TodoRow({
   onRemove: () => void
 }) {
   const tone = todoTone(todo.text)
-  const isUrlaub = tone === 'blue'
+  const dayPickerTone = tone === 'blue' ? 'blue' : tone === 'orange' ? 'orange' : null
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: todo.id, data: { empIndex, week }, disabled: locked })
   const style = {
@@ -1046,12 +1055,27 @@ function TodoRow({
           <X className="h-3 w-3" />
         </button>
       </div>
-      {isUrlaub && <UrlaubDayPicker days={todo.days ?? []} onChange={(days) => onUpdate({ days })} />}
+      {dayPickerTone && (
+        <DayPicker
+          tone={dayPickerTone}
+          days={todo.days ?? []}
+          onChange={(days) => onUpdate({ days })}
+        />
+      )}
     </div>
   )
 }
 
-function UrlaubDayPicker({ days, onChange }: { days: number[]; onChange: (days: number[]) => void }) {
+function DayPicker({
+  tone,
+  days,
+  onChange,
+}: {
+  tone: 'blue' | 'orange'
+  days: number[]
+  onChange: (days: number[]) => void
+}) {
+  const theme = DAY_PICKER_THEMES[tone]
   const toggle = (d: number) => {
     const set = new Set(days)
     if (set.has(d)) set.delete(d)
@@ -1067,7 +1091,7 @@ function UrlaubDayPicker({ days, onChange }: { days: number[]; onChange: (days: 
         onClick={() => onChange([])}
         className={cn(
           'rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors',
-          all ? 'bg-sky-100 text-sky-900' : 'text-muted-foreground hover:bg-sky-50 hover:text-sky-900',
+          all ? theme.on : cn('text-muted-foreground', theme.hover),
         )}
         title="Ganze Woche"
       >
@@ -1083,9 +1107,7 @@ function UrlaubDayPicker({ days, onChange }: { days: number[]; onChange: (days: 
             onClick={() => toggle(d)}
             className={cn(
               'inline-flex h-5 w-6 items-center justify-center rounded text-[10px] font-medium transition-colors',
-              on
-                ? 'bg-sky-100 text-sky-900'
-                : 'text-muted-foreground hover:bg-sky-50 hover:text-sky-900',
+              on ? theme.on : cn('text-muted-foreground', theme.hover),
             )}
             title={`${lbl}`}
           >
@@ -1102,6 +1124,7 @@ const LEGEND_ITEMS: { label: string; tone: Exclude<TodoTone, null>; purpose?: st
   { label: 'Abgabe', tone: 'green' },
   { label: 'Abstimmen', tone: 'yellow' },
   { label: 'Urlaub', tone: 'blue' },
+  { label: 'Home Office', tone: 'orange' },
   {
     label: 'Pufferarbeiten',
     tone: 'purple',
