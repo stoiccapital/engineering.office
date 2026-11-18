@@ -150,6 +150,7 @@ function seedRoster(): Roster {
       { id: TEAM_PRUEFUNG, name: 'Prüfung',  locationId: LOC_PL, color: '#7c3aed' },
     ],
     employees: [
+      { id: 'emp-admin', vorname: 'Admin',      name: '',             teamId: TEAM_BRUECKEN, kuerzel: 'admin', password: 'admin', roleId: 'dev-admin' },
       { id: 'emp-de-01', vorname: 'Matthias',   name: 'Merkin',       teamId: TEAM_BRUECKEN },
       { id: 'emp-de-02', vorname: 'Sophie',     name: 'Hartmann',     teamId: TEAM_BRUECKEN },
       { id: 'emp-de-03', vorname: 'Lukas',      name: 'Becker',       teamId: TEAM_BRUECKEN },
