@@ -11,6 +11,7 @@ import {
   MONTH_LABELS_DE,
   currentISOWeek,
   monthOfISOWeek,
+  quarterOfISOWeek,
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
@@ -37,6 +38,7 @@ const STATUS_BADGE: Record<PlanStatus, string> = {
 
 export function TeamOverview() {
   const year = usePlan((s) => s.year)
+  const quarter = usePlan((s) => s.quarter)
   const plan = usePlan((s) => s.plan)
   const teamFilter = usePlan((s) => s.teamFilter)
   const setTeamFilter = usePlan((s) => s.setTeamFilter)
@@ -59,11 +61,12 @@ export function TeamOverview() {
   const { weekRows, todayWeek } = useMemo(() => {
     const total = weeksInISOYear(year)
     const today = currentISOWeek()
-    // Build rows for every ISO week in the year + collapse consecutive
-    // same-month weeks into a Monat rowSpan so the first column reads like
-    // a calendar strip.
+    // Build rows for every ISO week in the year, then narrow to the picked
+    // quarter. Consecutive same-month weeks collapse into a Monat rowSpan so
+    // the first column reads like a calendar strip.
     const raw: { week: number; month: number; firstOfMonth: boolean; monthSpan: number }[] = []
     for (let w = 1; w <= total; w++) {
+      if (quarter !== 'all' && quarterOfISOWeek(year, w) !== quarter) continue
       raw.push({ week: w, month: monthOfISOWeek(year, w), firstOfMonth: false, monthSpan: 0 })
     }
     let i = 0
@@ -78,7 +81,7 @@ export function TeamOverview() {
       weekRows: raw,
       todayWeek: today.year === year ? today.week : null,
     }
-  }, [year])
+  }, [year, quarter])
 
   // Keep original indices so plan.cells/todos keys stay valid, but group by
   // roster location for display so this matches the Plan view's layout.
