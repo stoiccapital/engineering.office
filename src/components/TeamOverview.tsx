@@ -14,7 +14,7 @@ import {
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react'
+import { Maximize2, Minimize2 } from 'lucide-react'
 import { useRoster } from '@/roster-store'
 import {
   TeamFilterToggle,
@@ -26,8 +26,6 @@ import {
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
 import { StateCycle } from '@/components/ui/state-cycle'
-
-const LOOKAHEAD_WEEKS = 6
 
 // Status badge tones mirror the Plan tab's tone palette so the colour language
 // stays consistent: Abgabe = emerald, Urlaub = sky, Abstimmen = amber.
@@ -43,7 +41,6 @@ export function TeamOverview() {
   const teamFilter = usePlan((s) => s.teamFilter)
   const setTeamFilter = usePlan((s) => s.setTeamFilter)
   const roster = useRoster((s) => s.roster)
-  const [offset, setOffset] = useState(0)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -59,22 +56,14 @@ export function TeamOverview() {
     else void containerRef.current?.requestFullscreen()
   }
 
-  // Reset the window to current week whenever the selected year changes.
-  useEffect(() => {
-    setOffset(0)
-  }, [year])
-
-  const { weekRows, todayWeek, startWeek, totalWeeks } = useMemo(() => {
+  const { weekRows, todayWeek } = useMemo(() => {
     const total = weeksInISOYear(year)
     const today = currentISOWeek()
-    const baseWeek = today.year === year ? Math.min(today.week, total) : 1
-    const maxStart = Math.max(1, total - LOOKAHEAD_WEEKS + 1)
-    const startWeek = Math.max(1, Math.min(baseWeek + offset, maxStart))
-    const end = Math.min(startWeek + LOOKAHEAD_WEEKS - 1, total)
-    // Build rows + collapse consecutive same-month weeks into a Monat rowSpan
-    // so the first column reads like a calendar strip.
+    // Build rows for every ISO week in the year + collapse consecutive
+    // same-month weeks into a Monat rowSpan so the first column reads like
+    // a calendar strip.
     const raw: { week: number; month: number; firstOfMonth: boolean; monthSpan: number }[] = []
-    for (let w = startWeek; w <= end; w++) {
+    for (let w = 1; w <= total; w++) {
       raw.push({ week: w, month: monthOfISOWeek(year, w), firstOfMonth: false, monthSpan: 0 })
     }
     let i = 0
@@ -88,10 +77,8 @@ export function TeamOverview() {
     return {
       weekRows: raw,
       todayWeek: today.year === year ? today.week : null,
-      startWeek,
-      totalWeeks: total,
     }
-  }, [year, offset])
+  }, [year])
 
   // Keep original indices so plan.cells/todos keys stay valid, but group by
   // roster location for display so this matches the Plan view's layout.
@@ -140,14 +127,9 @@ export function TeamOverview() {
 
   if (!plan) return null
 
-  const canGoBack = startWeek > 1
-  const canGoForward = startWeek + LOOKAHEAD_WEEKS - 1 < totalWeeks
-  const atToday = todayWeek !== null && weekRows.some((w) => w.week === todayWeek) && offset === 0
-
   const subtitle = (
     <>
-      <Num>{plan.employees.length}</Num> Mitarbeiter · KW{' '}
-      <Num>{weekRows[0]?.week ?? '—'}</Num>–<Num>{weekRows[weekRows.length - 1]?.week ?? '—'}</Num>
+      <Num>{plan.employees.length}</Num> Mitarbeiter · <Num>{weekRows.length}</Num> Wochen
     </>
   )
 
@@ -165,15 +147,6 @@ export function TeamOverview() {
         action={
           <div className="flex items-center gap-1">
             <TeamFilterToggle value={teamFilter} onChange={setTeamFilter} />
-            <WindowNav
-              onBack={() => setOffset((o) => o - 1)}
-              onForward={() => setOffset((o) => o + 1)}
-              onToday={() => setOffset(0)}
-              canGoBack={canGoBack}
-              canGoForward={canGoForward}
-              atToday={atToday}
-              todayAvailable={todayWeek !== null}
-            />
             <button
               onClick={toggleFullscreen}
               title={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
@@ -339,70 +312,6 @@ export function TeamOverview() {
           </table>
         </div>
       </Section>
-    </div>
-  )
-}
-
-function WindowNav({
-  onBack,
-  onForward,
-  onToday,
-  canGoBack,
-  canGoForward,
-  atToday,
-  todayAvailable,
-}: {
-  onBack: () => void
-  onForward: () => void
-  onToday: () => void
-  canGoBack: boolean
-  canGoForward: boolean
-  atToday: boolean
-  todayAvailable: boolean
-}) {
-  return (
-    <div className="flex items-center gap-1 rounded-md border bg-card p-1">
-      <button
-        onClick={onBack}
-        disabled={!canGoBack}
-        className={cn(
-          'rounded p-1 transition-colors',
-          canGoBack
-            ? 'text-muted-foreground hover:bg-accent hover:text-foreground'
-            : 'cursor-not-allowed text-muted-foreground/40',
-        )}
-        title="Eine Woche zurück"
-        aria-label="Eine Woche zurück"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
-      <button
-        onClick={onToday}
-        disabled={!todayAvailable || atToday}
-        className={cn(
-          'rounded px-2 py-0.5 text-xs font-medium transition-colors',
-          !todayAvailable || atToday
-            ? 'cursor-not-allowed text-muted-foreground/40'
-            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-        )}
-        title="Zur aktuellen Woche"
-      >
-        Heute
-      </button>
-      <button
-        onClick={onForward}
-        disabled={!canGoForward}
-        className={cn(
-          'rounded p-1 transition-colors',
-          canGoForward
-            ? 'text-muted-foreground hover:bg-accent hover:text-foreground'
-            : 'cursor-not-allowed text-muted-foreground/40',
-        )}
-        title="Eine Woche vor"
-        aria-label="Eine Woche vor"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
     </div>
   )
 }
