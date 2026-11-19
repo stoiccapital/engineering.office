@@ -12,7 +12,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 HOME = Path.home()
-SRC_KGK = HOME / 'Desktop' / 'Datenbank gem. Ril 808 (1).xlsx'
+SRC_KGK = HOME / 'Desktop' / 'Datenbank gem. Ril 808.xlsx'
 SRC_FREI = HOME / 'Desktop' / 'Datenbank_freie_Einheitspreise (1).xlsx'
 
 OUT_DIR = Path(__file__).resolve().parent.parent / 'src' / 'features' / 'kostenermittlung' / 'data'
@@ -40,6 +40,20 @@ def norm_unit(u):
     return UNIT_MAP.get(s, s)
 
 
+def to_str(v):
+    if v is None:
+        return None
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
+
+
+def to_num(v):
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return v
+    return None
+
+
 def extract_kgk():
     wb = load_workbook(SRC_KGK, data_only=True, read_only=True)
     ws = wb['Datenbank']
@@ -49,38 +63,31 @@ def extract_kgk():
         code = r[0]
         if code is None:
             continue
-        code = str(int(code)) if isinstance(code, float) and code.is_integer() else str(code)
-        ebene = r[1]
-        bezeichnung = r[2]
-        einheit = norm_unit(r[3])
-        anmerkung = r[4]
-        pfad = r[5]
-        parent = r[7]
-        parent = (
-            str(int(parent)) if isinstance(parent, float) and parent.is_integer()
-            else (str(parent) if parent is not None else None)
-        )
-        # EP range at Q3/2026 (cols 17, 18, 19 — 1-indexed in dump, 0-indexed here)
-        ep_von = r[16]
-        ep_bis = r[17]
-        ep_einheit = norm_unit(r[18])
-        # Only keep numeric prices; structural rows have None/dates here.
-        if not isinstance(ep_von, (int, float)):
-            ep_von = None
-        if not isinstance(ep_bis, (int, float)):
-            ep_bis = None
+        code = to_str(code)
         entries.append(
             {
                 'code': code,
-                'ebene': int(ebene) if ebene is not None else None,
-                'bezeichnung': bezeichnung,
-                'einheit': einheit,
-                'anmerkung': anmerkung,
-                'parent': parent,
-                'pfad': pfad,
-                'epVon': ep_von,
-                'epBis': ep_bis,
-                'epEinheit': ep_einheit,
+                'ebene': int(r[1]) if r[1] is not None else None,
+                'bezeichnung': r[2],
+                'einheit': norm_unit(r[3]),
+                'anmerkung': r[4],
+                'pfad': r[5],
+                'codeInQuelle': r[6],
+                'parent': to_str(r[7]),
+                'kostengliederung': r[8],
+                'ebene1': r[9],
+                'ebene2': r[10],
+                'ebene3': r[11],
+                'ebene4': r[12],
+                'ebene5': r[13],
+                'ebene6': r[14],
+                'faktor': to_num(r[15]),
+                'epVon': to_num(r[16]),
+                'epBis': to_num(r[17]),
+                'epEinheit': norm_unit(r[18]),
+                'epAktuellVon': to_num(r[19]),
+                'epAktuellBis': to_num(r[20]),
+                'epAktuellEinheit': norm_unit(r[21]),
             }
         )
     return entries

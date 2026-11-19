@@ -10,11 +10,23 @@ export type KgkEntry = {
   bezeichnung: string
   einheit: string | null
   anmerkung: string | null
-  parent: string | null
   pfad: string | null
+  codeInQuelle: string | null
+  parent: string | null
+  kostengliederung: string | null
+  ebene1: string | null
+  ebene2: string | null
+  ebene3: string | null
+  ebene4: string | null
+  ebene5: string | null
+  ebene6: string | null
+  faktor: number | null
   epVon: number | null
   epBis: number | null
   epEinheit: string | null
+  epAktuellVon: number | null
+  epAktuellBis: number | null
+  epAktuellEinheit: string | null
 }
 
 export type FreiEntry = {

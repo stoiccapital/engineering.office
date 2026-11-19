@@ -357,18 +357,55 @@ function KgkList({
     overscan: 10,
   })
 
+  // All 22 columns from the Excel source + leading Aktion-Spalte when in edit
+  // mode. Dynamic grid templates go via inline style — Tailwind's JIT won't
+  // pick up computed class names.
+  const gridStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns:
+      (editMode ? '60px ' : '') +
+      '110px 60px 240px 80px 260px 320px 120px 120px 140px 160px 180px 180px 180px 180px 180px 80px 120px 120px 120px 120px 120px 120px',
+    gap: '0.5rem',
+    alignItems: 'center',
+  }
+
+  // 22 column widths + 8 px grid-gap × 21 + horizontal row padding (px-4 = 32 px).
+  // Inner wrapper must be at least this wide so row border-b extends across
+  // the whole table, not just the viewport.
+  const innerMinWidth = (editMode ? 60 + 8 : 0) + 3310 + 21 * 8 + 32
+
   return (
-    <>
-      <div className="grid grid-cols-[110px_280px_1fr_60px_80px_180px] gap-2 border-b bg-muted/50 px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground">
-        <div>KGK</div>
-        <div>Bezeichnung</div>
-        <div>Anmerkung</div>
-        <div>Ebene</div>
-        <div>Einheit</div>
-        <div className="text-right">EP Q3/2026 [EUR]</div>
-      </div>
-      <div ref={parentRef} className="h-[60vh] overflow-y-auto">
-        <div style={{ height: virt.getTotalSize(), position: 'relative', width: '100%' }}>
+    <div ref={parentRef} className="h-[60vh] overflow-auto">
+      <div style={{ minWidth: innerMinWidth }}>
+        <div
+          style={gridStyle}
+          className="sticky top-0 z-10 border-b bg-muted/80 px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground backdrop-blur"
+        >
+          {editMode && <div></div>}
+          <div>KGK</div>
+          <div>Ebene</div>
+          <div>Bezeichnung</div>
+          <div>Einheit</div>
+          <div>Anmerkung</div>
+          <div>Pfad</div>
+          <div>Code i. Quelle</div>
+          <div>Übergeordnet</div>
+          <div>Kostengliederung</div>
+          <div>Ebene 1</div>
+          <div>Ebene 2</div>
+          <div>Ebene 3</div>
+          <div>Ebene 4</div>
+          <div>Ebene 5</div>
+          <div>Ebene 6</div>
+          <div className="text-right">Faktor</div>
+          <div className="text-right">EP Q3/26 von</div>
+          <div className="text-right">EP Q3/26 bis</div>
+          <div>Einh.-Spanne</div>
+          <div className="text-right">EP AKT. von</div>
+          <div className="text-right">EP AKT. bis</div>
+          <div>Einh.-AKT.</div>
+        </div>
+        <div style={{ height: virt.getTotalSize(), position: 'relative' }}>
           {virt.getVirtualItems().map((row) => {
             const e = entries[row.index]
             const hidden = hiddenKgk.has(e.code)
@@ -387,40 +424,10 @@ function KgkList({
                   height: row.size,
                 }}
               >
-                <div className="grid grid-cols-[110px_280px_1fr_60px_80px_180px] gap-2">
-                  <div className="flex items-center gap-1 font-mono tabular-nums text-muted-foreground">
-                    {e.code}
-                    {added && (
-                      <span
-                        title="Benutzer-Eintrag"
-                        className="inline-flex items-center rounded-sm bg-emerald-500/15 px-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400"
-                      >
-                        neu
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{e.bezeichnung}</div>
-                    {e.pfad && (
-                      <div className="truncate text-[10px] text-muted-foreground">
-                        {e.pfad}
-                      </div>
-                    )}
-                  </div>
-                  <div
-                    className="truncate text-muted-foreground"
-                    title={e.anmerkung ?? undefined}
-                  >
-                    {e.anmerkung ?? ''}
-                  </div>
-                  <div className="text-muted-foreground">{e.ebene}</div>
-                  <div className="text-muted-foreground">{e.einheit ?? '—'}</div>
-                  <div className="flex items-center justify-end gap-2">
-                    <div className="text-right font-mono tabular-nums">
-                      {formatRange(e.epVon, e.epBis)}
-                    </div>
-                    {editMode &&
-                      (added ? (
+                <div style={gridStyle}>
+                  {editMode && (
+                    <div className="flex items-center gap-0.5">
+                      {added ? (
                         <button
                           type="button"
                           title="Löschen"
@@ -429,7 +436,7 @@ function KgkList({
                             if (window.confirm(`"${e.bezeichnung}" löschen?`))
                               onDelete(e.code)
                           }}
-                          className="rounded p-1 text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -441,7 +448,7 @@ function KgkList({
                             ev.stopPropagation()
                             onToggleHide(e.code)
                           }}
-                          className="rounded p-1 text-muted-foreground opacity-0 hover:bg-accent group-hover:opacity-100"
+                          className="rounded p-1 text-muted-foreground hover:bg-accent"
                         >
                           {hidden ? (
                             <Eye className="h-3.5 w-3.5" />
@@ -449,8 +456,71 @@ function KgkList({
                             <EyeOff className="h-3.5 w-3.5" />
                           )}
                         </button>
-                      ))}
-                  </div>
+                      )}
+                    </div>
+                  )}
+                  <Cell className="flex items-center gap-1 font-mono tabular-nums text-muted-foreground">
+                    {e.code}
+                    {added && (
+                      <span
+                        title="Benutzer-Eintrag"
+                        className="inline-flex items-center rounded-sm bg-emerald-500/15 px-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400"
+                      >
+                        neu
+                      </span>
+                    )}
+                  </Cell>
+                  <Cell className="text-muted-foreground">{e.ebene}</Cell>
+                  <Cell className="truncate font-medium" title={e.bezeichnung}>
+                    {e.bezeichnung}
+                  </Cell>
+                  <Cell className="text-muted-foreground">{e.einheit ?? '—'}</Cell>
+                  <Cell className="truncate text-muted-foreground" title={e.anmerkung ?? undefined}>
+                    {e.anmerkung ?? ''}
+                  </Cell>
+                  <Cell className="truncate text-muted-foreground" title={e.pfad ?? undefined}>
+                    {e.pfad ?? ''}
+                  </Cell>
+                  <Cell className="font-mono tabular-nums text-muted-foreground">
+                    {e.codeInQuelle ?? ''}
+                  </Cell>
+                  <Cell className="font-mono tabular-nums text-muted-foreground">
+                    {e.parent ?? ''}
+                  </Cell>
+                  <Cell className="font-mono tabular-nums text-muted-foreground">
+                    {e.kostengliederung ?? ''}
+                  </Cell>
+                  <Cell className="truncate text-muted-foreground" title={e.ebene1 ?? undefined}>
+                    {e.ebene1 ?? ''}
+                  </Cell>
+                  <Cell className="truncate text-muted-foreground" title={e.ebene2 ?? undefined}>
+                    {e.ebene2 ?? ''}
+                  </Cell>
+                  <Cell className="truncate text-muted-foreground" title={e.ebene3 ?? undefined}>
+                    {e.ebene3 ?? ''}
+                  </Cell>
+                  <Cell className="truncate text-muted-foreground" title={e.ebene4 ?? undefined}>
+                    {e.ebene4 ?? ''}
+                  </Cell>
+                  <Cell className="truncate text-muted-foreground" title={e.ebene5 ?? undefined}>
+                    {e.ebene5 ?? ''}
+                  </Cell>
+                  <Cell className="truncate text-muted-foreground" title={e.ebene6 ?? undefined}>
+                    {e.ebene6 ?? ''}
+                  </Cell>
+                  <Cell className="text-right font-mono tabular-nums text-muted-foreground">
+                    {formatNum(e.faktor)}
+                  </Cell>
+                  <Cell className="text-right font-mono tabular-nums">{formatNum(e.epVon)}</Cell>
+                  <Cell className="text-right font-mono tabular-nums">{formatNum(e.epBis)}</Cell>
+                  <Cell className="text-muted-foreground">{e.epEinheit ?? ''}</Cell>
+                  <Cell className="text-right font-mono tabular-nums">
+                    {formatNum(e.epAktuellVon)}
+                  </Cell>
+                  <Cell className="text-right font-mono tabular-nums">
+                    {formatNum(e.epAktuellBis)}
+                  </Cell>
+                  <Cell className="text-muted-foreground">{e.epAktuellEinheit ?? ''}</Cell>
                 </div>
               </div>
             )
@@ -462,8 +532,32 @@ function KgkList({
           )}
         </div>
       </div>
-    </>
+    </div>
   )
+}
+
+function Cell({
+  className,
+  title,
+  children,
+}: {
+  className?: string
+  title?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn('min-w-0', className)} title={title}>
+      {children}
+    </div>
+  )
+}
+
+function formatNum(v: number | null): string {
+  if (v === null || v === undefined) return ''
+  return new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(v)
 }
 
 function FreiList({
@@ -627,10 +721,3 @@ function fmt2(v: number): string {
   }).format(v)
 }
 
-function formatRange(von: number | null, bis: number | null): string {
-  if (von === null && bis === null) return '—'
-  if (von !== null && bis !== null && von !== bis) {
-    return `${fmt2(von)} – ${fmt2(bis)}`
-  }
-  return fmt2(von ?? bis ?? 0)
-}
