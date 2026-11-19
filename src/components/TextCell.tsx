@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -27,19 +28,12 @@ export function TextCell({
 
   if (multiline) {
     return (
-      <textarea
-        rows={1}
-        className={cn(
-          base,
-          interactive,
-          'resize-none whitespace-pre-wrap break-words leading-snug',
-          className,
-        )}
-        style={{ fieldSizing: 'content' } as React.CSSProperties}
+      <MultilineTextCell
         value={value}
+        onChange={onChange}
         placeholder={placeholder}
         readOnly={readOnly}
-        onChange={(e) => onChange(e.target.value)}
+        className={cn(base, interactive, className)}
       />
     )
   }
@@ -47,6 +41,47 @@ export function TextCell({
   return (
     <input
       className={cn(base, interactive, className)}
+      value={value}
+      placeholder={placeholder}
+      readOnly={readOnly}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  )
+}
+
+// Auto-growing textarea. Starts as one row and expands to fit its content on
+// every value change — including external updates (e.g. the Kostenermittlung
+// katalog picker writing a long `text` field). Done in JS because the newer
+// `field-sizing: content` CSS is Chromium-only; this pattern works in Safari
+// and Firefox too.
+function MultilineTextCell({
+  value,
+  onChange,
+  placeholder,
+  readOnly,
+  className,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  readOnly?: boolean
+  className?: string
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      className={cn(
+        'resize-none whitespace-pre-wrap break-words leading-snug',
+        className,
+      )}
       value={value}
       placeholder={placeholder}
       readOnly={readOnly}
