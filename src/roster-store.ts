@@ -7,6 +7,11 @@ import {
   type RosterTeam,
 } from './types'
 import { fetchRoster, saveRoster } from './api'
+import { logActivity } from '@/activity-store'
+
+function log(action: string, target?: string) {
+  logActivity({ kind: 'action', module: 'mitarbeiter', action, target })
+}
 
 type SaveStatus = 'idle' | 'loading' | 'saving' | 'saved' | 'error'
 
@@ -77,6 +82,7 @@ export const useRoster = create<State>()((set, get) => ({
     if (!s.roster) return
     const loc: RosterLocation = { id: newId(), name }
     set({ roster: { ...s.roster, locations: [...s.roster.locations, loc] } })
+    log('location.add', name || loc.id)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -89,13 +95,14 @@ export const useRoster = create<State>()((set, get) => ({
         locations: s.roster.locations.map((l) => (l.id === id ? { ...l, ...patch } : l)),
       },
     })
+    log(`location.update.${Object.keys(patch).join(',') || 'any'}`, id)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
   removeLocation: (id) => {
     const s = get()
     if (!s.roster) return
-    // Orphan teams instead of cascade-delete; admin reassigns.
+    const removed = s.roster.locations.find((l) => l.id === id)
     set({
       roster: {
         ...s.roster,
@@ -105,6 +112,7 @@ export const useRoster = create<State>()((set, get) => ({
         ),
       },
     })
+    log('location.remove', removed?.name ?? id)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -113,6 +121,7 @@ export const useRoster = create<State>()((set, get) => ({
     if (!s.roster) return
     const team: RosterTeam = { id: newId(), name, locationId }
     set({ roster: { ...s.roster, teams: [...s.roster.teams, team] } })
+    log('team.add', name || team.id)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -125,13 +134,14 @@ export const useRoster = create<State>()((set, get) => ({
         teams: s.roster.teams.map((t) => (t.id === id ? { ...t, ...patch } : t)),
       },
     })
+    log(`team.update.${Object.keys(patch).join(',') || 'any'}`, id)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
   removeTeam: (id) => {
     const s = get()
     if (!s.roster) return
-    // Orphan the employees so admin can reassign; don't cascade-delete.
+    const removed = s.roster.teams.find((t) => t.id === id)
     set({
       roster: {
         ...s.roster,
@@ -141,6 +151,7 @@ export const useRoster = create<State>()((set, get) => ({
         ),
       },
     })
+    log('team.remove', removed?.name ?? id)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -149,12 +160,14 @@ export const useRoster = create<State>()((set, get) => ({
     if (!s.roster) return
     const emp: RosterEmployee = { id: newId(), vorname: '', name: '', teamId }
     set({ roster: { ...s.roster, employees: [...s.roster.employees, emp] } })
+    log('employee.add', emp.id)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
   updateEmployee: (id, patch) => {
     const s = get()
     if (!s.roster) return
+    const target = s.roster.employees.find((e) => e.id === id)
     set({
       roster: {
         ...s.roster,
@@ -163,18 +176,30 @@ export const useRoster = create<State>()((set, get) => ({
         ),
       },
     })
+    // Separate action for password changes so admins can audit them explicitly.
+    const label =
+      target && target.kuerzel
+        ? `${target.vorname} ${target.name} (${target.kuerzel})`
+        : id
+    if (Object.hasOwn(patch, 'password')) log('employee.password.set', label)
+    else log(`employee.update.${Object.keys(patch).join(',') || 'any'}`, label)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
   removeEmployee: (id) => {
     const s = get()
     if (!s.roster) return
+    const removed = s.roster.employees.find((e) => e.id === id)
     set({
       roster: {
         ...s.roster,
         employees: s.roster.employees.filter((e) => e.id !== id),
       },
     })
+    log(
+      'employee.remove',
+      removed ? `${removed.vorname} ${removed.name}` : id,
+    )
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -191,6 +216,7 @@ export const useRoster = create<State>()((set, get) => ({
         ),
       },
     })
+    log('employee.logins.clear.all', exceptId ? `except ${exceptId}` : undefined)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 }))

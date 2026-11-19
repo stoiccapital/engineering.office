@@ -1,5 +1,12 @@
 import { create } from 'zustand'
 import { fetchHr, saveHr } from '@/api'
+import { logActivity } from '@/activity-store'
+
+function log(action: string, target?: string) {
+  // All HR mutations roll up under hr_zeiterfassung for the activity log.
+  // Gespräche-specific actions use the action name to disambiguate.
+  logActivity({ kind: 'action', module: 'hr_zeiterfassung', action, target })
+}
 import {
   buildUtterance,
   emptyDoc,
@@ -87,22 +94,27 @@ export const useHr = create<State>()((set, get) => ({
       notiz: init.notiz ?? '',
     }
     mutate(get, set, (d) => ({ ...d, entries: [...d.entries, entry] }))
+    log('entry.add', `${entry.datum} · ${entry.employeeId}`)
     return id
   },
 
-  updateEntry: (id, patch) =>
+  updateEntry: (id, patch) => {
     mutate(get, set, (d) => ({
       ...d,
       entries: d.entries.map((e) => (e.id === id ? { ...e, ...patch } : e)),
-    })),
+    }))
+    log(`entry.update.${Object.keys(patch).join(',') || 'any'}`, id)
+  },
 
-  removeEntry: (id) =>
+  removeEntry: (id) => {
     mutate(get, set, (d) => ({
       ...d,
       entries: d.entries.filter((e) => e.id !== id),
-    })),
+    }))
+    log('entry.remove', id)
+  },
 
-  duplicateEntry: (id) =>
+  duplicateEntry: (id) => {
     mutate(get, set, (d) => {
       const src = d.entries.find((e) => e.id === id)
       if (!src) return d
@@ -111,7 +123,9 @@ export const useHr = create<State>()((set, get) => ({
       const next = [...d.entries]
       next.splice(i + 1, 0, clone)
       return { ...d, entries: next }
-    }),
+    })
+    log('entry.duplicate', id)
+  },
 
   postUtterance: (employeeId, author, text) => {
     const trimmed = text.trim()
@@ -129,9 +143,10 @@ export const useHr = create<State>()((set, get) => ({
       next[i] = { ...next[i], utterances: [...next[i].utterances, u] }
       return { ...d, threads: next }
     })
+    log('gespraeche.post', `→ ${employeeId}`)
   },
 
-  removeUtterance: (employeeId, utteranceId) =>
+  removeUtterance: (employeeId, utteranceId) => {
     mutate(get, set, (d) => ({
       ...d,
       threads: d.threads.map((t) =>
@@ -139,7 +154,9 @@ export const useHr = create<State>()((set, get) => ({
           ? { ...t, utterances: t.utterances.filter((u) => u.id !== utteranceId) }
           : t,
       ),
-    })),
+    }))
+    log('gespraeche.remove', `${employeeId} · ${utteranceId}`)
+  },
 }))
 
 export function emptyHrDoc(): HrDoc {

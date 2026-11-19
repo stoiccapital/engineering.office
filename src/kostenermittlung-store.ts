@@ -2,11 +2,16 @@ import { create } from 'zustand'
 import { fetchKostenermittlung, saveKostenermittlung } from '@/api'
 import { emptyDoc, normalize } from '@/features/kostenermittlung/lib/domain'
 import seed from '@/features/kostenermittlung/data/seed.json'
+import { logActivity } from '@/activity-store'
 import type {
   Kostenermittlung,
   Position,
   Projektkopf,
 } from '@/features/kostenermittlung/types'
+
+function log(action: string, target?: string) {
+  logActivity({ kind: 'action', module: 'ke_positionen', action, target })
+}
 
 type Status = 'idle' | 'loading' | 'saving' | 'saved' | 'error'
 
@@ -77,8 +82,10 @@ export const useKostenermittlung = create<State>()((set, get) => ({
     }
   },
 
-  setKopf: (patch) =>
-    mutate(get, set, (d) => ({ ...d, kopf: { ...d.kopf, ...patch } })),
+  setKopf: (patch) => {
+    mutate(get, set, (d) => ({ ...d, kopf: { ...d.kopf, ...patch } }))
+    log(`kopf.update.${Object.keys(patch).join(',') || 'any'}`)
+  },
 
   addPosition: (hauptgruppe, init) => {
     const id = genId()
@@ -94,22 +101,27 @@ export const useKostenermittlung = create<State>()((set, get) => ({
       erlaeuterung: init?.erlaeuterung ?? null,
     }
     mutate(get, set, (d) => ({ ...d, positionen: [...d.positionen, pos] }))
+    log('position.add', `HG ${hauptgruppe} · ${pos.kgk ?? '—'}`)
     return id
   },
 
-  updatePosition: (id, patch) =>
+  updatePosition: (id, patch) => {
     mutate(get, set, (d) => ({
       ...d,
       positionen: d.positionen.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-    })),
+    }))
+    log(`position.update.${Object.keys(patch).join(',') || 'any'}`, id)
+  },
 
-  removePosition: (id) =>
+  removePosition: (id) => {
     mutate(get, set, (d) => ({
       ...d,
       positionen: d.positionen.filter((p) => p.id !== id),
-    })),
+    }))
+    log('position.remove', id)
+  },
 
-  duplicatePosition: (id) =>
+  duplicatePosition: (id) => {
     mutate(get, set, (d) => {
       const src = d.positionen.find((p) => p.id === id)
       if (!src) return d
@@ -118,12 +130,12 @@ export const useKostenermittlung = create<State>()((set, get) => ({
       const next = [...d.positionen]
       next.splice(i + 1, 0, clone)
       return { ...d, positionen: next }
-    }),
+    })
+    log('position.duplicate', id)
+  },
 
-  reorderInHauptgruppe: (hauptgruppe, orderedIds) =>
+  reorderInHauptgruppe: (hauptgruppe, orderedIds) => {
     mutate(get, set, (d) => {
-      // Build a map so we can splice the new order back into the flat
-      // positionen array without disturbing other Hauptgruppen.
       const byId = new Map(d.positionen.map((p) => [p.id, p]))
       let idx = 0
       const nextList: Position[] = d.positionen.map((p) => {
@@ -132,15 +144,19 @@ export const useKostenermittlung = create<State>()((set, get) => ({
         return byId.get(nextId) ?? p
       })
       return { ...d, positionen: nextList }
-    }),
+    })
+    log('position.reorder', `HG ${hauptgruppe}`)
+  },
 
   resetToEmpty: () => {
     set({ doc: emptyDoc() })
+    log('doc.reset.empty')
     scheduleSave(get, set)
   },
 
   resetToSeed: () => {
     set({ doc: normalize(seed as unknown) })
+    log('doc.reset.seed')
     scheduleSave(get, set)
   },
 }))

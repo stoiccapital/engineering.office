@@ -3,6 +3,17 @@ import type { Branch, Employee, PlanStatus, PoolTask, QuartalPlan, WeekTodo } fr
 import { migratePlan } from './types'
 import { fetchPlan, savePlan } from './api'
 import { currentISOWeek, quarterOfISOWeek, type QuarterLabel } from './lib/iso-week'
+import { logActivity } from '@/activity-store'
+
+// Short helpers so the activity-log call sites stay readable. target is a
+// human-readable label, not an id, so admins can scan the log.
+function empLabel(plan: QuartalPlan | null, empIndex: number): string {
+  const emp = plan?.employees[empIndex]
+  return emp ? `${emp.name}` : `MA-${empIndex}`
+}
+function log(action: string, target?: string) {
+  logActivity({ kind: 'action', module: 'plan', action, target })
+}
 
 const CURRENT_YEAR = new Date().getFullYear()
 const INITIAL_QUARTER: QuarterLabel = (() => {
@@ -144,6 +155,10 @@ export const usePlan = create<State>()((set, get) => ({
     if (status === null) delete cells[k]
     else cells[k] = status
     set({ plan: { ...s.plan, cells } })
+    log(
+      status === null ? 'cell.clear' : `cell.set.${status}`,
+      `KW ${week} · ${empLabel(s.plan, empIndex)}`,
+    )
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -152,6 +167,7 @@ export const usePlan = create<State>()((set, get) => ({
     if (!s.plan) return
     const employees = s.plan.employees.map((e, i) => (i === empIndex ? { ...e, name } : e))
     set({ plan: { ...s.plan, employees } })
+    log('employee.rename', `${empLabel(s.plan, empIndex)} → ${name}`)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -160,6 +176,7 @@ export const usePlan = create<State>()((set, get) => ({
     if (!s.plan) return
     const employees = s.plan.employees.map((e, i) => (i === empIndex ? { ...e, branch } : e))
     set({ plan: { ...s.plan, employees } })
+    log('employee.branch', `${empLabel(s.plan, empIndex)} → ${branch}`)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -173,6 +190,7 @@ export const usePlan = create<State>()((set, get) => ({
     }
     const employees = [...s.plan.employees, newEmp]
     set({ plan: { ...s.plan, employees } })
+    log('employee.add', newEmp.name)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -192,6 +210,7 @@ export const usePlan = create<State>()((set, get) => ({
       (id) => id !== rosterEmployeeId,
     )
     set({ plan: { ...s.plan, employees, dismissedRosterEmployeeIds } })
+    log('employee.add.roster', name)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -199,6 +218,7 @@ export const usePlan = create<State>()((set, get) => ({
     const s = get()
     if (!s.plan) return
     const removed = s.plan.employees[empIndex]
+    if (removed) log('employee.remove', removed.name)
     const employees = s.plan.employees.filter((_, i) => i !== empIndex)
     const dismissedRosterEmployeeIds = removed?.rosterEmployeeId
       ? Array.from(
@@ -239,6 +259,7 @@ export const usePlan = create<State>()((set, get) => ({
     const todo: WeekTodo = { id: newId(), text: '', state: 'offen' }
     const todos = { ...(s.plan.todos ?? {}), [k]: [...current, todo] }
     set({ plan: { ...s.plan, todos } })
+    log('todo.add', `KW ${week} · ${empLabel(s.plan, empIndex)}`)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -250,6 +271,11 @@ export const usePlan = create<State>()((set, get) => ({
     const next = current.map((t) => (t.id === id ? { ...t, ...patch } : t))
     const todos = { ...(s.plan.todos ?? {}), [k]: next }
     set({ plan: { ...s.plan, todos } })
+    const changed = Object.keys(patch).join(',')
+    log(
+      `todo.update.${changed || 'any'}`,
+      `KW ${week} · ${empLabel(s.plan, empIndex)}`,
+    )
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -263,6 +289,7 @@ export const usePlan = create<State>()((set, get) => ({
     if (next.length === 0) delete allTodos[k]
     else allTodos[k] = next
     set({ plan: { ...s.plan, todos: allTodos } })
+    log('todo.remove', `KW ${week} · ${empLabel(s.plan, empIndex)}`)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -271,6 +298,7 @@ export const usePlan = create<State>()((set, get) => ({
     if (!s.plan) return
     const pool = [...(s.plan.pool ?? []), { id: newId(), text, empIndex }]
     set({ plan: { ...s.plan, pool } })
+    log('pool.add', empLabel(s.plan, empIndex))
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -279,6 +307,7 @@ export const usePlan = create<State>()((set, get) => ({
     if (!s.plan) return
     const pool = (s.plan.pool ?? []).map((t) => (t.id === id ? { ...t, text } : t))
     set({ plan: { ...s.plan, pool } })
+    log('pool.update', id)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -287,6 +316,7 @@ export const usePlan = create<State>()((set, get) => ({
     if (!s.plan) return
     const pool = (s.plan.pool ?? []).filter((t) => t.id !== id)
     set({ plan: { ...s.plan, pool } })
+    log('pool.remove', id)
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -301,6 +331,10 @@ export const usePlan = create<State>()((set, get) => ({
     const todos = { ...(s.plan.todos ?? {}), [k]: [...current, todo] }
     const pool = (s.plan.pool ?? []).filter((t) => t.id !== poolId)
     set({ plan: { ...s.plan, todos, pool } })
+    log(
+      'pool.assign',
+      `KW ${week} · ${empLabel(s.plan, poolEntry.empIndex)}`,
+    )
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -332,6 +366,16 @@ export const usePlan = create<State>()((set, get) => ({
     }
 
     set({ plan: { ...s.plan, todos } })
+    const isReorder = from.empIndex === to.empIndex && from.week === to.week
+    log(
+      isReorder ? 'todo.reorder' : 'todo.move',
+      isReorder
+        ? `KW ${from.week} · ${empLabel(s.plan, from.empIndex)}`
+        : `${empLabel(s.plan, from.empIndex)} KW ${from.week} → ${empLabel(
+            s.plan,
+            to.empIndex,
+          )} KW ${to.week}`,
+    )
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 
@@ -351,6 +395,10 @@ export const usePlan = create<State>()((set, get) => ({
       t.empIndex === fromEmpIndex ? { ...t, empIndex: toEmpIndex } : t,
     )
     set({ plan: { ...s.plan, todos, pool } })
+    log(
+      'todo.move.all',
+      `${empLabel(s.plan, fromEmpIndex)} → ${empLabel(s.plan, toEmpIndex)}`,
+    )
     scheduleSave(get, (p) => set(p as Partial<State>))
   },
 }))

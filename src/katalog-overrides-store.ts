@@ -1,5 +1,10 @@
 import { create } from 'zustand'
 import { fetchKatalogOverrides, saveKatalogOverrides } from '@/api'
+import { logActivity } from '@/activity-store'
+
+function log(action: string, target?: string) {
+  logActivity({ kind: 'action', module: 'ke_datenbank', action, target })
+}
 import type { FreiEntry, KgkEntry } from '@/features/kostenermittlung/lib/katalog'
 import {
   emptyOverrides,
@@ -74,71 +79,90 @@ export const useKatalogOverrides = create<State>()((set, get) => ({
     }
   },
 
-  updateKgk: (code, patch) =>
+  updateKgk: (code, patch) => {
     mutate(get, set, (o) => ({
       ...o,
       kgkUpdates: { ...o.kgkUpdates, [code]: { ...o.kgkUpdates[code], ...patch } },
-    })),
+    }))
+    log(`kgk.update.${Object.keys(patch).join(',') || 'any'}`, code)
+  },
 
-  addKgk: (entry) =>
-    mutate(get, set, (o) => ({ ...o, kgkAdded: [...o.kgkAdded, entry] })),
+  addKgk: (entry) => {
+    mutate(get, set, (o) => ({ ...o, kgkAdded: [...o.kgkAdded, entry] }))
+    log('kgk.add', entry.code)
+  },
 
-  // User-added rows are removed outright; "removing" a base row means hiding
-  // it instead (so a reset can bring it back).
-  removeKgk: (code) =>
+  removeKgk: (code) => {
     mutate(get, set, (o) => {
       if (o.kgkAdded.some((e) => e.code === code)) {
         return { ...o, kgkAdded: o.kgkAdded.filter((e) => e.code !== code) }
       }
       if (o.kgkHidden.includes(code)) return o
       return { ...o, kgkHidden: [...o.kgkHidden, code] }
-    }),
+    })
+    log('kgk.remove', code)
+  },
 
-  hideKgk: (code) =>
+  hideKgk: (code) => {
     mutate(get, set, (o) =>
       o.kgkHidden.includes(code) ? o : { ...o, kgkHidden: [...o.kgkHidden, code] },
-    ),
+    )
+    log('kgk.hide', code)
+  },
 
-  showKgk: (code) =>
+  showKgk: (code) => {
     mutate(get, set, (o) => ({
       ...o,
       kgkHidden: o.kgkHidden.filter((c) => c !== code),
-    })),
+    }))
+    log('kgk.show', code)
+  },
 
-  updateFrei: (id, patch) =>
+  updateFrei: (id, patch) => {
     mutate(get, set, (o) => ({
       ...o,
       freiUpdates: {
         ...o.freiUpdates,
         [String(id)]: { ...o.freiUpdates[String(id)], ...patch },
       },
-    })),
+    }))
+    log(`frei.update.${Object.keys(patch).join(',') || 'any'}`, String(id))
+  },
 
-  addFrei: (entry) =>
-    mutate(get, set, (o) => ({ ...o, freiAdded: [...o.freiAdded, entry] })),
+  addFrei: (entry) => {
+    mutate(get, set, (o) => ({ ...o, freiAdded: [...o.freiAdded, entry] }))
+    log('frei.add', entry.bezeichnung)
+  },
 
-  removeFrei: (id) =>
+  removeFrei: (id) => {
     mutate(get, set, (o) => {
       if (o.freiAdded.some((e) => e.id === id)) {
         return { ...o, freiAdded: o.freiAdded.filter((e) => e.id !== id) }
       }
       if (o.freiHidden.includes(id)) return o
       return { ...o, freiHidden: [...o.freiHidden, id] }
-    }),
+    })
+    log('frei.remove', String(id))
+  },
 
-  hideFrei: (id) =>
+  hideFrei: (id) => {
     mutate(get, set, (o) =>
       o.freiHidden.includes(id) ? o : { ...o, freiHidden: [...o.freiHidden, id] },
-    ),
+    )
+    log('frei.hide', String(id))
+  },
 
-  showFrei: (id) =>
+  showFrei: (id) => {
     mutate(get, set, (o) => ({
       ...o,
       freiHidden: o.freiHidden.filter((x) => x !== id),
-    })),
+    }))
+    log('frei.show', String(id))
+  },
 
   reset: () => {
     set({ overrides: emptyOverrides() })
+    log('overrides.reset')
     scheduleSave(get, set)
   },
 }))
