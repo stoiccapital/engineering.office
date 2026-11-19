@@ -1,3 +1,5 @@
+import { verifyPassword } from './_lib/password'
+
 interface Env {
   AUTH: string
   FORECAST_KV: KVNamespace
@@ -124,19 +126,27 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
     const kuerzel = userAuth.slice(0, idx)
     const password = userAuth.slice(idx + 1)
     if (!kuerzel || !password) return unauthorized('user auth malformed')
-    // Try Roster first (canonical), fall back to legacy accessConfig.users
-    // so existing deployments keep working while admins migrate.
     const rosterRaw = await env.FORECAST_KV.get(ROSTER_KEY)
     const roster = rosterRaw ? (JSON.parse(rosterRaw) as Roster) : null
-    const rosterMatch = roster?.employees?.find(
-      (e) => e.kuerzel && e.kuerzel === kuerzel && e.password === password,
-    )
-    if (rosterMatch && rosterMatch.roleId) {
-      role = cfg?.roles.find((r) => r.id === rosterMatch.roleId)
+    const rosterCandidate = roster?.employees?.find((e) => e.kuerzel === kuerzel)
+    if (rosterCandidate?.kuerzel && rosterCandidate.password && rosterCandidate.roleId) {
+      const check = await verifyPassword(rosterCandidate.password, password)
+      if (!check.ok) return unauthorized('invalid user')
+      if (check.upgradeTo && roster) {
+        rosterCandidate.password = check.upgradeTo
+        await env.FORECAST_KV.put(ROSTER_KEY, JSON.stringify(roster))
+      }
+      role = cfg?.roles.find((r) => r.id === rosterCandidate.roleId)
       if (!role) return unauthorized('role missing for user')
     } else {
       const user = cfg?.users?.find((u) => u.kuerzel === kuerzel)
-      if (!user || user.password !== password) return unauthorized('invalid user')
+      if (!user) return unauthorized('invalid user')
+      const check = await verifyPassword(user.password, password)
+      if (!check.ok) return unauthorized('invalid user')
+      if (check.upgradeTo && cfg) {
+        user.password = check.upgradeTo
+        await env.FORECAST_KV.put(ACCESS_KEY, JSON.stringify(cfg))
+      }
       role = cfg?.roles.find((r) => r.id === user.roleId)
       if (!role) return unauthorized('role missing for user')
     }
@@ -147,7 +157,13 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next }) => {
     const password = roleAuth.slice(idx + 1)
     if (!roleId || !password) return unauthorized('role auth malformed')
     role = cfg?.roles.find((r) => r.id === roleId)
-    if (!role || role.password !== password) return unauthorized('invalid role')
+    if (!role) return unauthorized('invalid role')
+    const check = await verifyPassword(role.password, password)
+    if (!check.ok) return unauthorized('invalid role')
+    if (check.upgradeTo && cfg) {
+      role.password = check.upgradeTo
+      await env.FORECAST_KV.put(ACCESS_KEY, JSON.stringify(cfg))
+    }
   }
 
   const rule = accessForPath(url.pathname)
