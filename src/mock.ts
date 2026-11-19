@@ -275,7 +275,7 @@ let access: AccessConfig | null = (() => {
       id: 'dev-admin',
       name: 'Admin (dev)',
       password: 'admin',
-      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'ke_projekt', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank', 'hr_zeiterfassung', 'hr_gespraeche', 'hr_team_view', 'mitarbeiter', 'settings'],
+      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank', 'hr_zeiterfassung', 'hr_gespraeche', 'hr_team_view', 'mitarbeiter', 'settings'],
     },
   ]
   return cfg

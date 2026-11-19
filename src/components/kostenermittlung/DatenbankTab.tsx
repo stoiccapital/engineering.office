@@ -159,9 +159,10 @@ function KgkList({ entries }: { entries: KgkEntry[] }) {
 
   return (
     <>
-      <div className="grid grid-cols-[110px_1fr_60px_80px_180px] gap-2 border-b bg-muted/50 px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+      <div className="grid grid-cols-[110px_1fr_220px_60px_80px_180px] gap-2 border-b bg-muted/50 px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground">
         <div>KGK</div>
         <div>Bezeichnung</div>
+        <div>Anmerkung</div>
         <div>Ebene</div>
         <div>Einheit</div>
         <div className="text-right">EP Q3/2026 [EUR]</div>
@@ -185,7 +186,7 @@ function KgkList({ entries }: { entries: KgkEntry[] }) {
                   height: row.size,
                 }}
               >
-                <div className="grid grid-cols-[110px_1fr_60px_80px_180px] gap-2">
+                <div className="grid grid-cols-[110px_1fr_220px_60px_80px_180px] gap-2">
                   <div className="font-mono tabular-nums text-muted-foreground">
                     {e.code}
                   </div>
@@ -196,6 +197,12 @@ function KgkList({ entries }: { entries: KgkEntry[] }) {
                         {e.pfad}
                       </div>
                     )}
+                  </div>
+                  <div
+                    className="truncate text-muted-foreground"
+                    title={e.anmerkung ?? undefined}
+                  >
+                    {e.anmerkung ?? ''}
                   </div>
                   <div className="text-muted-foreground">{e.ebene}</div>
                   <div className="text-muted-foreground">{e.einheit ?? '—'}</div>

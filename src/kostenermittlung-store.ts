@@ -25,6 +25,9 @@ type State = {
   updatePosition: (id: string, patch: Partial<Position>) => void
   removePosition: (id: string) => void
   duplicatePosition: (id: string) => void
+  // Reorder all positions in a single Hauptgruppe to match `orderedIds`.
+  // Positions in other Hauptgruppen keep their relative order.
+  reorderInHauptgruppe: (hauptgruppe: Position['hauptgruppe'], orderedIds: string[]) => void
   resetToEmpty: () => void
   resetToSeed: () => void
 }
@@ -115,6 +118,20 @@ export const useKostenermittlung = create<State>()((set, get) => ({
       const next = [...d.positionen]
       next.splice(i + 1, 0, clone)
       return { ...d, positionen: next }
+    }),
+
+  reorderInHauptgruppe: (hauptgruppe, orderedIds) =>
+    mutate(get, set, (d) => {
+      // Build a map so we can splice the new order back into the flat
+      // positionen array without disturbing other Hauptgruppen.
+      const byId = new Map(d.positionen.map((p) => [p.id, p]))
+      let idx = 0
+      const nextList: Position[] = d.positionen.map((p) => {
+        if (p.hauptgruppe !== hauptgruppe) return p
+        const nextId = orderedIds[idx++]
+        return byId.get(nextId) ?? p
+      })
+      return { ...d, positionen: nextList }
     }),
 
   resetToEmpty: () => {

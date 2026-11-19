@@ -19,7 +19,6 @@ import { BauwerkeTab } from '@/components/kostenschaetzung/BauwerkeTab'
 import { HoaiTab } from '@/components/kostenschaetzung/HoaiTab'
 import { KatalogTab } from '@/components/kostenschaetzung/KatalogTab'
 import { KostenschaetzungSaveStatus } from '@/components/KostenschaetzungSaveStatus'
-import { ProjektTab as KeProjektTab } from '@/components/kostenermittlung/ProjektTab'
 import { PositionenTab as KePositionenTab } from '@/components/kostenermittlung/PositionenTab'
 import { UebersichtTab as KeUebersichtTab } from '@/components/kostenermittlung/UebersichtTab'
 import { DatenbankTab as KeDatenbankTab } from '@/components/kostenermittlung/DatenbankTab'
@@ -71,7 +70,6 @@ type View =
   | 'ks_bauwerke'
   | 'ks_hoai'
   | 'ks_katalog'
-  | 'ke_projekt'
   | 'ke_positionen'
   | 'ke_uebersicht'
   | 'ke_datenbank'
@@ -83,7 +81,7 @@ type View =
   | 'aktivitaet'
 
 const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_hoai', 'ks_katalog']
-const KE_VIEWS: View[] = ['ke_projekt', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank']
+const KE_VIEWS: View[] = ['ke_positionen', 'ke_uebersicht', 'ke_datenbank']
 const HR_VIEWS: View[] = ['hr_zeiterfassung', 'hr_gespraeche']
 const ZIELE_VIEWS: View[] = ['ziele_dashboard', 'ziele_teams', 'ziele_kontrolle']
 
@@ -101,7 +99,6 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ks_bauwerke: { title: 'Bauwerke', label: 'Bauwerke', icon: Building2 },
   ks_hoai: { title: 'HOAI-Honorar', label: 'HOAI-Honorar', icon: Calculator },
   ks_katalog: { title: 'Datenbank · Ril 808', label: 'Datenbank Ril 808', icon: Database },
-  ke_projekt: { title: 'Kostenermittlung · Projekt', label: 'Projekt', icon: FileSpreadsheet },
   ke_positionen: { title: 'Kostenermittlung · Positionen', label: 'Positionen', icon: ListTree },
   ke_uebersicht: { title: 'Kostenermittlung · Übersicht', label: 'Übersicht', icon: Receipt },
   ke_datenbank: { title: 'Kostenermittlung · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
@@ -355,10 +352,7 @@ function Shell() {
 
   useEffect(() => {
     // Datenbank loads its own catalog JSON; it doesn't depend on the Kostenermittlung doc.
-    const isKeDocView =
-      view === 'ke_projekt' ||
-      view === 'ke_positionen' ||
-      view === 'ke_uebersicht'
+    const isKeDocView = view === 'ke_positionen' || view === 'ke_uebersicht'
     if (isKeDocView && !keDoc) void loadKostenermittlung()
   }, [view, keDoc, loadKostenermittlung])
 
@@ -451,9 +445,9 @@ function Shell() {
               {(view === 'ks_bauwerke' ||
                 view === 'ks_hoai' ||
                 view === 'ks_katalog') && <KostenschaetzungSaveStatus />}
-              {(view === 'ke_projekt' ||
-                view === 'ke_positionen' ||
-                view === 'ke_uebersicht') && <KostenermittlungSaveStatus />}
+              {(view === 'ke_positionen' || view === 'ke_uebersicht') && (
+                <KostenermittlungSaveStatus />
+              )}
               {/* ke_datenbank is read-only — no save status needed. */}
               {(view === 'hr_zeiterfassung' || view === 'hr_gespraeche') && <HrSaveStatus />}
               <ViewPeriodPicker view={view} />
@@ -489,8 +483,6 @@ function Shell() {
             (kostenDoc ? <HoaiTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
           {view === 'ks_katalog' &&
             (kostenDoc ? <KatalogTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
-          {view === 'ke_projekt' &&
-            (keDoc ? <KeProjektTab /> : <LoadingCard>Lade Kostenermittlung…</LoadingCard>)}
           {view === 'ke_positionen' &&
             (keDoc ? <KePositionenTab /> : <LoadingCard>Lade Kostenermittlung…</LoadingCard>)}
           {view === 'ke_uebersicht' &&
@@ -763,7 +755,6 @@ function ViewPeriodPicker({ view }: { view: View }) {
     case 'ks_hoai':
     case 'ks_katalog':
       return null
-    case 'ke_projekt':
     case 'ke_positionen':
     case 'ke_uebersicht':
     case 'ke_datenbank':
