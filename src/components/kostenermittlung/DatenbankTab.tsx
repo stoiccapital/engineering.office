@@ -35,8 +35,15 @@ export function DatenbankTab() {
   const results = useMemo(() => {
     if (!katalog) return { kgk: [] as KgkEntry[], frei: [] as FreiEntry[] }
     return {
-      kgk: searchKgk(katalog, q, { withPriceOnly, hauptgruppe: filterHauptgruppe }, 1000),
-      frei: searchFrei(katalog, q, { withPriceOnly }, 1000),
+      // Virtualized lists — no need to cap. Counts in the tab labels
+      // reflect actual matches.
+      kgk: searchKgk(
+        katalog,
+        q,
+        { withPriceOnly, hauptgruppe: filterHauptgruppe },
+        Number.POSITIVE_INFINITY,
+      ),
+      frei: searchFrei(katalog, q, { withPriceOnly }, Number.POSITIVE_INFINITY),
     }
   }, [katalog, q, withPriceOnly, filterHauptgruppe])
 
