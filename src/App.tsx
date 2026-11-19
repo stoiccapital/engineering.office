@@ -24,6 +24,9 @@ import { PositionenTab as KePositionenTab } from '@/components/kostenermittlung/
 import { UebersichtTab as KeUebersichtTab } from '@/components/kostenermittlung/UebersichtTab'
 import { DatenbankTab as KeDatenbankTab } from '@/components/kostenermittlung/DatenbankTab'
 import { KostenermittlungSaveStatus } from '@/components/KostenermittlungSaveStatus'
+import { ZeiterfassungTab as HrZeiterfassungTab } from '@/components/hr/ZeiterfassungTab'
+import { GespraecheTab as HrGespraecheTab } from '@/components/hr/GespraecheTab'
+import { HrSaveStatus } from '@/components/HrSaveStatus'
 import { Aktivitaet } from '@/components/Aktivitaet'
 import { Projekte } from '@/components/Projekte'
 import { ProjekteSaveStatus } from '@/components/ProjekteSaveStatus'
@@ -46,10 +49,11 @@ import { useRechnungen } from '@/rechnungen-store'
 import { useRoster } from '@/roster-store'
 import { useKostenschaetzung } from '@/kostenschaetzung-store'
 import { useKostenermittlung } from '@/kostenermittlung-store'
+import { useHr } from '@/hr-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, ClipboardList, Database, FileSpreadsheet, FileText, FolderKanban, Gauge, LayoutDashboard, ListTree, PanelLeftClose, PanelLeftOpen, Receipt, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
+import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, ClipboardList, Clock, Database, FileSpreadsheet, FileText, FolderKanban, Gauge, LayoutDashboard, ListTree, MessageSquare, PanelLeftClose, PanelLeftOpen, Receipt, Ruler, Settings as SettingsIcon, Table2, Target, UserCog, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 // Accordion mode — at most one sidebar group is expanded at a time.
@@ -62,7 +66,7 @@ const VIEW_KEY = 'eo:view'
 // 'ks_*' are virtual views under the 'kostenschaetzung' module; access is coarse
 // (if a role has 'kostenschaetzung', all four children are visible).
 type View =
-  | Exclude<ModuleId, 'plan_overview' | 'kostenschaetzung' | 'ziele' | 'umsatz'>
+  | Exclude<ModuleId, 'plan_overview' | 'kostenschaetzung' | 'ziele' | 'umsatz' | 'hr_team_view'>
   | 'freigaben'
   | 'ks_bauwerke'
   | 'ks_hoai'
@@ -71,6 +75,8 @@ type View =
   | 'ke_positionen'
   | 'ke_uebersicht'
   | 'ke_datenbank'
+  | 'hr_zeiterfassung'
+  | 'hr_gespraeche'
   | 'ziele_dashboard'
   | 'ziele_teams'
   | 'ziele_kontrolle'
@@ -78,6 +84,7 @@ type View =
 
 const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_hoai', 'ks_katalog']
 const KE_VIEWS: View[] = ['ke_projekt', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank']
+const HR_VIEWS: View[] = ['hr_zeiterfassung', 'hr_gespraeche']
 const ZIELE_VIEWS: View[] = ['ziele_dashboard', 'ziele_teams', 'ziele_kontrolle']
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
@@ -98,6 +105,8 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ke_positionen: { title: 'Kostenermittlung · Positionen', label: 'Positionen', icon: ListTree },
   ke_uebersicht: { title: 'Kostenermittlung · Übersicht', label: 'Übersicht', icon: Receipt },
   ke_datenbank: { title: 'Kostenermittlung · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
+  hr_zeiterfassung: { title: 'HR · Zeiterfassung', label: 'Zeiterfassung', icon: Clock },
+  hr_gespraeche: { title: 'HR · Gespräche', label: 'Gespräche', icon: MessageSquare },
   mitarbeiter: { title: 'Mitarbeiter', label: 'Mitarbeiter', icon: Users },
   settings: { title: 'Rollen', label: 'Rollen', icon: SettingsIcon },
   aktivitaet: { title: 'Aktivität', label: 'Aktivität', icon: Activity },
@@ -138,6 +147,13 @@ const NAV: NavEntry[] = [
     label: 'Kostenermittlung',
     icon: FileSpreadsheet,
     children: KE_VIEWS,
+  },
+  {
+    kind: 'group',
+    id: 'hr',
+    label: 'HR',
+    icon: UserCog,
+    children: HR_VIEWS,
   },
   {
     kind: 'group',
@@ -268,6 +284,8 @@ function Shell() {
   const kostenDoc = useKostenschaetzung((s) => s.doc)
   const loadKostenermittlung = useKostenermittlung((s) => s.load)
   const keDoc = useKostenermittlung((s) => s.doc)
+  const loadHr = useHr((s) => s.load)
+  const hrDoc = useHr((s) => s.doc)
   const loadProjects = useProjects((s) => s.load)
   const projectsDoc = useProjects((s) => s.doc)
   const loadProjektliste = useProjektliste((s) => s.load)
@@ -345,6 +363,11 @@ function Shell() {
   }, [view, keDoc, loadKostenermittlung])
 
   useEffect(() => {
+    const isHrView = view === 'hr_zeiterfassung' || view === 'hr_gespraeche'
+    if (isHrView && !hrDoc) void loadHr()
+  }, [view, hrDoc, loadHr])
+
+  useEffect(() => {
     if (view === 'projekte' && !projectsDoc) void loadProjects()
   }, [view, projectsDoc, loadProjects])
 
@@ -401,6 +424,7 @@ function Shell() {
           einstellungen: activeGroup === 'einstellungen',
           kostenschaetzung: activeGroup === 'kostenschaetzung',
           kostenermittlung: activeGroup === 'kostenermittlung',
+          hr: activeGroup === 'hr',
           ziele: activeGroup === 'ziele',
         }}
         onToggleGroup={(id) => {
@@ -431,6 +455,7 @@ function Shell() {
                 view === 'ke_positionen' ||
                 view === 'ke_uebersicht') && <KostenermittlungSaveStatus />}
               {/* ke_datenbank is read-only — no save status needed. */}
+              {(view === 'hr_zeiterfassung' || view === 'hr_gespraeche') && <HrSaveStatus />}
               <ViewPeriodPicker view={view} />
               {view === 'forecast' && <ImportDialog />}
             </div>
@@ -471,6 +496,10 @@ function Shell() {
           {view === 'ke_uebersicht' &&
             (keDoc ? <KeUebersichtTab /> : <LoadingCard>Lade Kostenermittlung…</LoadingCard>)}
           {view === 'ke_datenbank' && <KeDatenbankTab />}
+          {view === 'hr_zeiterfassung' &&
+            (hrDoc ? <HrZeiterfassungTab /> : <LoadingCard>Lade HR…</LoadingCard>)}
+          {view === 'hr_gespraeche' &&
+            (hrDoc ? <HrGespraecheTab /> : <LoadingCard>Lade HR…</LoadingCard>)}
           {view === 'mitarbeiter' && <Mitarbeiter />}
           {view === 'settings' && <Settings />}
           {view === 'aktivitaet' && <Aktivitaet />}
@@ -623,6 +652,9 @@ function ViewPeriodPicker({ view }: { view: View }) {
     case 'ke_positionen':
     case 'ke_uebersicht':
     case 'ke_datenbank':
+      return null
+    case 'hr_zeiterfassung':
+    case 'hr_gespraeche':
       return null
     case 'mitarbeiter':
       return null

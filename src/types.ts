@@ -603,6 +603,9 @@ export type ModuleId =
   | 'ke_positionen'
   | 'ke_uebersicht'
   | 'ke_datenbank'
+  | 'hr_zeiterfassung'
+  | 'hr_gespraeche'
+  | 'hr_team_view'
   | 'mitarbeiter'
   | 'settings'
 
@@ -624,6 +627,9 @@ export const MODULES: ModuleId[] = [
   'ke_positionen',
   'ke_uebersicht',
   'ke_datenbank',
+  'hr_zeiterfassung',
+  'hr_gespraeche',
+  'hr_team_view',
   'mitarbeiter',
   'settings',
 ]
@@ -646,6 +652,9 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
   ke_positionen: 'Positionen',
   ke_uebersicht: 'Übersicht',
   ke_datenbank: 'Datenbank Ril 808',
+  hr_zeiterfassung: 'Zeiterfassung',
+  hr_gespraeche: 'Gespräche',
+  hr_team_view: 'HR · Team-Zugriff (Manager)',
   mitarbeiter: 'Mitarbeiter',
   settings: 'Einstellungen',
 }
@@ -661,6 +670,7 @@ export const MODULE_GROUPS: { label: string; modules: ModuleId[] }[] = [
   { label: 'Projektliste', modules: ['projektliste'] },
   { label: 'Kostenschätzung', modules: ['ks_bauwerke', 'ks_hoai', 'ks_katalog'] },
   { label: 'Kostenermittlung', modules: ['ke_projekt', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank'] },
+  { label: 'HR', modules: ['hr_zeiterfassung', 'hr_gespraeche', 'hr_team_view'] },
   { label: 'Einstellungen', modules: ['mitarbeiter', 'settings'] },
 ]
 

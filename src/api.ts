@@ -452,6 +452,28 @@ export async function saveKostenermittlung(data: unknown): Promise<void> {
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
+export async function fetchHr(): Promise<unknown> {
+  if (mock.isDev) return mock.hr()
+  const res = await fetch('/api/hr', { headers: headers() })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  return await res.json()
+}
+
+export async function saveHr(data: unknown): Promise<void> {
+  if (mock.isDev) {
+    mock.setHr(data)
+    return
+  }
+  const res = await fetch('/api/hr', {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify(data),
+  })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`save failed: ${res.status}`)
+}
+
 export async function fetchLogo(): Promise<string | null> {
   if (mock.isDev) return mock.logo()
   const res = await fetch('/api/logo', { headers: headers() })
