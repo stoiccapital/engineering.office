@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Search } from 'lucide-react'
+import { Eye, EyeOff, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { Section } from '@/components/ui/section'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
   loadKatalog,
@@ -12,31 +13,85 @@ import {
   type KgkEntry,
 } from '@/features/kostenermittlung/lib/katalog'
 import { HAUPTGRUPPEN } from '@/features/kostenermittlung/lib/kgk'
+import {
+  mergeKatalog,
+  nextAddedFreiId,
+} from '@/features/kostenermittlung/lib/katalogOverrides'
+import { useKatalogOverrides } from '@/katalog-overrides-store'
+import { EntryEditor, type EntryEditorTarget } from './EntryEditor'
 
 type Tab = 'kgk' | 'frei'
 
 export function DatenbankTab() {
-  const [katalog, setKatalog] = useState<Katalog | null>(null)
+  const [baseKatalog, setBaseKatalog] = useState<Katalog | null>(null)
+  const overrides = useKatalogOverrides((s) => s.overrides)
+  const loadOverrides = useKatalogOverrides((s) => s.load)
+  const updateKgk = useKatalogOverrides((s) => s.updateKgk)
+  const addKgk = useKatalogOverrides((s) => s.addKgk)
+  const removeKgk = useKatalogOverrides((s) => s.removeKgk)
+  const hideKgk = useKatalogOverrides((s) => s.hideKgk)
+  const showKgk = useKatalogOverrides((s) => s.showKgk)
+  const updateFrei = useKatalogOverrides((s) => s.updateFrei)
+  const addFrei = useKatalogOverrides((s) => s.addFrei)
+  const removeFrei = useKatalogOverrides((s) => s.removeFrei)
+  const hideFrei = useKatalogOverrides((s) => s.hideFrei)
+  const showFrei = useKatalogOverrides((s) => s.showFrei)
+  const resetOverrides = useKatalogOverrides((s) => s.reset)
+
   const [tab, setTab] = useState<Tab>('kgk')
   const [q, setQ] = useState('')
   const [filterHauptgruppe, setFilterHauptgruppe] = useState<number | undefined>(undefined)
   const [withPriceOnly, setWithPriceOnly] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
+  const [editorTarget, setEditorTarget] = useState<EntryEditorTarget | null>(null)
 
   useEffect(() => {
     let cancelled = false
     void loadKatalog().then((k) => {
-      if (!cancelled) setKatalog(k)
+      if (!cancelled) setBaseKatalog(k)
     })
     return () => {
       cancelled = true
     }
   }, [])
+  useEffect(() => {
+    if (!overrides) void loadOverrides()
+  }, [overrides, loadOverrides])
+
+  // Merge base + overrides. When "Ausgeblendete einblenden" is on, we show
+  // hidden rows too (so the user can un-hide them).
+  const katalog = useMemo(() => {
+    if (!baseKatalog) return null
+    const o = overrides
+    if (!o) return baseKatalog
+    if (showHidden) {
+      // Merge with hidden lists emptied so hidden rows reappear.
+      return mergeKatalog(baseKatalog, { ...o, kgkHidden: [], freiHidden: [] })
+    }
+    return mergeKatalog(baseKatalog, o)
+  }, [baseKatalog, overrides, showHidden])
+
+  const hiddenKgk = useMemo(
+    () => new Set(overrides?.kgkHidden ?? []),
+    [overrides?.kgkHidden],
+  )
+  const hiddenFrei = useMemo(
+    () => new Set(overrides?.freiHidden ?? []),
+    [overrides?.freiHidden],
+  )
+  const addedKgkCodes = useMemo(
+    () => new Set((overrides?.kgkAdded ?? []).map((e) => e.code)),
+    [overrides?.kgkAdded],
+  )
+  const addedFreiIds = useMemo(
+    () => new Set((overrides?.freiAdded ?? []).map((e) => e.id)),
+    [overrides?.freiAdded],
+  )
 
   const results = useMemo(() => {
     if (!katalog) return { kgk: [] as KgkEntry[], frei: [] as FreiEntry[] }
     return {
-      // Virtualized lists — no need to cap. Counts in the tab labels
-      // reflect actual matches.
       kgk: searchKgk(
         katalog,
         q,
@@ -46,6 +101,31 @@ export function DatenbankTab() {
       frei: searchFrei(katalog, q, { withPriceOnly }, Number.POSITIVE_INFINITY),
     }
   }, [katalog, q, withPriceOnly, filterHauptgruppe])
+
+  const overridesCount =
+    (overrides?.kgkAdded.length ?? 0) +
+    (overrides?.freiAdded.length ?? 0) +
+    Object.keys(overrides?.kgkUpdates ?? {}).length +
+    Object.keys(overrides?.freiUpdates ?? {}).length +
+    (overrides?.kgkHidden.length ?? 0) +
+    (overrides?.freiHidden.length ?? 0)
+
+  const openRow = (entry: KgkEntry | FreiEntry) => {
+    if (!editMode) return
+    if ('code' in entry) {
+      setEditorTarget({
+        kind: 'editKgk',
+        entry,
+        isAdded: addedKgkCodes.has(entry.code),
+      })
+    } else {
+      setEditorTarget({
+        kind: 'editFrei',
+        entry,
+        isAdded: addedFreiIds.has(entry.id),
+      })
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -57,6 +137,30 @@ export function DatenbankTab() {
                 .toString()
                 .replace('.', ',')} · ${katalog.meta.quelle}`
             : 'Lade Katalog …'
+        }
+        action={
+          <div className="flex items-center gap-2">
+            {editMode && overridesCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (window.confirm('Alle Ergänzungen zurücksetzen?')) resetOverrides()
+                }}
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                Zurücksetzen
+              </Button>
+            )}
+            <Button
+              variant={editMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setEditMode((v) => !v)}
+            >
+              <Pencil className="mr-1 h-3.5 w-3.5" />
+              {editMode ? 'Fertig' : 'Bearbeiten'}
+            </Button>
+          </div>
         }
         padded={false}
       >
@@ -79,14 +183,14 @@ export function DatenbankTab() {
                 : undefined
             }
           />
+          <Stat label="Preisstand" value={katalog?.meta.quartal ?? '—'} />
           <Stat
-            label="Preisstand"
-            value={katalog?.meta.quartal ?? '—'}
-          />
-          <Stat
-            label="BKI-Faktor"
-            value={
-              katalog ? katalog.meta.faktor.toString().replace('.', ',') : '—'
+            label="Eigene Ergänzungen"
+            value={overridesCount.toString()}
+            sub={
+              overridesCount > 0
+                ? `${(overrides?.kgkAdded.length ?? 0) + (overrides?.freiAdded.length ?? 0)} neu, ${(overrides?.kgkHidden.length ?? 0) + (overrides?.freiHidden.length ?? 0)} ausgeblendet`
+                : undefined
             }
           />
         </div>
@@ -111,6 +215,16 @@ export function DatenbankTab() {
             />
             Nur mit Preis
           </label>
+          {editMode && (
+            <label className="ml-3 flex items-center gap-1.5 py-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={showHidden}
+                onChange={(e) => setShowHidden(e.target.checked)}
+              />
+              Ausgeblendete einblenden
+            </label>
+          )}
         </div>
 
         <div className="flex items-center gap-2 border-b px-4 py-2">
@@ -143,19 +257,98 @@ export function DatenbankTab() {
               ))}
             </select>
           )}
+          {editMode && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                setEditorTarget(tab === 'kgk' ? { kind: 'addKgk' } : { kind: 'addFrei' })
+              }
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              {tab === 'kgk' ? 'KGK' : 'Eintrag'}
+            </Button>
+          )}
         </div>
 
         {tab === 'kgk' ? (
-          <KgkList entries={results.kgk} />
+          <KgkList
+            entries={results.kgk}
+            editMode={editMode}
+            hiddenKgk={hiddenKgk}
+            addedKgkCodes={addedKgkCodes}
+            onRowClick={openRow}
+            onToggleHide={(code) =>
+              hiddenKgk.has(code) ? showKgk(code) : hideKgk(code)
+            }
+            onDelete={(code) => removeKgk(code)}
+          />
         ) : (
-          <FreiList entries={results.frei} />
+          <FreiList
+            entries={results.frei}
+            editMode={editMode}
+            hiddenFrei={hiddenFrei}
+            addedFreiIds={addedFreiIds}
+            onRowClick={openRow}
+            onToggleHide={(id) =>
+              hiddenFrei.has(id) ? showFrei(id) : hideFrei(id)
+            }
+            onDelete={(id) => removeFrei(id)}
+          />
         )}
       </Section>
+
+      <EntryEditor
+        target={editorTarget}
+        katalog={baseKatalog}
+        overrides={overrides}
+        onClose={() => setEditorTarget(null)}
+        onSaveKgk={(entry, mode) => {
+          if (mode === 'add') addKgk(entry)
+          else {
+            const { code, bezeichnung, anmerkung, einheit, epVon, epBis, epEinheit } = entry
+            updateKgk(code, { bezeichnung, anmerkung, einheit, epVon, epBis, epEinheit })
+          }
+        }}
+        onSaveFrei={(entry, mode) => {
+          if (mode === 'add') {
+            const id = nextAddedFreiId(overrides?.freiAdded ?? [])
+            addFrei({ ...entry, id })
+          } else {
+            const { id, bezeichnung, anmerkung, betrag, einheit } = entry
+            updateFrei(id, { bezeichnung, anmerkung, betrag, einheit })
+          }
+        }}
+        onDelete={() => {
+          if (editorTarget?.kind === 'editKgk') removeKgk(editorTarget.entry.code)
+          if (editorTarget?.kind === 'editFrei') removeFrei(editorTarget.entry.id)
+        }}
+        onHide={() => {
+          if (editorTarget?.kind === 'editKgk') hideKgk(editorTarget.entry.code)
+          if (editorTarget?.kind === 'editFrei') hideFrei(editorTarget.entry.id)
+        }}
+      />
     </div>
   )
 }
 
-function KgkList({ entries }: { entries: KgkEntry[] }) {
+function KgkList({
+  entries,
+  editMode,
+  hiddenKgk,
+  addedKgkCodes,
+  onRowClick,
+  onToggleHide,
+  onDelete,
+}: {
+  entries: KgkEntry[]
+  editMode: boolean
+  hiddenKgk: Set<string>
+  addedKgkCodes: Set<string>
+  onRowClick: (e: KgkEntry) => void
+  onToggleHide: (code: string) => void
+  onDelete: (code: string) => void
+}) {
   const parentRef = useRef<HTMLDivElement>(null)
   const virt = useVirtualizer({
     count: entries.length,
@@ -175,27 +368,36 @@ function KgkList({ entries }: { entries: KgkEntry[] }) {
         <div className="text-right">EP Q3/2026 [EUR]</div>
       </div>
       <div ref={parentRef} className="h-[60vh] overflow-y-auto">
-        <div
-          style={{
-            height: virt.getTotalSize(),
-            position: 'relative',
-            width: '100%',
-          }}
-        >
+        <div style={{ height: virt.getTotalSize(), position: 'relative', width: '100%' }}>
           {virt.getVirtualItems().map((row) => {
             const e = entries[row.index]
+            const hidden = hiddenKgk.has(e.code)
+            const added = addedKgkCodes.has(e.code)
             return (
               <div
                 key={e.code + ':' + row.index}
-                className="absolute left-0 top-0 w-full border-b px-4 py-1.5 text-xs"
+                onClick={() => onRowClick(e)}
+                className={cn(
+                  'group absolute left-0 top-0 w-full border-b px-4 py-1.5 text-xs',
+                  editMode && 'cursor-pointer hover:bg-accent/40',
+                  hidden && 'opacity-50',
+                )}
                 style={{
                   transform: `translateY(${row.start}px)`,
                   height: row.size,
                 }}
               >
                 <div className="grid grid-cols-[110px_280px_1fr_60px_80px_180px] gap-2">
-                  <div className="font-mono tabular-nums text-muted-foreground">
+                  <div className="flex items-center gap-1 font-mono tabular-nums text-muted-foreground">
                     {e.code}
+                    {added && (
+                      <span
+                        title="Benutzer-Eintrag"
+                        className="inline-flex items-center rounded-sm bg-emerald-500/15 px-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400"
+                      >
+                        neu
+                      </span>
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="truncate font-medium">{e.bezeichnung}</div>
@@ -213,8 +415,41 @@ function KgkList({ entries }: { entries: KgkEntry[] }) {
                   </div>
                   <div className="text-muted-foreground">{e.ebene}</div>
                   <div className="text-muted-foreground">{e.einheit ?? '—'}</div>
-                  <div className="text-right font-mono tabular-nums">
-                    {formatRange(e.epVon, e.epBis)}
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="text-right font-mono tabular-nums">
+                      {formatRange(e.epVon, e.epBis)}
+                    </div>
+                    {editMode &&
+                      (added ? (
+                        <button
+                          type="button"
+                          title="Löschen"
+                          onClick={(ev) => {
+                            ev.stopPropagation()
+                            if (window.confirm(`"${e.bezeichnung}" löschen?`))
+                              onDelete(e.code)
+                          }}
+                          className="rounded p-1 text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          title={hidden ? 'Wieder einblenden' : 'Ausblenden'}
+                          onClick={(ev) => {
+                            ev.stopPropagation()
+                            onToggleHide(e.code)
+                          }}
+                          className="rounded p-1 text-muted-foreground opacity-0 hover:bg-accent group-hover:opacity-100"
+                        >
+                          {hidden ? (
+                            <Eye className="h-3.5 w-3.5" />
+                          ) : (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      ))}
                   </div>
                 </div>
               </div>
@@ -231,7 +466,23 @@ function KgkList({ entries }: { entries: KgkEntry[] }) {
   )
 }
 
-function FreiList({ entries }: { entries: FreiEntry[] }) {
+function FreiList({
+  entries,
+  editMode,
+  hiddenFrei,
+  addedFreiIds,
+  onRowClick,
+  onToggleHide,
+  onDelete,
+}: {
+  entries: FreiEntry[]
+  editMode: boolean
+  hiddenFrei: Set<number>
+  addedFreiIds: Set<number>
+  onRowClick: (e: FreiEntry) => void
+  onToggleHide: (id: number) => void
+  onDelete: (id: number) => void
+}) {
   const parentRef = useRef<HTMLDivElement>(null)
   const virt = useVirtualizer({
     count: entries.length,
@@ -249,32 +500,76 @@ function FreiList({ entries }: { entries: FreiEntry[] }) {
         <div className="text-right">Betrag Q3/2026 [EUR]</div>
       </div>
       <div ref={parentRef} className="h-[60vh] overflow-y-auto">
-        <div
-          style={{
-            height: virt.getTotalSize(),
-            position: 'relative',
-            width: '100%',
-          }}
-        >
+        <div style={{ height: virt.getTotalSize(), position: 'relative', width: '100%' }}>
           {virt.getVirtualItems().map((row) => {
             const e = entries[row.index]
+            const hidden = hiddenFrei.has(e.id)
+            const added = addedFreiIds.has(e.id)
             return (
               <div
                 key={e.id}
-                className="absolute left-0 top-0 w-full border-b px-4 py-1.5 text-xs"
+                onClick={() => onRowClick(e)}
+                className={cn(
+                  'group absolute left-0 top-0 w-full border-b px-4 py-1.5 text-xs',
+                  editMode && 'cursor-pointer hover:bg-accent/40',
+                  hidden && 'opacity-50',
+                )}
                 style={{
                   transform: `translateY(${row.start}px)`,
                   height: row.size,
                 }}
               >
                 <div className="grid grid-cols-[1fr_320px_80px_140px] gap-2">
-                  <div className="truncate font-medium">{e.bezeichnung}</div>
+                  <div className="flex items-center gap-1">
+                    <div className="truncate font-medium">{e.bezeichnung}</div>
+                    {added && (
+                      <span
+                        title="Benutzer-Eintrag"
+                        className="inline-flex items-center rounded-sm bg-emerald-500/15 px-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400"
+                      >
+                        neu
+                      </span>
+                    )}
+                  </div>
                   <div className="truncate text-muted-foreground">
                     {e.anmerkung ?? ''}
                   </div>
                   <div className="text-muted-foreground">{e.einheit ?? '—'}</div>
-                  <div className="text-right font-mono tabular-nums">
-                    {e.betrag !== null ? fmt2(e.betrag) : '—'}
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="text-right font-mono tabular-nums">
+                      {e.betrag !== null ? fmt2(e.betrag) : '—'}
+                    </div>
+                    {editMode &&
+                      (added ? (
+                        <button
+                          type="button"
+                          title="Löschen"
+                          onClick={(ev) => {
+                            ev.stopPropagation()
+                            if (window.confirm(`"${e.bezeichnung}" löschen?`))
+                              onDelete(e.id)
+                          }}
+                          className="rounded p-1 text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          title={hidden ? 'Wieder einblenden' : 'Ausblenden'}
+                          onClick={(ev) => {
+                            ev.stopPropagation()
+                            onToggleHide(e.id)
+                          }}
+                          className="rounded p-1 text-muted-foreground opacity-0 hover:bg-accent group-hover:opacity-100"
+                        >
+                          {hidden ? (
+                            <Eye className="h-3.5 w-3.5" />
+                          ) : (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      ))}
                   </div>
                 </div>
               </div>

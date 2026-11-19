@@ -265,6 +265,7 @@ let roster: Roster | null = seedRoster()
 let kostenschaetzung: unknown = null
 let kostenermittlung: unknown = null
 let hr: unknown = null
+let katalogOverrides: unknown = null
 let projects: ProjekteDoc | null = null
 let projektliste: ProjektlisteDoc | null = null
 const activity: ActivityEvent[] = []
@@ -375,6 +376,12 @@ export const mock = {
   },
   setHr(value: unknown) {
     hr = value
+  },
+  katalogOverrides(): unknown {
+    return katalogOverrides
+  },
+  setKatalogOverrides(value: unknown) {
+    katalogOverrides = value
   },
   projects(): ProjekteDoc | null {
     return projects

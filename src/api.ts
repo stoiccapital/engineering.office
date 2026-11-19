@@ -452,6 +452,28 @@ export async function saveKostenermittlung(data: unknown): Promise<void> {
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
+export async function fetchKatalogOverrides(): Promise<unknown> {
+  if (mock.isDev) return mock.katalogOverrides()
+  const res = await fetch('/api/katalog-overrides', { headers: headers() })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  return await res.json()
+}
+
+export async function saveKatalogOverrides(data: unknown): Promise<void> {
+  if (mock.isDev) {
+    mock.setKatalogOverrides(data)
+    return
+  }
+  const res = await fetch('/api/katalog-overrides', {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify(data),
+  })
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`save failed: ${res.status}`)
+}
+
 export async function fetchHr(): Promise<unknown> {
   if (mock.isDev) return mock.hr()
   const res = await fetch('/api/hr', { headers: headers() })
