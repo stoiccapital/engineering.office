@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useKostenermittlung } from '@/kostenermittlung-store'
+import { useLogo } from '@/logo-store'
+import { ExportMenu, type ExportChoice } from './ExportMenu'
 import {
   byEbene2,
   byHauptgruppe,
@@ -28,6 +30,9 @@ const fmtPct1 = (v: number): string =>
 export function UebersichtTab() {
   const doc = useKostenermittlung((s) => s.doc)
   const [katalog, setKatalog] = useState<Katalog | null>(null)
+  const logoUrl = useLogo((s) => s.dataUrl)
+  const logoStatus = useLogo((s) => s.status)
+  const loadLogo = useLogo((s) => s.load)
   useEffect(() => {
     let cancelled = false
     void loadKatalog().then((k) => {
@@ -37,6 +42,29 @@ export function UebersichtTab() {
       cancelled = true
     }
   }, [])
+  useEffect(() => {
+    if (logoStatus === 'idle') void loadLogo()
+  }, [logoStatus, loadLogo])
+
+  const handleExport = async (choice: ExportChoice) => {
+    if (!doc) return
+    if (choice === 'pdf') {
+      const { exportUebersichtPdf } = await import(
+        '@/features/kostenermittlung/lib/pdfUebersicht'
+      )
+      exportUebersichtPdf(doc, { logoDataUrl: logoUrl })
+    } else if (choice === 'xlsx') {
+      const { exportUebersichtXlsx } = await import(
+        '@/features/kostenermittlung/lib/excel'
+      )
+      exportUebersichtXlsx(doc)
+    } else {
+      const { exportUebersichtCsv } = await import(
+        '@/features/kostenermittlung/lib/csv'
+      )
+      exportUebersichtCsv(doc)
+    }
+  }
 
   const abdeckung = useMemo(() => {
     if (!doc || !katalog) return null
@@ -83,7 +111,11 @@ export function UebersichtTab() {
 
   return (
     <div className="space-y-6">
-      <Section title={doc.kopf.projekt} subtitle={headerSub(doc)}>
+      <Section
+        title={doc.kopf.projekt}
+        subtitle={headerSub(doc)}
+        action={<ExportMenu onSelect={handleExport} />}
+      >
         <KPIGrid>
           <KPICard
             label="Kosten netto"

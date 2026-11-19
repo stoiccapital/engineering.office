@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useKostenermittlung } from '@/kostenermittlung-store'
 import { useAccess } from '@/access-store'
+import { useLogo } from '@/logo-store'
 import {
   HAUPTGRUPPEN,
   findEbene2,
@@ -24,6 +25,7 @@ import { TextCell } from '@/components/TextCell'
 import { cn } from '@/lib/utils'
 import type { Position } from '@/features/kostenermittlung/types'
 import { KatalogDialog, pickToPatch, type KatalogPick } from './KatalogDialog'
+import { ExportMenu, type ExportChoice } from './ExportMenu'
 import {
   DndContext,
   KeyboardSensor,
@@ -55,7 +57,36 @@ export function PositionenTab() {
   const reorderInHauptgruppe = useKostenermittlung((s) => s.reorderInHauptgruppe)
   const setKopf = useKostenermittlung((s) => s.setKopf)
   const currentUser = useAccess((s) => s.currentUser)
+  const logoUrl = useLogo((s) => s.dataUrl)
+  const logoStatus = useLogo((s) => s.status)
+  const loadLogo = useLogo((s) => s.load)
   const [meta, setMeta] = useState<KatalogMeta | null>(null)
+
+  // Prefetch the logo so the first PDF click is instant.
+  useEffect(() => {
+    if (logoStatus === 'idle') void loadLogo()
+  }, [logoStatus, loadLogo])
+
+  const handleExport = async (choice: ExportChoice) => {
+    if (!doc) return
+    // Lazy — pull jsPDF / xlsx only when the user actually exports.
+    if (choice === 'pdf') {
+      const { exportPositionenPdf } = await import(
+        '@/features/kostenermittlung/lib/pdfPositionen'
+      )
+      exportPositionenPdf(doc, { logoDataUrl: logoUrl })
+    } else if (choice === 'xlsx') {
+      const { exportPositionenXlsx } = await import(
+        '@/features/kostenermittlung/lib/excel'
+      )
+      exportPositionenXlsx(doc)
+    } else {
+      const { exportPositionenCsv } = await import(
+        '@/features/kostenermittlung/lib/csv'
+      )
+      exportPositionenCsv(doc)
+    }
+  }
 
   const [open, setOpen] = useState<Record<number, boolean>>(() => {
     const init: Record<number, boolean> = {}
@@ -147,7 +178,7 @@ export function PositionenTab() {
 
   return (
     <div className="space-y-4">
-      <Section title="Projektkopf">
+      <Section title="Projektkopf" action={<ExportMenu onSelect={handleExport} />}>
         <div className="grid grid-cols-[180px_1fr] gap-x-6 gap-y-3 text-sm">
           <Label>Projekt</Label>
           <TextCell value={k.projekt} onChange={(v) => setKopf({ projekt: v })} multiline />
