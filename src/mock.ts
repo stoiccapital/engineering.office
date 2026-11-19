@@ -1,7 +1,6 @@
 import type {
   ActivityEvent,
   Period,
-  ProjekteDoc,
   ProjektlisteDoc,
   PlanStatus,
   QuartalPlan,
@@ -266,7 +265,6 @@ let kostenschaetzung: unknown = null
 let kostenermittlung: unknown = null
 let hr: unknown = null
 let katalogOverrides: unknown = null
-let projects: ProjekteDoc | null = null
 let projektliste: ProjektlisteDoc | null = null
 const activity: ActivityEvent[] = []
 let access: AccessConfig | null = (() => {
@@ -276,7 +274,7 @@ let access: AccessConfig | null = (() => {
       id: 'dev-admin',
       name: 'Admin (dev)',
       password: 'admin',
-      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank', 'hr_zeiterfassung', 'hr_gespraeche', 'hr_team_view', 'mitarbeiter', 'settings'],
+      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank', 'hr_zeiterfassung', 'hr_gespraeche', 'hr_team_view', 'mitarbeiter', 'settings'],
     },
   ]
   return cfg
@@ -382,12 +380,6 @@ export const mock = {
   },
   setKatalogOverrides(value: unknown) {
     katalogOverrides = value
-  },
-  projects(): ProjekteDoc | null {
-    return projects
-  },
-  setProjects(value: ProjekteDoc) {
-    projects = value
   },
   projektliste(): ProjektlisteDoc | null {
     return projektliste

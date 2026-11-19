@@ -27,9 +27,6 @@ import { ZeiterfassungTab as HrZeiterfassungTab } from '@/components/hr/Zeiterfa
 import { GespraecheTab as HrGespraecheTab } from '@/components/hr/GespraecheTab'
 import { HrSaveStatus } from '@/components/HrSaveStatus'
 import { Aktivitaet } from '@/components/Aktivitaet'
-import { Projekte } from '@/components/Projekte'
-import { ProjekteSaveStatus } from '@/components/ProjekteSaveStatus'
-import { myOpenTodoCount, useProjects } from '@/projects-store'
 import { Projektliste } from '@/components/Projektliste'
 import { ProjektlisteSaveStatus } from '@/components/ProjektlisteSaveStatus'
 import { useProjektliste } from '@/projektliste-store'
@@ -52,7 +49,7 @@ import { useHr } from '@/hr-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, ClipboardList, Clock, Database, FileSpreadsheet, FileText, FolderKanban, Gauge, LayoutDashboard, ListTree, MessageSquare, PanelLeftClose, PanelLeftOpen, Receipt, Ruler, Settings as SettingsIcon, Table2, Target, UserCog, Users } from 'lucide-react'
+import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Clock, Database, FileSpreadsheet, FileText, FolderKanban, Gauge, LayoutDashboard, ListTree, MessageSquare, PanelLeftClose, PanelLeftOpen, Receipt, Ruler, Settings as SettingsIcon, Table2, Target, UserCog, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 // Accordion mode — at most one sidebar group is expanded at a time.
@@ -94,12 +91,11 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ziele_teams: { title: 'Ziele · Teams', label: 'Teams', icon: Users },
   ziele_kontrolle: { title: 'Ziele · Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
-  projekte: { title: 'Projekte', label: 'Projekte', icon: ClipboardList },
   projektliste: { title: 'Projektliste', label: 'Projektliste', icon: FolderKanban },
   ks_bauwerke: { title: 'Bauwerke', label: 'Bauwerke', icon: Building2 },
   ks_hoai: { title: 'HOAI-Honorar', label: 'HOAI-Honorar', icon: Calculator },
   ks_katalog: { title: 'Datenbank · Ril 808', label: 'Datenbank Ril 808', icon: Database },
-  ke_positionen: { title: 'Kostenermittlung · Positionen', label: 'Positionen', icon: ListTree },
+  ke_positionen: { title: 'Kostenermittlung · Projekte', label: 'Projekte', icon: ListTree },
   ke_uebersicht: { title: 'Kostenermittlung · Übersicht', label: 'Übersicht', icon: Receipt },
   ke_datenbank: { title: 'Kostenermittlung · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
   hr_zeiterfassung: { title: 'HR · Zeiterfassung', label: 'Zeiterfassung', icon: Clock },
@@ -129,7 +125,6 @@ const NAV: NavEntry[] = [
     children: ['dashboard', 'forecast', 'plan', 'freigaben'],
   },
   { kind: 'leaf', view: 'rechnungen' },
-  { kind: 'leaf', view: 'projekte' },
   { kind: 'leaf', view: 'projektliste' },
   {
     kind: 'group',
@@ -230,10 +225,6 @@ function Shell() {
     if (base.has('plan')) views.add('freigaben')
     // Activity log is admin-gated via the 'settings' module.
     if (base.has('settings')) views.add('aktivitaet')
-    // Projekte is a personal module available to every authed user,
-    // regardless of whether the stored role config already includes
-    // the new ModuleId.
-    views.add('projekte')
     // Projektliste is a shared controlling view — same open-access rule
     // so legacy roles don't need to be reconfigured on the server.
     views.add('projektliste')
@@ -283,8 +274,6 @@ function Shell() {
   const keDoc = useKostenermittlung((s) => s.doc)
   const loadHr = useHr((s) => s.load)
   const hrDoc = useHr((s) => s.doc)
-  const loadProjects = useProjects((s) => s.load)
-  const projectsDoc = useProjects((s) => s.doc)
   const loadProjektliste = useProjektliste((s) => s.load)
   const projektlisteDoc = useProjektliste((s) => s.doc)
 
@@ -311,18 +300,9 @@ function Shell() {
     return n
   }, [plan])
 
-  // Keep projects loaded at app-level so the "my open todos" badge stays
-  // live even when the user hasn't opened the Projekte tab.
-  useEffect(() => {
-    if (!projectsDoc) void loadProjects()
-  }, [projectsDoc, loadProjects])
-
   const currentUser = useAccess((s) => s.currentUser)
   const myKuerzel = currentUser?.kuerzel ?? currentRole?.name ?? null
-  const projekteCount = useMemo(() => {
-    if (!projectsDoc) return 0
-    return myOpenTodoCount(projectsDoc, myKuerzel)
-  }, [projectsDoc, myKuerzel])
+  void myKuerzel
 
   useEffect(() => {
     const isZieleView =
@@ -360,10 +340,6 @@ function Shell() {
     const isHrView = view === 'hr_zeiterfassung' || view === 'hr_gespraeche'
     if (isHrView && !hrDoc) void loadHr()
   }, [view, hrDoc, loadHr])
-
-  useEffect(() => {
-    if (view === 'projekte' && !projectsDoc) void loadProjects()
-  }, [view, projectsDoc, loadProjects])
 
   useEffect(() => {
     if (view === 'projektliste' && !projektlisteDoc) void loadProjektliste()
@@ -426,7 +402,6 @@ function Shell() {
           // other group opens (which implicitly closes the previous one).
           setActiveGroup((prev) => (prev === id ? null : id))
         }}
-        projekteCount={projekteCount}
         freigabenCount={freigabenCount}
       />
 
@@ -440,7 +415,6 @@ function Shell() {
               {(view === 'ziele_dashboard' || view === 'ziele_teams') && <ZieleSaveStatus />}
               {view === 'ziele_kontrolle' && <UmsatzSaveStatus />}
               {view === 'rechnungen' && <RechnungenSaveStatus />}
-              {view === 'projekte' && <ProjekteSaveStatus />}
               {view === 'projektliste' && <ProjektlisteSaveStatus />}
               {(view === 'ks_bauwerke' ||
                 view === 'ks_hoai' ||
@@ -475,7 +449,6 @@ function Shell() {
           {view === 'ziele_teams' && <ZieleTeamsPage />}
           {view === 'ziele_kontrolle' && <Umsatzkontrolle />}
           {view === 'rechnungen' && <Rechnungen />}
-          {view === 'projekte' && <Projekte />}
           {view === 'projektliste' && <Projektliste />}
           {view === 'ks_bauwerke' &&
             (kostenDoc ? <BauwerkeTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
@@ -511,7 +484,6 @@ function Sidebar({
   expandedByGroup,
   onToggleGroup,
   freigabenCount,
-  projekteCount,
 }: {
   nav: NavEntry[]
   view: View
@@ -521,7 +493,6 @@ function Sidebar({
   expandedByGroup: Record<string, boolean>
   onToggleGroup: (id: string) => void
   freigabenCount: number
-  projekteCount: number
 }) {
   // Hand-rolled hover flyout for the collapsed rail. A single always-mounted
   // panel (no portal mount/measure on each switch) tracks whichever group
@@ -586,13 +557,7 @@ function Sidebar({
                 label={VIEW_META[entry.view].label}
                 active={entry.view === view}
                 collapsed={collapsed}
-                badge={
-                  entry.view === 'freigaben'
-                    ? freigabenCount
-                    : entry.view === 'projekte'
-                      ? projekteCount
-                      : 0
-                }
+                badge={entry.view === 'freigaben' ? freigabenCount : 0}
                 onClick={() => onSelect(entry.view)}
               />
             )
@@ -709,13 +674,7 @@ function Sidebar({
                   icon={VIEW_META[childView].icon}
                   label={VIEW_META[childView].label}
                   active={childView === view}
-                  badge={
-                    childView === 'freigaben'
-                      ? freigabenCount
-                      : childView === 'projekte'
-                        ? projekteCount
-                        : 0
-                  }
+                  badge={childView === 'freigaben' ? freigabenCount : 0}
                   onClick={() => {
                     onSelect(childView)
                     setHovered(null)
@@ -748,7 +707,6 @@ function ViewPeriodPicker({ view }: { view: View }) {
       return <UmsatzPicker />
     case 'rechnungen':
       return <RechnungenPicker />
-    case 'projekte':
     case 'projektliste':
       return null
     case 'ks_bauwerke':
