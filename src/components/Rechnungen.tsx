@@ -136,13 +136,19 @@ export function Rechnungen() {
                     />
                   </Th>
                 ))}
-                <Th className="num w-[132px] text-right">Σ DE</Th>
-                <Th className="num w-[132px] text-right">Σ PL</Th>
+                <Th className="num w-[132px] text-right">Rg. Gesamt</Th>
                 <Th
                   className="num w-[132px] text-right"
-                  title="Nachträge für erbrachte Leistung"
+                  title="= Rg. Gesamt − Rg. PL − Rg. extern"
                 >
-                  Erbr. Leistung
+                  Rg. DE
+                </Th>
+                <Th className="num w-[132px] text-right">Rg. PL</Th>
+                <Th
+                  className="num w-[132px] text-right"
+                  title="Extern erbrachte Leistung"
+                >
+                  Rg. extern
                 </Th>
                 <Th className="w-8" />
               </tr>
@@ -229,9 +235,16 @@ export function Rechnungen() {
                   ))}
                   <td className="px-1 py-0.5">
                     <NumCell
-                      value={row.rgSummeDE}
-                      onChange={(v) => updateRow(row.id, { rgSummeDE: v })}
+                      value={row.rgGesamt}
+                      onChange={(v) => updateRow(row.id, { rgGesamt: v })}
                       className="text-right"
+                    />
+                  </td>
+                  <td className="px-1 py-0.5">
+                    <NumCell
+                      value={computedRgDe(row)}
+                      readOnly
+                      className="text-right text-muted-foreground"
                     />
                   </td>
                   <td className="px-1 py-0.5">
@@ -278,6 +291,9 @@ export function Rechnungen() {
                   Σ Gesamt
                 </td>
                 <td className="num px-2 py-2 text-right font-mono tabular-nums">
+                  {fmtEUR(totals.rgGesamt) || '—'} €
+                </td>
+                <td className="num px-2 py-2 text-right font-mono tabular-nums">
                   {fmtEUR(totals.rgSummeDE) || '—'} €
                 </td>
                 <td className="num px-2 py-2 text-right font-mono tabular-nums">
@@ -296,11 +312,26 @@ export function Rechnungen() {
   )
 }
 
+// Rg. DE is derived from Rg. Gesamt − Rg. PL − Rg. extern per row. When any
+// of the three inputs is null, we treat it as 0 for the calculation so the
+// user sees the running total immediately.
+function computedRgDe(r: {
+  rgGesamt: number | null
+  rgSummePL: number | null
+  nachtragErbracht: number | null
+}): number | null {
+  if (r.rgGesamt === null && r.rgSummePL === null && r.nachtragErbracht === null) {
+    return null
+  }
+  return (r.rgGesamt ?? 0) - (r.rgSummePL ?? 0) - (r.nachtragErbracht ?? 0)
+}
+
 function computeTotals(data: Rechnungsplan | null) {
-  const acc = { rgSummeDE: 0, rgSummePL: 0, erbrachteLeistung: 0 }
+  const acc = { rgGesamt: 0, rgSummeDE: 0, rgSummePL: 0, erbrachteLeistung: 0 }
   if (!data) return acc
   for (const r of data.rows) {
-    acc.rgSummeDE += r.rgSummeDE ?? 0
+    acc.rgGesamt += r.rgGesamt ?? 0
+    acc.rgSummeDE += computedRgDe(r) ?? 0
     acc.rgSummePL += r.rgSummePL ?? 0
     acc.erbrachteLeistung += r.nachtragErbracht ?? 0
   }
@@ -308,13 +339,16 @@ function computeTotals(data: Rechnungsplan | null) {
 }
 
 function totalColSpan(data: Rechnungsplan): number {
+  // 5 chip/text cols, 1 HV, N nachträge, optional Zeithonorar, note columns,
+  // 4 Rg. columns (Gesamt, DE, PL, extern), 1 trash col.
   return (
-    5 + 1 + data.nachtragCount + (data.showZeithonorar ? 1 : 0) + data.noteColumns.length + 3 + 1
+    5 + 1 + data.nachtragCount + (data.showZeithonorar ? 1 : 0) + data.noteColumns.length + 4 + 1
   )
 }
 
 function summaryLabelSpan(data: Rechnungsplan): number {
-  return totalColSpan(data) - 4
+  // Footer renders 4 totals + trash cell at the right.
+  return totalColSpan(data) - 5
 }
 
 function Toolbar({

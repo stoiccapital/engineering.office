@@ -406,6 +406,10 @@ export type RechnungsplanRow = {
   hv: NEntry
   nachtraege: NEntry[] // fixed length = month.nachtragCount
   zeithonorar?: NEntry // optional, only when month.showZeithonorar
+  // Rg. Gesamt — total invoice amount entered manually.
+  rgGesamt: number | null
+  // Rg. PL + Rg. extern are manual too. Rg. DE is derived as
+  // rgGesamt - rgSummePL - nachtragErbracht and shown read-only.
   rgSummeDE: number | null
   rgSummePL: number | null
   nachtragErbracht: number | null
@@ -442,6 +446,7 @@ export function emptyRechnungsplanRow(nachtragCount: number, withZeithonorar: bo
     hv: { status: 'aktuell' },
     nachtraege: Array.from({ length: nachtragCount }, () => emptyNEntry()),
     zeithonorar: withZeithonorar ? emptyNEntry() : undefined,
+    rgGesamt: null,
     rgSummeDE: null,
     rgSummePL: null,
     nachtragErbracht: null,
