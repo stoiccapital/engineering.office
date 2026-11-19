@@ -1,12 +1,5 @@
-import { hashPassword, isHashed } from '../_lib/password'
-
 interface Env {
   FORECAST_KV: KVNamespace
-}
-
-type Roster = {
-  employees?: { password?: string }[]
-  [key: string]: unknown
 }
 
 const KEY = 'roster'
@@ -21,19 +14,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
 export const onRequestPut: PagesFunction<Env> = async ({ env, request }) => {
   const body = await request.text()
   if (body.length > 1_000_000) return json({ error: 'too large' }, 413)
-  let roster: Roster
   try {
-    roster = JSON.parse(body) as Roster
+    JSON.parse(body)
   } catch {
     return json({ error: 'invalid json' }, 400)
   }
-  // Hash any plaintext passwords on save.
-  for (const e of roster.employees ?? []) {
-    if (e.password && !isHashed(e.password)) {
-      e.password = await hashPassword(e.password)
-    }
-  }
-  await env.FORECAST_KV.put(KEY, JSON.stringify(roster))
+  await env.FORECAST_KV.put(KEY, body)
   return json({ ok: true })
 }
 

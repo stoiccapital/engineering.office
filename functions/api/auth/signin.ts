@@ -1,5 +1,3 @@
-import { verifyPassword } from '../../_lib/password'
-
 interface Env {
   FORECAST_KV: KVNamespace
 }
@@ -53,39 +51,29 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   const cfg = accessRaw ? (JSON.parse(accessRaw) as AccessConfig) : null
 
   if (kuerzel) {
+    // Roster is the canonical source; legacy accessConfig.users is the fallback
+    // so existing deployments keep working until admin migrates each user.
     const rosterRaw = await env.FORECAST_KV.get(ROSTER_KEY)
     const roster = rosterRaw ? (JSON.parse(rosterRaw) as Roster) : null
-    const rosterCandidate = roster?.employees?.find((e) => e.kuerzel === kuerzel)
-    if (rosterCandidate?.password && rosterCandidate.kuerzel && rosterCandidate.roleId) {
-      const check = await verifyPassword(rosterCandidate.password, password)
-      if (!check.ok) return json({ error: 'invalid credentials' }, 401)
-      if (check.upgradeTo && roster) {
-        rosterCandidate.password = check.upgradeTo
-        await env.FORECAST_KV.put(ROSTER_KEY, JSON.stringify(roster))
-      }
-      const role = cfg?.roles.find((r) => r.id === rosterCandidate.roleId)
+    const rosterMatch = roster?.employees?.find(
+      (e) => e.kuerzel && e.kuerzel === kuerzel && e.password === password,
+    )
+    if (rosterMatch && rosterMatch.roleId) {
+      const role = cfg?.roles.find((r) => r.id === rosterMatch.roleId)
       if (!role) return json({ error: 'role missing for user' }, 401)
       return json({
         ok: true,
         role: { id: role.id, name: role.name, modules: role.modules },
         user: {
-          id: rosterCandidate.id,
-          kuerzel: rosterCandidate.kuerzel,
-          displayName: displayNameOf(
-            rosterCandidate.vorname,
-            rosterCandidate.name,
-            rosterCandidate.kuerzel,
-          ),
+          id: rosterMatch.id,
+          kuerzel: rosterMatch.kuerzel!,
+          displayName: displayNameOf(rosterMatch.vorname, rosterMatch.name, rosterMatch.kuerzel!),
         },
       })
     }
     const legacy = cfg?.users?.find((u) => u.kuerzel === kuerzel)
-    if (!legacy) return json({ error: 'invalid credentials' }, 401)
-    const check = await verifyPassword(legacy.password, password)
-    if (!check.ok) return json({ error: 'invalid credentials' }, 401)
-    if (check.upgradeTo && cfg) {
-      legacy.password = check.upgradeTo
-      await env.FORECAST_KV.put(ACCESS_KEY, JSON.stringify(cfg))
+    if (!legacy || legacy.password !== password) {
+      return json({ error: 'invalid credentials' }, 401)
     }
     const role = cfg?.roles.find((r) => r.id === legacy.roleId)
     if (!role) return json({ error: 'role missing for user' }, 401)
@@ -101,12 +89,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   }
 
   const role = cfg?.roles.find((r) => r.id === roleId)
-  if (!role) return json({ error: 'invalid credentials' }, 401)
-  const check = await verifyPassword(role.password, password)
-  if (!check.ok) return json({ error: 'invalid credentials' }, 401)
-  if (check.upgradeTo && cfg) {
-    role.password = check.upgradeTo
-    await env.FORECAST_KV.put(ACCESS_KEY, JSON.stringify(cfg))
+  if (!role || role.password !== password) {
+    return json({ error: 'invalid credentials' }, 401)
   }
   return json({ ok: true, role: { id: role.id, name: role.name, modules: role.modules } })
 }
