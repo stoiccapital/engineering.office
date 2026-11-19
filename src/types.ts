@@ -599,6 +599,10 @@ export type ModuleId =
   | 'ks_bauwerke'
   | 'ks_hoai'
   | 'ks_katalog'
+  | 'ke_projekt'
+  | 'ke_positionen'
+  | 'ke_uebersicht'
+  | 'ke_datenbank'
   | 'mitarbeiter'
   | 'settings'
 
@@ -616,6 +620,10 @@ export const MODULES: ModuleId[] = [
   'ks_bauwerke',
   'ks_hoai',
   'ks_katalog',
+  'ke_projekt',
+  'ke_positionen',
+  'ke_uebersicht',
+  'ke_datenbank',
   'mitarbeiter',
   'settings',
 ]
@@ -634,6 +642,10 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
   ks_bauwerke: 'Bauwerke',
   ks_hoai: 'HOAI-Honorar',
   ks_katalog: 'Datenbank Ril 808',
+  ke_projekt: 'Projekt',
+  ke_positionen: 'Positionen',
+  ke_uebersicht: 'Übersicht',
+  ke_datenbank: 'Datenbank Ril 808',
   mitarbeiter: 'Mitarbeiter',
   settings: 'Einstellungen',
 }
@@ -648,6 +660,7 @@ export const MODULE_GROUPS: { label: string; modules: ModuleId[] }[] = [
   { label: 'Projekte', modules: ['projekte'] },
   { label: 'Projektliste', modules: ['projektliste'] },
   { label: 'Kostenschätzung', modules: ['ks_bauwerke', 'ks_hoai', 'ks_katalog'] },
+  { label: 'Kostenermittlung', modules: ['ke_projekt', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank'] },
   { label: 'Einstellungen', modules: ['mitarbeiter', 'settings'] },
 ]
 

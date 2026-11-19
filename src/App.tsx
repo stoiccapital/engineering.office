@@ -19,6 +19,11 @@ import { BauwerkeTab } from '@/components/kostenschaetzung/BauwerkeTab'
 import { HoaiTab } from '@/components/kostenschaetzung/HoaiTab'
 import { KatalogTab } from '@/components/kostenschaetzung/KatalogTab'
 import { KostenschaetzungSaveStatus } from '@/components/KostenschaetzungSaveStatus'
+import { ProjektTab as KeProjektTab } from '@/components/kostenermittlung/ProjektTab'
+import { PositionenTab as KePositionenTab } from '@/components/kostenermittlung/PositionenTab'
+import { UebersichtTab as KeUebersichtTab } from '@/components/kostenermittlung/UebersichtTab'
+import { DatenbankTab as KeDatenbankTab } from '@/components/kostenermittlung/DatenbankTab'
+import { KostenermittlungSaveStatus } from '@/components/KostenermittlungSaveStatus'
 import { Aktivitaet } from '@/components/Aktivitaet'
 import { Projekte } from '@/components/Projekte'
 import { ProjekteSaveStatus } from '@/components/ProjekteSaveStatus'
@@ -40,10 +45,11 @@ import { useUmsatz } from '@/umsatz-store'
 import { useRechnungen } from '@/rechnungen-store'
 import { useRoster } from '@/roster-store'
 import { useKostenschaetzung } from '@/kostenschaetzung-store'
+import { useKostenermittlung } from '@/kostenermittlung-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, ClipboardList, Database, FileText, FolderKanban, Gauge, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
+import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, ClipboardList, Database, FileSpreadsheet, FileText, FolderKanban, Gauge, LayoutDashboard, ListTree, PanelLeftClose, PanelLeftOpen, Receipt, Ruler, Settings as SettingsIcon, Table2, Target, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 // Accordion mode — at most one sidebar group is expanded at a time.
@@ -61,12 +67,17 @@ type View =
   | 'ks_bauwerke'
   | 'ks_hoai'
   | 'ks_katalog'
+  | 'ke_projekt'
+  | 'ke_positionen'
+  | 'ke_uebersicht'
+  | 'ke_datenbank'
   | 'ziele_dashboard'
   | 'ziele_teams'
   | 'ziele_kontrolle'
   | 'aktivitaet'
 
 const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_hoai', 'ks_katalog']
+const KE_VIEWS: View[] = ['ke_projekt', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank']
 const ZIELE_VIEWS: View[] = ['ziele_dashboard', 'ziele_teams', 'ziele_kontrolle']
 
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
@@ -83,6 +94,10 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ks_bauwerke: { title: 'Bauwerke', label: 'Bauwerke', icon: Building2 },
   ks_hoai: { title: 'HOAI-Honorar', label: 'HOAI-Honorar', icon: Calculator },
   ks_katalog: { title: 'Datenbank · Ril 808', label: 'Datenbank Ril 808', icon: Database },
+  ke_projekt: { title: 'Kostenermittlung · Projekt', label: 'Projekt', icon: FileSpreadsheet },
+  ke_positionen: { title: 'Kostenermittlung · Positionen', label: 'Positionen', icon: ListTree },
+  ke_uebersicht: { title: 'Kostenermittlung · Übersicht', label: 'Übersicht', icon: Receipt },
+  ke_datenbank: { title: 'Kostenermittlung · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
   mitarbeiter: { title: 'Mitarbeiter', label: 'Mitarbeiter', icon: Users },
   settings: { title: 'Rollen', label: 'Rollen', icon: SettingsIcon },
   aktivitaet: { title: 'Aktivität', label: 'Aktivität', icon: Activity },
@@ -116,6 +131,13 @@ const NAV: NavEntry[] = [
     label: 'Kostenschätzung',
     icon: Ruler,
     children: KS_VIEWS,
+  },
+  {
+    kind: 'group',
+    id: 'kostenermittlung',
+    label: 'Kostenermittlung',
+    icon: FileSpreadsheet,
+    children: KE_VIEWS,
   },
   {
     kind: 'group',
@@ -244,6 +266,8 @@ function Shell() {
   const roster = useRoster((s) => s.roster)
   const loadKostenschaetzung = useKostenschaetzung((s) => s.load)
   const kostenDoc = useKostenschaetzung((s) => s.doc)
+  const loadKostenermittlung = useKostenermittlung((s) => s.load)
+  const keDoc = useKostenermittlung((s) => s.doc)
   const loadProjects = useProjects((s) => s.load)
   const projectsDoc = useProjects((s) => s.doc)
   const loadProjektliste = useProjektliste((s) => s.load)
@@ -312,6 +336,15 @@ function Shell() {
   }, [view, kostenDoc, loadKostenschaetzung])
 
   useEffect(() => {
+    // Datenbank loads its own catalog JSON; it doesn't depend on the Kostenermittlung doc.
+    const isKeDocView =
+      view === 'ke_projekt' ||
+      view === 'ke_positionen' ||
+      view === 'ke_uebersicht'
+    if (isKeDocView && !keDoc) void loadKostenermittlung()
+  }, [view, keDoc, loadKostenermittlung])
+
+  useEffect(() => {
     if (view === 'projekte' && !projectsDoc) void loadProjects()
   }, [view, projectsDoc, loadProjects])
 
@@ -367,6 +400,7 @@ function Shell() {
           operative: activeGroup === 'operative',
           einstellungen: activeGroup === 'einstellungen',
           kostenschaetzung: activeGroup === 'kostenschaetzung',
+          kostenermittlung: activeGroup === 'kostenermittlung',
           ziele: activeGroup === 'ziele',
         }}
         onToggleGroup={(id) => {
@@ -393,6 +427,10 @@ function Shell() {
               {(view === 'ks_bauwerke' ||
                 view === 'ks_hoai' ||
                 view === 'ks_katalog') && <KostenschaetzungSaveStatus />}
+              {(view === 'ke_projekt' ||
+                view === 'ke_positionen' ||
+                view === 'ke_uebersicht') && <KostenermittlungSaveStatus />}
+              {/* ke_datenbank is read-only — no save status needed. */}
               <ViewPeriodPicker view={view} />
               {view === 'forecast' && <ImportDialog />}
             </div>
@@ -426,6 +464,13 @@ function Shell() {
             (kostenDoc ? <HoaiTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
           {view === 'ks_katalog' &&
             (kostenDoc ? <KatalogTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
+          {view === 'ke_projekt' &&
+            (keDoc ? <KeProjektTab /> : <LoadingCard>Lade Kostenermittlung…</LoadingCard>)}
+          {view === 'ke_positionen' &&
+            (keDoc ? <KePositionenTab /> : <LoadingCard>Lade Kostenermittlung…</LoadingCard>)}
+          {view === 'ke_uebersicht' &&
+            (keDoc ? <KeUebersichtTab /> : <LoadingCard>Lade Kostenermittlung…</LoadingCard>)}
+          {view === 'ke_datenbank' && <KeDatenbankTab />}
           {view === 'mitarbeiter' && <Mitarbeiter />}
           {view === 'settings' && <Settings />}
           {view === 'aktivitaet' && <Aktivitaet />}
@@ -573,6 +618,11 @@ function ViewPeriodPicker({ view }: { view: View }) {
     case 'ks_bauwerke':
     case 'ks_hoai':
     case 'ks_katalog':
+      return null
+    case 'ke_projekt':
+    case 'ke_positionen':
+    case 'ke_uebersicht':
+    case 'ke_datenbank':
       return null
     case 'mitarbeiter':
       return null

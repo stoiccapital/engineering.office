@@ -263,6 +263,7 @@ const rechnungsplaene = new Map<string, Rechnungsplan>()
 let logo: string | null = null
 let roster: Roster | null = seedRoster()
 let kostenschaetzung: unknown = null
+let kostenermittlung: unknown = null
 let projects: ProjekteDoc | null = null
 let projektliste: ProjektlisteDoc | null = null
 const activity: ActivityEvent[] = []
@@ -273,7 +274,7 @@ let access: AccessConfig | null = (() => {
       id: 'dev-admin',
       name: 'Admin (dev)',
       password: 'admin',
-      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'mitarbeiter', 'settings'],
+      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projekte', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'ke_projekt', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank', 'mitarbeiter', 'settings'],
     },
   ]
   return cfg
@@ -361,6 +362,12 @@ export const mock = {
   },
   setKostenschaetzung(value: unknown) {
     kostenschaetzung = value
+  },
+  kostenermittlung(): unknown {
+    return kostenermittlung
+  },
+  setKostenermittlung(value: unknown) {
+    kostenermittlung = value
   },
   projects(): ProjekteDoc | null {
     return projects

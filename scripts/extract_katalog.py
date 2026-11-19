@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""Extract the two Ril-808 catalogs into JSON seeds the app can import.
+
+Usage: python3 scripts/extract_katalog.py
+Reads from ~/Desktop/ and writes to src/features/kostenermittlung/data/.
+"""
+import json
+import os
+import sys
+from pathlib import Path
+
+from openpyxl import load_workbook
+
+HOME = Path.home()
+SRC_KGK = HOME / 'Desktop' / 'Datenbank gem. Ril 808 (1).xlsx'
+SRC_FREI = HOME / 'Desktop' / 'Datenbank_freie_Einheitspreise (1).xlsx'
+
+OUT_DIR = Path(__file__).resolve().parent.parent / 'src' / 'features' / 'kostenermittlung' / 'data'
+
+
+# Normalize messy unit strings. The free DB mixes St/st/St./"St; st" etc. —
+# fold these onto a single canonical form the Positionen tab can show.
+UNIT_MAP = {
+    'st': 'St',
+    'st.': 'St',
+    'St.': 'St',
+    'St; st': 'St',
+    'm2': 'm²',
+    'm3': 'm³',
+    'lfd. m; lfdm': 'lfdm',
+    'lfd. m': 'lfdm',
+    'je Weiche': 'St',
+}
+
+
+def norm_unit(u):
+    if not u:
+        return None
+    s = str(u).strip()
+    return UNIT_MAP.get(s, s)
+
+
+def extract_kgk():
+    wb = load_workbook(SRC_KGK, data_only=True, read_only=True)
+    ws = wb['Datenbank']
+    entries = []
+    # header row is row 7; data starts row 8
+    for r in ws.iter_rows(min_row=8, values_only=True):
+        code = r[0]
+        if code is None:
+            continue
+        code = str(int(code)) if isinstance(code, float) and code.is_integer() else str(code)
+        ebene = r[1]
+        bezeichnung = r[2]
+        einheit = norm_unit(r[3])
+        anmerkung = r[4]
+        pfad = r[5]
+        parent = r[7]
+        parent = (
+            str(int(parent)) if isinstance(parent, float) and parent.is_integer()
+            else (str(parent) if parent is not None else None)
+        )
+        # EP range at Q3/2026 (cols 17, 18, 19 — 1-indexed in dump, 0-indexed here)
+        ep_von = r[16]
+        ep_bis = r[17]
+        ep_einheit = norm_unit(r[18])
+        # Only keep numeric prices; structural rows have None/dates here.
+        if not isinstance(ep_von, (int, float)):
+            ep_von = None
+        if not isinstance(ep_bis, (int, float)):
+            ep_bis = None
+        entries.append(
+            {
+                'code': code,
+                'ebene': int(ebene) if ebene is not None else None,
+                'bezeichnung': bezeichnung,
+                'einheit': einheit,
+                'anmerkung': anmerkung,
+                'parent': parent,
+                'pfad': pfad,
+                'epVon': ep_von,
+                'epBis': ep_bis,
+                'epEinheit': ep_einheit,
+            }
+        )
+    return entries
+
+
+def extract_frei():
+    wb = load_workbook(SRC_FREI, data_only=True, read_only=True)
+    ws = wb['Freie Datenbank']
+    out = []
+    for i, r in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        bez = r[0]
+        if not bez:
+            continue
+        anmerkung = r[1] if r[1] != 'k.A.' else None
+        betrag = r[2]
+        einheit = norm_unit(r[3])
+        if not isinstance(betrag, (int, float)):
+            betrag = None
+        out.append(
+            {
+                'id': i,  # stable row id for keys
+                'bezeichnung': bez,
+                'anmerkung': anmerkung,
+                'betrag': betrag,
+                'einheit': einheit,
+            }
+        )
+    return out
+
+
+def main():
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    kgk = extract_kgk()
+    frei = extract_frei()
+    meta = {
+        'quartal': 'Q3/2026',
+        'faktor': 141.7,
+        'quelle': 'Ril 808.0210A01, gültig ab 14.03.2022',
+        'kgkCount': len(kgk),
+        'freiCount': len(frei),
+        'kgkMitPreis': sum(1 for e in kgk if e['epVon'] is not None),
+        'freiMitPreis': sum(1 for e in frei if e['betrag'] is not None),
+    }
+    (OUT_DIR / 'katalog_kgk.json').write_text(
+        json.dumps(kgk, ensure_ascii=False, separators=(',', ':')) + '\n'
+    )
+    (OUT_DIR / 'katalog_frei.json').write_text(
+        json.dumps(frei, ensure_ascii=False, separators=(',', ':')) + '\n'
+    )
+    (OUT_DIR / 'katalogMeta.json').write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2) + '\n'
+    )
+    print(f'wrote {len(kgk)} KGK entries, {len(frei)} free entries')
+    print(f'meta: {meta}')
+
+
+if __name__ == '__main__':
+    main()
