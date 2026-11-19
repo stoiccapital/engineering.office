@@ -531,7 +531,44 @@ function Sidebar({
   freigabenCount: number
   projekteCount: number
 }) {
+  // Hand-rolled hover flyout for the collapsed rail. A single always-mounted
+  // panel (no portal mount/measure on each switch) tracks whichever group
+  // icon is currently hovered — moving between icons just updates `top` and
+  // the child list, so the panel visibly translates instead of blinking.
+  const [hovered, setHovered] = useState<
+    { id: string; top: number; left: number } | null
+  >(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+  }
+  const scheduleClose = () => {
+    cancelClose()
+    closeTimer.current = setTimeout(() => setHovered(null), 60)
+  }
+  const hoverGroup = (id: string, target: HTMLElement) => {
+    cancelClose()
+    const rect = target.getBoundingClientRect()
+    setHovered({ id, top: rect.top, left: rect.right + 2 })
+  }
+  useEffect(() => {
+    // Expanding the sidebar collapses any open flyout.
+    if (!collapsed) setHovered(null)
+  }, [collapsed])
+  const hoveredEntry = useMemo(
+    () =>
+      hovered
+        ? (nav.find((e) => e.kind === 'group' && e.id === hovered.id) as
+            | Extract<NavEntry, { kind: 'group' }>
+            | undefined)
+        : undefined,
+    [hovered, nav],
+  )
   return (
+    <>
     <aside
       className={cn(
         'sticky top-0 flex h-screen shrink-0 flex-col border-r bg-background transition-[width] duration-200',
@@ -547,7 +584,7 @@ function Sidebar({
         <UserMenu collapsed={collapsed} />
       </div>
 
-      <nav className="flex-1 space-y-0.5 p-2">
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
         {nav.map((entry) => {
           if (entry.kind === 'leaf') {
             return (
@@ -569,7 +606,39 @@ function Sidebar({
             )
           }
           const childActive = entry.children.includes(view)
-          const expanded = (expandedByGroup[entry.id] ?? true) || collapsed
+          const expanded = expandedByGroup[entry.id] ?? true
+          const groupBadge = entry.children.includes('freigaben' as View)
+            ? freigabenCount
+            : 0
+          if (collapsed) {
+            // Collapsed rail: just the group icon. Hover moves the shared
+            // flyout rendered at the end of the sidebar.
+            const Icon = entry.icon
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                onMouseEnter={(e) => hoverGroup(entry.id, e.currentTarget)}
+                onFocus={(e) => hoverGroup(entry.id, e.currentTarget)}
+                onMouseLeave={scheduleClose}
+                onBlur={scheduleClose}
+                title={groupBadge > 0 ? `${entry.label} (${groupBadge})` : entry.label}
+                className={cn(
+                  'relative flex w-full items-center justify-center rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors',
+                  childActive
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {groupBadge > 0 && (
+                  <span className="absolute right-1 top-1 inline-flex min-w-[14px] items-center justify-center rounded-full bg-destructive px-1 font-mono text-[9px] font-semibold leading-none text-destructive-foreground">
+                    {groupBadge}
+                  </span>
+                )}
+              </button>
+            )
+          }
           return (
             <div key={entry.id}>
               <NavGroupHeader
@@ -578,9 +647,7 @@ function Sidebar({
                 expanded={expanded}
                 collapsed={collapsed}
                 childActive={childActive}
-                badge={
-                  entry.children.includes('freigaben' as View) && !expanded ? freigabenCount : 0
-                }
+                badge={!expanded ? groupBadge : 0}
                 onToggle={() => onToggleGroup(entry.id)}
               />
               {expanded &&
@@ -621,6 +688,54 @@ function Sidebar({
         </button>
       </div>
     </aside>
+
+    {/* Always-mounted shared flyout. position:fixed uses the hovered icon's
+        rect so switching groups just repaints `top` + children — no portal
+        mount, no Popper measurement, no visible delay. */}
+    {collapsed && (
+      <div
+        onMouseEnter={cancelClose}
+        onMouseLeave={scheduleClose}
+        style={{
+          position: 'fixed',
+          top: hovered?.top ?? 0,
+          left: hovered?.left ?? 0,
+          visibility: hoveredEntry ? 'visible' : 'hidden',
+          pointerEvents: hoveredEntry ? 'auto' : 'none',
+        }}
+        className="z-50 min-w-[200px] rounded-lg border bg-card p-1 shadow-lg"
+      >
+        {hoveredEntry && (
+          <>
+            <div className="px-3 py-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+              {hoveredEntry.label}
+            </div>
+            <div className="py-1">
+              {hoveredEntry.children.map((childView) => (
+                <FlyoutItem
+                  key={childView}
+                  icon={VIEW_META[childView].icon}
+                  label={VIEW_META[childView].label}
+                  active={childView === view}
+                  badge={
+                    childView === 'freigaben'
+                      ? freigabenCount
+                      : childView === 'projekte'
+                        ? projekteCount
+                        : 0
+                  }
+                  onClick={() => {
+                    onSelect(childView)
+                    setHovered(null)
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    )}
+    </>
   )
 }
 
@@ -867,6 +982,41 @@ function NavGroupHeader({
         <ChevronDown className="h-3.5 w-3.5" />
       ) : (
         <ChevronRight className="h-3.5 w-3.5" />
+      )}
+    </button>
+  )
+}
+
+function FlyoutItem({
+  icon: Icon,
+  label,
+  active,
+  badge = 0,
+  onClick,
+}: {
+  icon: typeof Table2
+  label: string
+  active: boolean
+  badge?: number
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-[13px] font-medium transition-colors',
+        active
+          ? 'bg-accent text-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      <span className="flex-1">{label}</span>
+      {badge > 0 && (
+        <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-none text-destructive-foreground">
+          {badge}
+        </span>
       )}
     </button>
   )
