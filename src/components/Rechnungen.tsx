@@ -1,13 +1,18 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
+import * as Dialog from '@radix-ui/react-dialog'
 import {
   ArrowDownToLine,
   Calendar,
   Plus,
   Settings as SettingsIcon,
   Trash2,
+  Upload,
+  X,
 } from 'lucide-react'
 import { useRechnungen } from '@/rechnungen-store'
+import { saveRechnungsplan } from '@/api'
+import { parseWorkbook, type ImportResult } from '@/lib/rechnungen-import'
 import {
   N_STATUS_LABELS,
   PL_BRANCH_LABELS,
@@ -75,6 +80,7 @@ export function Rechnungen() {
   const copyFromPreviousMonth = useRechnungen((s) => s.copyFromPreviousMonth)
 
   const totals = useMemo(() => computeTotals(data), [data])
+  const [importOpen, setImportOpen] = useState(false)
 
   if (!data) return null
 
@@ -93,9 +99,11 @@ export function Rechnungen() {
       <Toolbar
         plan={data}
         onCopyPrevious={triggerCopy}
+        onOpenImport={() => setImportOpen(true)}
         onChangeNachtragCount={setNachtragCount}
         onToggleZeithonorar={setShowZeithonorar}
       />
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
       <Section
         title="Rechnungsplanung"
@@ -354,16 +362,26 @@ function summaryLabelSpan(data: Rechnungsplan): number {
 function Toolbar({
   plan,
   onCopyPrevious,
+  onOpenImport,
   onChangeNachtragCount,
   onToggleZeithonorar,
 }: {
   plan: Rechnungsplan
   onCopyPrevious: () => void
+  onOpenImport: () => void
   onChangeNachtragCount: (n: number) => void
   onToggleZeithonorar: (show: boolean) => void
 }) {
   return (
     <div className="flex items-center justify-end gap-2">
+      <button
+        onClick={onOpenImport}
+        className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        title="Excel-Datei (.xlsx) mit Monats-Sheets importieren"
+      >
+        <Upload className="h-3.5 w-3.5" />
+        Import
+      </button>
       <button
         onClick={onCopyPrevious}
         className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -572,5 +590,215 @@ function Th({
     <th title={title} className={cn('px-2 py-1.5 text-[11px] font-medium', className)}>
       {children}
     </th>
+  )
+}
+
+const DE_MONTH_NAMES = [
+  'Januar',
+  'Februar',
+  'März',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Dezember',
+]
+
+function ImportDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) {
+  const year = useRechnungen((s) => s.year)
+  const month = useRechnungen((s) => s.month)
+  const load = useRechnungen((s) => s.load)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [result, setResult] = useState<ImportResult | null>(null)
+  const [overwrite, setOverwrite] = useState(true)
+  const [importing, setImporting] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const reset = () => {
+    setResult(null)
+    setStatus(null)
+    setError(null)
+    setImporting(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const onFile = async (file: File) => {
+    setError(null)
+    setStatus(null)
+    try {
+      const buf = await file.arrayBuffer()
+      const parsed = parseWorkbook(buf, year)
+      setResult(parsed)
+    } catch (e) {
+      setError(`Datei konnte nicht gelesen werden: ${(e as Error).message}`)
+    }
+  }
+
+  const doImport = async () => {
+    if (!result) return
+    setImporting(true)
+    setError(null)
+    const importable = result.sheets.filter((s) => s.plan !== null)
+    for (let i = 0; i < importable.length; i++) {
+      const s = importable[i]
+      setStatus(`Schreibe ${s.sheetName} (${i + 1}/${importable.length}) …`)
+      try {
+        await saveRechnungsplan(result.year, s.month!, s.plan!)
+      } catch (e) {
+        setError(`Fehler bei ${s.sheetName}: ${(e as Error).message}`)
+        setImporting(false)
+        return
+      }
+    }
+    setStatus(`${importable.length} Monate importiert.`)
+    setImporting(false)
+    // Reload current month so the UI reflects the imported data.
+    void load()
+  }
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card shadow-xl">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div>
+              <Dialog.Title className="text-sm font-semibold">
+                Rechnungen importieren
+              </Dialog.Title>
+              <Dialog.Description className="text-xs text-muted-foreground">
+                Excel (.xlsx) mit einem Blatt pro Monat (Januar, Februar, …). Jahr{' '}
+                <span className="font-mono tabular-nums">{year}</span> (aus dem
+                Kalender-Filter).
+              </Dialog.Description>
+            </div>
+            <Dialog.Close asChild>
+              <button
+                className="rounded p-1 text-muted-foreground hover:bg-accent"
+                aria-label="Schließen"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Dialog.Close>
+          </div>
+
+          <div className="space-y-4 px-4 py-4">
+            <div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void onFile(f)
+                }}
+                className="block w-full text-xs"
+              />
+            </div>
+
+            {error && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {error}
+              </div>
+            )}
+
+            {result && (
+              <div className="space-y-2">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Vorschau
+                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b text-[11px] text-muted-foreground">
+                      <th className="px-2 py-1 text-left">Blatt</th>
+                      <th className="px-2 py-1 text-left">Monat</th>
+                      <th className="px-2 py-1 text-right">Zeilen</th>
+                      <th className="px-2 py-1 text-left">Hinweis</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.sheets.map((s) => {
+                      const current =
+                        s.month === month
+                          ? ' (aktuell geöffnet — wird überschrieben)'
+                          : ''
+                      return (
+                        <tr key={s.sheetName} className="border-b last:border-b-0">
+                          <td className="px-2 py-1 font-mono">{s.sheetName}</td>
+                          <td className="px-2 py-1">
+                            {s.month
+                              ? `${s.month.toString().padStart(2, '0')} · ${DE_MONTH_NAMES[s.month - 1]}`
+                              : '—'}
+                          </td>
+                          <td className="px-2 py-1 text-right tabular-nums">
+                            {s.plan ? s.rowCount : '—'}
+                          </td>
+                          <td className="px-2 py-1 text-muted-foreground">
+                            {s.error ?? current}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={overwrite}
+                    onChange={(e) => setOverwrite(e.target.checked)}
+                  />
+                  Vorhandene Monatsdaten komplett überschreiben
+                </label>
+                <div className="text-[11px] text-muted-foreground">
+                  Hinweis: Merge ist aktuell nicht implementiert — importierte
+                  Monate werden immer überschrieben. Das Häkchen bestätigt dein
+                  Einverständnis.
+                </div>
+              </div>
+            )}
+
+            {status && (
+              <div className="rounded-md border bg-accent/40 px-3 py-2 text-xs">
+                {status}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+            <button
+              type="button"
+              onClick={() => {
+                reset()
+                onOpenChange(false)
+              }}
+              className="rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              disabled={!result || importing || !overwrite}
+              onClick={() => void doImport()}
+              className="rounded-md border bg-foreground px-3 py-1.5 text-xs text-background hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {importing
+                ? 'Importiere …'
+                : `Alle ${result?.sheets.filter((s) => s.plan).length ?? 0} Monate importieren`}
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
