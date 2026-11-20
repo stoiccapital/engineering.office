@@ -29,6 +29,9 @@ const EXEMPT = new Set([
   '/api/auth/signin',
   '/api/settings/roles',
   '/api/settings/users',
+  // Backup endpoint carries its own shared-secret auth and runs under the
+  // Cloudflare cron trigger, which can't supply a user session.
+  '/api/admin/backup',
 ])
 
 // Logo is pulled on every page load (used by the sidebar brand mark). Keep it
