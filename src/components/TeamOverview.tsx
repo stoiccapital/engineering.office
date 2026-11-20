@@ -165,6 +165,7 @@ export function TeamOverview() {
           </div>
         }
       >
+        <CarryoverSummary plan={plan} weekRows={weekRows} />
         <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
           <table className="w-full border-collapse text-sm">
             {/* Pin Monat + KW widths so sticky left offsets line up exactly
@@ -391,24 +392,40 @@ function WeekCell({
         <ul className="space-y-2">
           {openTodos.map((todo) => {
             const tone = todoTone(todo.text)
-            const isUrlaub = tone === 'blue'
+            const isDayBased = tone === 'blue' || tone === 'orange'
+            const dayTone: 'blue' | 'orange' = tone === 'orange' ? 'orange' : 'blue'
             const pending = todo.state === 'zurFreigabe'
             const rejected = todo.state === 'inProgress' && !!todo.rejectReason
+            const isCarriedOrigin = !!todo.carriedOver
             return (
               <li
                 key={todo.id}
                 className={cn(
                   'space-y-0.5 rounded px-1.5 py-0.5 text-xs leading-snug',
                   tone ? TONE_CLASSES[tone] : 'text-foreground',
+                  isCarriedOrigin && 'opacity-55 grayscale',
                 )}
               >
                 <div className="flex items-start gap-1.5">
-                  {!isUrlaub && <StateCycle state={todo.state} />}
+                  {!isDayBased && !isCarriedOrigin && <StateCycle state={todo.state} />}
                   <span className="min-w-0 flex-1 break-words">
                     {todo.text || <em className="text-muted-foreground/60">unbenannt</em>}
                   </span>
                 </div>
-                {isUrlaub && <UrlaubDays days={todo.days ?? []} />}
+                {isDayBased && <DayBadges days={todo.days ?? []} tone={dayTone} />}
+                {isCarriedOrigin && (
+                  <div className="ml-4 inline-flex w-fit items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    verschleppt
+                  </div>
+                )}
+                {todo.carriedFrom && (
+                  <div className="ml-4 inline-flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-500/15 dark:text-amber-300">
+                    aus KW {todo.carriedFrom.week}
+                    {todo.carriedCount && todo.carriedCount > 1 && (
+                      <span className="font-mono tabular-nums">· {todo.carriedCount}/3</span>
+                    )}
+                  </div>
+                )}
                 {pending && (
                   <div className="ml-4">
                     <span className="inline-flex items-center rounded bg-violet-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-violet-900">
@@ -416,7 +433,7 @@ function WeekCell({
                     </span>
                   </div>
                 )}
-                {!isUrlaub && (
+                {!isDayBased && !isCarriedOrigin && (
                   <ProgressSlider
                     value={todo.progress ?? 0}
                     disabled={pending}
@@ -534,14 +551,66 @@ function ProgressSlider({
   )
 }
 
-// Read-only equivalent of QuartalPlanTable's UrlaubDayPicker. Empty array
-// renders "ganze Woche"; otherwise the selected weekday codes are highlighted.
-function UrlaubDays({ days }: { days: number[] }) {
+// Read-only equivalent of QuartalPlanTable's DayPicker. Empty array renders
+// "ganze Woche"; otherwise the selected weekday codes are highlighted. Tone
+// controls the color (blue = Urlaub, orange = Mobiles Arbeiten).
+const DAY_BADGE_CLASSES: Record<'blue' | 'orange', string> = {
+  blue: 'bg-sky-100 text-sky-900',
+  orange: 'bg-orange-100 text-orange-900',
+}
+
+// Compact horizontal summary: how many carried-over duplicates are in the
+// visible quarter, and in which weeks. Click a chip → scrolls to that row.
+function CarryoverSummary({
+  plan,
+  weekRows,
+}: {
+  plan: { todos?: Record<string, WeekTodo[]> }
+  weekRows: { week: number }[]
+}) {
+  const visibleWeeks = new Set(weekRows.map((r) => r.week))
+  const counts: Record<number, number> = {}
+  let total = 0
+  for (const [k, list] of Object.entries(plan.todos ?? {})) {
+    const [, wStr] = k.split(':')
+    const week = Number(wStr)
+    if (!visibleWeeks.has(week)) continue
+    for (const t of list) {
+      if (t.carriedFrom) {
+        counts[week] = (counts[week] ?? 0) + 1
+        total++
+      }
+    }
+  }
+  if (total === 0) return null
+  const ordered = Object.entries(counts).sort(
+    (a, b) => Number(a[0]) - Number(b[0]),
+  )
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b bg-amber-50/60 px-4 py-2 text-xs dark:bg-amber-500/10">
+      <span className="font-semibold text-amber-900 dark:text-amber-300">
+        ↻ Verschleppungen: {total}
+      </span>
+      <span className="text-muted-foreground">·</span>
+      {ordered.map(([w, n]) => (
+        <span
+          key={w}
+          className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 font-mono tabular-nums text-amber-900 dark:bg-amber-500/20 dark:text-amber-200"
+        >
+          KW {w} · {n}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function DayBadges({ days, tone }: { days: number[]; tone: 'blue' | 'orange' }) {
   const all = days.length === 0
+  const onClass = DAY_BADGE_CLASSES[tone]
   return (
     <div className="ml-6 flex flex-wrap items-center gap-1 pt-0.5">
       {all ? (
-        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-900">
+        <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', onClass)}>
           ganze Woche
         </span>
       ) : (
@@ -553,7 +622,7 @@ function UrlaubDays({ days }: { days: number[] }) {
               key={d}
               className={cn(
                 'inline-flex h-5 w-6 items-center justify-center rounded text-[10px] font-medium',
-                on ? 'bg-sky-100 text-sky-900' : 'text-muted-foreground/40',
+                on ? onClass : 'text-muted-foreground/40',
               )}
             >
               {lbl}

@@ -49,7 +49,15 @@ export function todoTone(text: string): TodoTone {
   if (t.includes('abgabe')) return 'green'
   if (t.includes('abstimmen')) return 'yellow'
   if (t.includes('urlaub')) return 'blue'
-  if (t.includes('home office') || t.includes('homeoffice')) return 'orange'
+  // "Mobiles Arbeiten" is the new label; older plans still reference
+  // "home office" so we keep both keywords to preserve existing data.
+  if (
+    t.includes('mobiles arbeiten') ||
+    t.includes('mobile') ||
+    t.includes('home office') ||
+    t.includes('homeoffice')
+  )
+    return 'orange'
   if (t.includes('pufferarbeiten')) return 'purple'
   return null
 }
@@ -74,7 +82,7 @@ const LEGEND_CLASSES: Record<Exclude<TodoTone, null>, string> = {
   purple: 'text-violet-600 border-l-2 border-violet-500',
 }
 
-// Day-picker color themes per tone — reused by both Urlaub and Home Office.
+// Day-picker color themes per tone — reused by both Urlaub and Mobiles Arbeiten.
 const DAY_PICKER_THEMES: Record<'blue' | 'orange', { on: string; hover: string }> = {
   blue: { on: 'bg-sky-100 text-sky-900', hover: 'hover:bg-sky-50 hover:text-sky-900' },
   orange: { on: 'bg-orange-100 text-orange-900', hover: 'hover:bg-orange-50 hover:text-orange-900' },
@@ -427,6 +435,7 @@ export function QuartalPlanTable() {
                       style={{ left: 63, width: 56, minWidth: 56, maxWidth: 56 }}
                     >
                       {row.week}
+                      <WeekCarryBadge plan={plan} week={row.week} />
                     </td>
                     {groups.map((g, gi) => (
                       <Fragment key={`row-${row.week}-${g.key}`}>
@@ -1002,8 +1011,12 @@ function TodoRow({
 }) {
   const tone = todoTone(todo.text)
   const dayPickerTone = tone === 'blue' ? 'blue' : tone === 'orange' ? 'orange' : null
+  // Carried-over originals are locked and dimmed; duplicates stay editable
+  // but carry a chip pointing to their origin so the PM can trace them.
+  const isCarriedOrigin = !!todo.carriedOver
+  const effectiveLocked = locked || isCarriedOrigin
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: todo.id, data: { empIndex, week }, disabled: locked })
+    useSortable({ id: todo.id, data: { empIndex, week }, disabled: effectiveLocked })
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -1017,10 +1030,11 @@ function TodoRow({
         'group flex flex-col gap-0.5 rounded px-1.5 py-0.5',
         tone ? TONE_CLASSES[tone] : 'hover:bg-muted',
         isDragging && 'z-20 shadow-md',
+        isCarriedOrigin && 'opacity-55 grayscale',
       )}
     >
       <div className="flex items-start gap-2">
-        {!locked && (
+        {!effectiveLocked && (
           <button
             {...attributes}
             {...listeners}
@@ -1032,29 +1046,44 @@ function TodoRow({
             <GripVertical className="h-3 w-3" />
           </button>
         )}
-        {/* overflow-hidden on the wrapper caps the textarea's intrinsic width
-            so fieldSizing: content grows only vertically, not horizontally. */}
         <div className="min-w-0 flex-1 overflow-hidden">
           <textarea
             value={todo.text}
             onChange={(e) => onUpdate({ text: e.target.value })}
             placeholder="Aufgabe…"
             rows={1}
+            readOnly={isCarriedOrigin}
             className={cn(
               'block w-full resize-none bg-transparent text-xs leading-snug outline-none placeholder:text-muted-foreground/50',
               todo.state === 'erledigt' && 'line-through opacity-60',
+              isCarriedOrigin && 'cursor-not-allowed',
             )}
             style={{ fieldSizing: 'content' } as React.CSSProperties}
           />
         </div>
-        <button
-          onClick={onRemove}
-          className="mt-0.5 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-          title="Löschen"
-        >
-          <X className="h-3 w-3" />
-        </button>
+        {!isCarriedOrigin && (
+          <button
+            onClick={onRemove}
+            className="mt-0.5 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+            title="Löschen"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
       </div>
+      {isCarriedOrigin && (
+        <div className="ml-6 inline-flex w-fit items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          verschleppt
+        </div>
+      )}
+      {todo.carriedFrom && (
+        <div className="ml-6 inline-flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-500/15 dark:text-amber-300">
+          aus KW {todo.carriedFrom.week}
+          {todo.carriedCount && todo.carriedCount > 1 && (
+            <span className="font-mono tabular-nums">· {todo.carriedCount}/3</span>
+          )}
+        </div>
+      )}
       {dayPickerTone && (
         <DayPicker
           tone={dayPickerTone}
@@ -1119,12 +1148,38 @@ function DayPicker({
   )
 }
 
+// Count of carried-over duplicates landing in this week. Rendered next to the
+// KW number so the PM sees at a glance which weeks have rollover traffic.
+function WeekCarryBadge({
+  plan,
+  week,
+}: {
+  plan: { todos?: Record<string, WeekTodo[]> }
+  week: number
+}) {
+  let n = 0
+  for (const [k, list] of Object.entries(plan.todos ?? {})) {
+    const [, wStr] = k.split(':')
+    if (Number(wStr) !== week) continue
+    for (const t of list) if (t.carriedFrom) n++
+  }
+  if (n === 0) return null
+  return (
+    <div
+      className="mt-0.5 inline-flex items-center rounded bg-amber-100 px-1 font-mono text-[9px] font-semibold tabular-nums text-amber-900 dark:bg-amber-500/15 dark:text-amber-300"
+      title={`${n} verschleppte Aufgabe${n === 1 ? '' : 'n'} dieser Woche`}
+    >
+      ↻ {n}
+    </div>
+  )
+}
+
 const LEGEND_ITEMS: { label: string; tone: Exclude<TodoTone, null>; purpose?: string }[] = [
   { label: 'Aufgabe', tone: 'red' },
   { label: 'Abgabe', tone: 'green' },
   { label: 'Abstimmen', tone: 'yellow' },
   { label: 'Urlaub', tone: 'blue' },
-  { label: 'Home Office', tone: 'orange' },
+  { label: 'Mobiles Arbeiten', tone: 'orange' },
   {
     label: 'Pufferarbeiten',
     tone: 'purple',

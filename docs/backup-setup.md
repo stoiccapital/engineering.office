@@ -70,6 +70,48 @@ export default {
    - Expression: `0 * * * *` (stündlich zur Minute 00 UTC)
 9. **Save**
 
+### Zweiter Cron: Weekly-Rollover
+
+Zusätzlich zum stündlichen Backup läuft der **Wochen-Rollover** für
+Quartalsplanung — zieht unerledigte Todos der Vorwoche in die aktuelle
+Woche nach, markiert Originale als "verschleppt" (read-only, max 3× pro
+Kette).
+
+1. Im selben Worker: Code erweitern, so dass zusätzlich der Rollover
+   gefeuert wird. Default-Worker-Code anpassen zu:
+
+```js
+export default {
+  async scheduled(event, env, ctx) {
+    const url = env.BACKUP_URL
+    const secret = env.BACKUP_SECRET
+    if (!url || !secret) return
+    const target =
+      event.cron === '0 23 * * 0'
+        ? env.ROLLOVER_URL
+        : env.BACKUP_URL
+    const res = await fetch(target, {
+      method: 'POST',
+      headers: { 'x-backup-secret': secret },
+    })
+    console.log(`${target}: ${res.status}`)
+  },
+}
+```
+
+2. Zusätzliche Env-Variable setzen:
+   - `ROLLOVER_URL` = `https://engineering-office.pages.dev/api/admin/weekly-rollover`
+3. **Settings → Triggers → Add Cron Trigger**:
+   - Expression: `0 23 * * 0` (Sonntag 23:00 UTC = Montag 00:00 Berlin
+     Winterzeit / 01:00 Sommerzeit)
+4. **Save**
+
+Nach dem Lauf: im KV wandert jeder nicht fertige Todo (< 100 % Progress,
+State ≠ `erledigt`) der Vorwoche in die aktuelle. Original kriegt
+`carriedOver: true`, Duplikat `carriedFrom + carriedCount`. Nach 3
+Rollovern bleibt die Kette hängen (die 3× Carries bleiben alle sichtbar,
+nur keine neue mehr).
+
 ### Prüfen ob der Trigger läuft
 
 - In dem Worker → **Logs** → **Begin log stream**

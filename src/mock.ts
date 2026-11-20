@@ -192,6 +192,114 @@ function seedPlan(year: number): QuartalPlan {
     { id: crypto.randomUUID(), text: 'Abstimmen Prüfstatik mit Dezernat', state: 'inProgress' },
   ]
   todos[`8:${w + 2}`] = [{ id: crypto.randomUUID(), text: 'Urlaub Zakopane', state: 'offen' }]
+
+  // --- Demo-Daten für Wochen-Rollover (Verschleppungen) ------------------
+  // Drei Chains auf verschiedenen Mitarbeitern + unterschiedlichen Carry-Count.
+  // Alle landen in der AKTUELLEN Woche, sodass sofort sichtbar wird, wie
+  // Original (grau) und Duplikat (amber-Chip) nebeneinander aussehen.
+
+  // Chain 1 — einmal verschleppt (KW w-1 → w), empIndex 4
+  const chain1Orig = crypto.randomUUID()
+  todos[`4:${w - 1}`] = [
+    {
+      id: chain1Orig,
+      text: 'Aufgabe: Trockenlegung PK 54 fertigstellen',
+      state: 'inProgress',
+      progress: 40,
+      carriedOver: true,
+    },
+  ]
+  todos[`4:${w}`] = [
+    {
+      id: crypto.randomUUID(),
+      text: 'Aufgabe: Trockenlegung PK 54 fertigstellen',
+      state: 'inProgress',
+      progress: 40,
+      carriedFrom: { week: w - 1, empIndex: 4, todoId: chain1Orig },
+      carriedCount: 1,
+    },
+  ]
+
+  // Chain 2 — zweimal verschleppt (KW w-2 → w-1 → w), empIndex 5
+  const chain2Orig = crypto.randomUUID()
+  const chain2Mid = crypto.randomUUID()
+  todos[`5:${w - 2}`] = [
+    {
+      id: chain2Orig,
+      text: 'Aufgabe: Nachrechnung Pendelstützen',
+      state: 'inProgress',
+      progress: 30,
+      carriedOver: true,
+    },
+  ]
+  todos[`5:${w - 1}`] = [
+    {
+      id: chain2Mid,
+      text: 'Aufgabe: Nachrechnung Pendelstützen',
+      state: 'inProgress',
+      progress: 55,
+      carriedOver: true,
+      carriedFrom: { week: w - 2, empIndex: 5, todoId: chain2Orig },
+      carriedCount: 1,
+    },
+  ]
+  todos[`5:${w}`] = [
+    {
+      id: crypto.randomUUID(),
+      text: 'Aufgabe: Nachrechnung Pendelstützen',
+      state: 'inProgress',
+      progress: 70,
+      carriedFrom: { week: w - 1, empIndex: 5, todoId: chain2Mid },
+      carriedCount: 2,
+    },
+  ]
+
+  // Chain 3 — Maximum (3× verschleppt, keine weitere Rollung mehr), empIndex 6
+  const chain3Orig = crypto.randomUUID()
+  const chain3MidA = crypto.randomUUID()
+  const chain3MidB = crypto.randomUUID()
+  todos[`6:${w - 3}`] = [
+    {
+      id: chain3Orig,
+      text: 'Aufgabe: Qualitätscheck LPH4',
+      state: 'inProgress',
+      progress: 20,
+      carriedOver: true,
+    },
+  ]
+  todos[`6:${w - 2}`] = [
+    {
+      id: chain3MidA,
+      text: 'Aufgabe: Qualitätscheck LPH4',
+      state: 'inProgress',
+      progress: 40,
+      carriedOver: true,
+      carriedFrom: { week: w - 3, empIndex: 6, todoId: chain3Orig },
+      carriedCount: 1,
+    },
+  ]
+  todos[`6:${w - 1}`] = [
+    {
+      id: chain3MidB,
+      text: 'Aufgabe: Qualitätscheck LPH4',
+      state: 'inProgress',
+      progress: 60,
+      carriedOver: true,
+      carriedFrom: { week: w - 2, empIndex: 6, todoId: chain3MidA },
+      carriedCount: 2,
+    },
+  ]
+  todos[`6:${w}`] = [
+    {
+      id: crypto.randomUUID(),
+      text: 'Aufgabe: Qualitätscheck LPH4',
+      state: 'inProgress',
+      progress: 85,
+      carriedFrom: { week: w - 1, empIndex: 6, todoId: chain3MidB },
+      carriedCount: 3,
+    },
+  ]
+
   return { year, employees, cells, todos }
 }
 

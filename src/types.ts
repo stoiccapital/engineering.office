@@ -61,6 +61,13 @@ export type WeekTodo = {
   // Reason supplied by the PM when rejecting a Zur-Freigabe submission.
   // Present on an inProgress todo means the last submission was rejected.
   rejectReason?: string
+  // Weekly rollover tracking. carriedOver = this todo was carried forward
+  // into a later week and is now read-only. carriedFrom links the duplicate
+  // back to its origin. carriedCount counts the number of times this chain
+  // has rolled (max 3 before the engine stops).
+  carriedOver?: boolean
+  carriedFrom?: { week: number; empIndex: number; todoId: string }
+  carriedCount?: number
 }
 
 export type Branch = 'de' | 'pl'
@@ -98,7 +105,18 @@ export type QuartalPlan = {
 }
 
 // Legacy shapes stored before this migration landed.
-type LegacyTodo = { id: string; text: string; done?: boolean; state?: TodoState; days?: number[]; progress?: number }
+type LegacyTodo = {
+  id: string
+  text: string
+  done?: boolean
+  state?: TodoState
+  days?: number[]
+  progress?: number
+  rejectReason?: string
+  carriedOver?: boolean
+  carriedFrom?: { week: number; empIndex: number; todoId: string }
+  carriedCount?: number
+}
 type LegacyPoolTask = { id: string; text: string; empIndex?: number }
 type LegacyPlan = Omit<QuartalPlan, 'employees' | 'todos' | 'pool'> & {
   employees: Array<string | Employee>
@@ -129,6 +147,10 @@ export function migratePlan(input: QuartalPlan | LegacyPlan | null | undefined):
       state: t.state ?? (t.done ? 'erledigt' : 'offen'),
       days: t.days,
       progress: t.progress,
+      rejectReason: t.rejectReason,
+      carriedOver: t.carriedOver,
+      carriedFrom: t.carriedFrom,
+      carriedCount: t.carriedCount,
     }))
   }
   // Pool tasks without an empIndex (shipped before the per-employee split)
