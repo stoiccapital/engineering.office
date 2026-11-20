@@ -32,6 +32,7 @@ export const fmtDate = (iso: string): string => {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    timeZone: 'Europe/Berlin',
   })
 }
 
@@ -125,6 +126,7 @@ export function drawPageFooter(doc: jsPDF): void {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Berlin',
   })
   doc.text(`Erstellt ${generated}`, margin, pageHeight - 18)
   doc.text(`Seite ${page}`, pageWidth - margin, pageHeight - 18, { align: 'right' })
