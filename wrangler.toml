@@ -3,6 +3,12 @@ compatibility_date = "2024-10-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
 
+# Non-secret settings. RESEND_API_KEY is a secret set in the dashboard;
+# APP_URL is optional (email links fall back to the request origin).
+# Locally, .dev.vars overrides these.
+[vars]
+MAIL_FROM = "Engineering Office <no-reply@fahrlygo.de>"
+
 [[kv_namespaces]]
 binding = "FORECAST_KV"
 id = "a15981c0aa5342d1ac7dfc63aaf91fc5"
