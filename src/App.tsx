@@ -31,7 +31,8 @@ import { Projektliste } from '@/components/Projektliste'
 import { ProjektlisteSaveStatus } from '@/components/ProjektlisteSaveStatus'
 import { useProjektliste } from '@/projektliste-store'
 import { logActivity } from '@/activity-store'
-import { UserPicker } from '@/components/UserPicker'
+import { AuthScreen, AwaitingApproval } from '@/components/AuthScreen'
+import { ConflictNotice } from '@/components/ConflictNotice'
 import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
 import { UserMenu } from '@/components/ui/user-menu'
 import { CommandPalette } from '@/components/ui/command-palette'
@@ -184,6 +185,7 @@ export default function App() {
   return (
     <AccessGate>
       <Shell />
+      <ConflictNotice />
     </AccessGate>
   )
 }
@@ -192,6 +194,7 @@ function AccessGate({ children }: { children: React.ReactNode }) {
   const status = useAccess((s) => s.status)
   const load = useAccess((s) => s.load)
   const currentRole = useAccess((s) => s.currentRole)
+  const awaitingRole = useAccess((s) => s.awaitingRole)
 
   useEffect(() => {
     if (status === 'idle') void load()
@@ -205,7 +208,8 @@ function AccessGate({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!currentRole) return <UserPicker />
+  if (awaitingRole) return <AwaitingApproval />
+  if (!currentRole) return <AuthScreen />
   return <>{children}</>
 }
 

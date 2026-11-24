@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
 import { Building2, Calculator, CalendarDays, CheckSquare, Database, FolderKanban, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Users } from 'lucide-react'
-import { clearToken } from '@/api'
+import { useAccess } from '@/access-store'
 import { cn } from '@/lib/utils'
 
 type View =
@@ -61,8 +61,8 @@ export function CommandPalette({ onNavigate }: Props) {
     close()
   }
 
-  const logout = () => {
-    clearToken()
+  const logout = async () => {
+    await useAccess.getState().signOut()
     location.reload()
   }
 

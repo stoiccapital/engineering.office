@@ -12,194 +12,185 @@ import type {
 import { rechnungsplanKey } from './types'
 import { mock } from './mock'
 
-const TOKEN_KEY = 'forecast-token'
-const ROLE_ID_KEY = 'eo:currentRoleId'
-const ROLE_PASSWORD_KEY = 'eo:currentRolePassword'
-const USER_KUERZEL_KEY = 'eo:currentUserKuerzel'
-const USER_PASSWORD_KEY = 'eo:currentUserPassword'
-
-if (mock.isDev && !localStorage.getItem(TOKEN_KEY)) {
-  localStorage.setItem(TOKEN_KEY, 'dev-mock')
-}
-
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
-}
-
-export function setToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token)
-}
-
-export function clearToken() {
-  localStorage.removeItem(TOKEN_KEY)
-}
-
-export function setRoleCredentials(roleId: string, password: string) {
-  localStorage.setItem(ROLE_ID_KEY, roleId)
-  localStorage.setItem(ROLE_PASSWORD_KEY, password)
-}
-
-export function clearRoleCredentials() {
-  localStorage.removeItem(ROLE_ID_KEY)
-  localStorage.removeItem(ROLE_PASSWORD_KEY)
-}
-
-export function setUserCredentials(kuerzel: string, password: string) {
-  localStorage.setItem(USER_KUERZEL_KEY, kuerzel)
-  localStorage.setItem(USER_PASSWORD_KEY, password)
-}
-
-export function clearUserCredentials() {
-  localStorage.removeItem(USER_KUERZEL_KEY)
-  localStorage.removeItem(USER_PASSWORD_KEY)
-}
-
+// Auth is a session cookie (HttpOnly, set by /api/auth/*); the browser sends
+// it automatically on same-origin requests, so no credentials live in JS.
 function headers(): HeadersInit {
-  const t = getToken() ?? ''
-  const h: Record<string, string> = {
-    'content-type': 'application/json',
-    authorization: `Bearer ${t}`,
-  }
-  // Prefer user credentials; fall back to legacy role credentials for bootstrap.
-  const kuerzel = localStorage.getItem(USER_KUERZEL_KEY) ?? ''
-  const userPw = localStorage.getItem(USER_PASSWORD_KEY) ?? ''
-  if (kuerzel && userPw) {
-    h['x-user-auth'] = `${kuerzel}:${userPw}`
-    return h
-  }
-  const roleId = localStorage.getItem(ROLE_ID_KEY) ?? ''
-  const rolePw = localStorage.getItem(ROLE_PASSWORD_KEY) ?? ''
-  if (roleId && rolePw) h['x-role-auth'] = `${roleId}:${rolePw}`
-  return h
+  return { 'content-type': 'application/json' }
 }
 
-export type PublicRole = { id: string; name: string }
-export type PublicUser = { id: string; kuerzel: string; displayName: string }
-export type SignInResult = {
-  ok: true
-  role: { id: string; name: string; modules: string[] }
-  user?: { id: string; kuerzel: string; displayName: string }
+export type SessionUser = {
+  id: string
+  email: string
+  displayName: string
+  emailVerified: boolean
+  status: 'active' | 'disabled'
+  employeeId: string | null
+  kuerzel: string | null
+  role: { id: string; name: string; modules: string[] } | null
 }
 
-export async function fetchPublicRoles(): Promise<PublicRole[]> {
+// Error carrying the server's German message for display in forms.
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+async function authPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, { method: 'POST', headers: headers(), body: JSON.stringify(body) })
+  const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+  if (!res.ok) throw new ApiError(res.status, data.error ?? 'error', data.message ?? data.error ?? `Fehler ${res.status}`)
+  return data as T
+}
+
+const MOCK_USER: SessionUser = {
+  id: 'mock-admin',
+  email: 'admin@example.com',
+  displayName: 'Dev Admin',
+  emailVerified: true,
+  status: 'active',
+  employeeId: null,
+  kuerzel: 'DEV',
+  role: null,
+}
+
+export async function fetchMe(): Promise<SessionUser | null> {
   if (mock.isDev) {
-    const cfg = mock.access()
-    return (cfg?.roles ?? []).map((r) => ({ id: r.id, name: r.name }))
+    const role = mock.access()?.roles[0]
+    return { ...MOCK_USER, role: role ? { id: role.id, name: role.name, modules: role.modules } : null }
   }
-  const res = await fetch('/api/settings/roles', { headers: headers() })
+  const res = await fetch('/api/auth/me', { headers: headers() })
+  if (!res.ok) throw new Error(`me failed: ${res.status}`)
+  return ((await res.json()) as { user: SessionUser | null }).user
+}
+
+export const auth = {
+  login: (email: string, password: string) =>
+    authPost<{ user: SessionUser }>('/api/auth/login', { email, password }),
+  register: (email: string, password: string, displayName: string) =>
+    authPost<{ ok: true; verificationRequired: boolean }>('/api/auth/register', { email, password, displayName }),
+  verifyEmail: (token: string) => authPost<{ user: SessionUser }>('/api/auth/verify-email', { token }),
+  resendVerification: (email: string) => authPost<{ ok: true }>('/api/auth/resend-verification', { email }),
+  forgotPassword: (email: string) => authPost<{ ok: true }>('/api/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) =>
+    authPost<{ user: SessionUser }>('/api/auth/reset-password', { token, password }),
+  legacyLogin: (kuerzel: string, password: string) =>
+    authPost<{ claimToken: string; displayName: string; kuerzel: string | null; roleName?: string }>(
+      '/api/auth/legacy-login',
+      { kuerzel, password },
+    ),
+  claim: (claimToken: string, email: string, password: string, displayName: string) =>
+    authPost<{ user: SessionUser }>('/api/auth/claim', { claimToken, email, password, displayName }),
+  logout: () => (mock.isDev ? Promise.resolve({ ok: true }) : authPost<{ ok: true }>('/api/auth/logout', {})),
+}
+
+// --- Account administration (Einstellungen) --------------------------------
+
+export type Account = {
+  id: string
+  email: string
+  displayName: string
+  emailVerified: boolean
+  status: 'active' | 'disabled'
+  roleId: string | null
+  employeeId: string | null
+  createdAt: string
+  lastLoginAt: string | null
+}
+export type AccountEmployee = { id: string; label: string; kuerzel: string | null; roleId: string | null }
+export type AccountsResponse = {
+  accounts: Account[]
+  employees: AccountEmployee[]
+  pendingLegacy: { kuerzel: string; displayName: string }[]
+}
+
+export async function fetchAccounts(): Promise<AccountsResponse> {
+  if (mock.isDev) return { accounts: [], employees: [], pendingLegacy: [] }
+  const res = await fetch('/api/settings/accounts', { headers: headers() })
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
-  return (await res.json()) as PublicRole[]
+  return (await res.json()) as AccountsResponse
 }
 
-export async function fetchPublicUsers(): Promise<PublicUser[]> {
-  if (mock.isDev) {
-    const cfg = mock.access()
-    const roster = mock.roster()
-    const seen = new Set<string>()
-    const out: PublicUser[] = []
-    for (const e of roster?.employees ?? []) {
-      if (!e.kuerzel) continue
-      seen.add(e.id)
-      out.push({
-        id: e.id,
-        kuerzel: e.kuerzel,
-        displayName:
-          [e.vorname, e.name].filter((s) => s.trim().length > 0).join(' ') || e.kuerzel,
-      })
-    }
-    for (const u of cfg?.users ?? []) {
-      if (seen.has(u.id)) continue
-      out.push({
-        id: u.id,
-        kuerzel: u.kuerzel,
-        displayName:
-          [u.vorname, u.name].filter((s) => s.trim().length > 0).join(' ') || u.kuerzel,
-      })
-    }
-    return out
-  }
-  const res = await fetch('/api/settings/users', { headers: headers() })
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
-  return (await res.json()) as PublicUser[]
-}
-
-export async function signInRole(roleId: string, password: string): Promise<SignInResult | null> {
-  if (mock.isDev) {
-    const cfg = mock.access()
-    const role = cfg?.roles.find((r) => r.id === roleId)
-    if (!role || role.password !== password) return null
-    return { ok: true, role: { id: role.id, name: role.name, modules: role.modules } }
-  }
-  const res = await fetch('/api/auth/signin', {
-    method: 'POST',
+export async function updateAccount(
+  id: string,
+  patch: Partial<Pick<Account, 'roleId' | 'employeeId' | 'status' | 'displayName'>>,
+): Promise<void> {
+  const res = await fetch(`/api/settings/accounts/${id}`, {
+    method: 'PATCH',
     headers: headers(),
-    body: JSON.stringify({ roleId, password }),
+    body: JSON.stringify(patch),
   })
-  if (res.status === 401) return null
-  if (!res.ok) throw new Error(`signin failed: ${res.status}`)
-  return (await res.json()) as SignInResult
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+    throw new ApiError(res.status, data.error ?? 'error', data.message ?? `Fehler ${res.status}`)
+  }
 }
 
-export async function signInUser(kuerzel: string, password: string): Promise<SignInResult | null> {
-  if (mock.isDev) {
-    const cfg = mock.access()
-    const roster = mock.roster()
-    // Roster first, then legacy accessConfig.users.
-    const rosterMatch = roster?.employees.find(
-      (e) => e.kuerzel && e.kuerzel === kuerzel && e.password === password,
-    )
-    if (rosterMatch && rosterMatch.roleId) {
-      const role = cfg?.roles.find((r) => r.id === rosterMatch.roleId)
-      if (!role) return null
-      return {
-        ok: true,
-        role: { id: role.id, name: role.name, modules: role.modules },
-        user: {
-          id: rosterMatch.id,
-          kuerzel: rosterMatch.kuerzel!,
-          displayName:
-            [rosterMatch.vorname, rosterMatch.name].filter((s) => s.trim().length > 0).join(' ') ||
-            rosterMatch.kuerzel!,
-        },
+export async function deleteAccount(id: string): Promise<void> {
+  const res = await fetch(`/api/settings/accounts/${id}`, { method: 'DELETE', headers: headers() })
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+    throw new ApiError(res.status, data.error ?? 'error', data.message ?? `Fehler ${res.status}`)
+  }
+}
+
+// --- Module documents: versioned reads/writes -------------------------------
+// The server returns each document's version (x-doc-version). Saves send the
+// version they are based on; if someone else saved in between, the server
+// refuses (409) instead of overwriting, keeps the rejected copy, and we tell
+// the UI so the user can reload the current data.
+
+const DOC_VERSION = 'x-doc-version'
+const docVersions = new Map<string, string>()
+const saveQueues = new Map<string, Promise<unknown>>()
+
+export const CONFLICT_EVENT = 'eo:doc-conflict'
+
+export class ConflictError extends Error {
+  constructor(public path: string) {
+    super('Diese Daten wurden inzwischen von jemand anderem geändert.')
+  }
+}
+
+async function docGet(path: string): Promise<Response> {
+  const res = await fetch(path, { headers: headers() })
+  const v = res.headers.get(DOC_VERSION)
+  if (res.ok && v !== null) docVersions.set(path, v)
+  return res
+}
+
+// Saves to the same document run one after another so each request carries
+// the version returned by the previous one.
+function docPut(path: string, body: string): Promise<Response> {
+  const prev = saveQueues.get(path) ?? Promise.resolve()
+  const next = prev
+    .catch(() => {})
+    .then(async () => {
+      const v = docVersions.get(path)
+      const res = await fetch(path, {
+        method: 'PUT',
+        headers: { ...(headers() as Record<string, string>), ...(v !== undefined ? { [DOC_VERSION]: v } : {}) },
+        body,
+      })
+      if (res.status === 409) {
+        window.dispatchEvent(new CustomEvent(CONFLICT_EVENT, { detail: { path } }))
+        throw new ConflictError(path)
       }
-    }
-    const user = cfg?.users.find((u) => u.kuerzel === kuerzel)
-    if (!user || user.password !== password) return null
-    const role = cfg?.roles.find((r) => r.id === user.roleId)
-    if (!role) return null
-    return {
-      ok: true,
-      role: { id: role.id, name: role.name, modules: role.modules },
-      user: {
-        id: user.id,
-        kuerzel: user.kuerzel,
-        displayName:
-          [user.vorname, user.name].filter((s) => s.trim().length > 0).join(' ') ||
-          user.kuerzel,
-      },
-    }
-  }
-  const res = await fetch('/api/auth/signin', {
-    method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ kuerzel, password }),
-  })
-  if (res.status === 401) return null
-  if (!res.ok) throw new Error(`signin failed: ${res.status}`)
-  return (await res.json()) as SignInResult
-}
-
-export async function checkAuth(token: string): Promise<boolean> {
-  if (mock.isDev) return Boolean(token)
-  const res = await fetch('/api/auth-check', {
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-  })
-  return res.ok
+      const nv = res.headers.get(DOC_VERSION)
+      if (res.ok && nv !== null) docVersions.set(path, nv)
+      return res
+    })
+  saveQueues.set(path, next)
+  return next
 }
 
 export async function fetchPeriod(key: string): Promise<Period | null> {
   if (mock.isDev) return mock.period(key)
-  const res = await fetch(`/api/period/${key}`, { headers: headers() })
+  const res = await docGet(`/api/period/${key}`)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   const data = (await res.json()) as Period | null
@@ -211,18 +202,14 @@ export async function savePeriod(key: string, period: Period): Promise<void> {
     mock.setPeriod(key, period)
     return
   }
-  const res = await fetch(`/api/period/${key}`, {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(period),
-  })
+  const res = await docPut(`/api/period/${key}`, JSON.stringify(period))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
 export async function fetchPlan(year: number): Promise<QuartalPlan | null> {
   if (mock.isDev) return mock.plan(year)
-  const res = await fetch(`/api/plan/${year}`, { headers: headers() })
+  const res = await docGet(`/api/plan/${year}`)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return (await res.json()) as QuartalPlan | null
@@ -233,18 +220,14 @@ export async function savePlan(year: number, plan: QuartalPlan): Promise<void> {
     mock.setPlan(year, plan)
     return
   }
-  const res = await fetch(`/api/plan/${year}`, {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(plan),
-  })
+  const res = await docPut(`/api/plan/${year}`, JSON.stringify(plan))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
 export async function fetchZiele(year: number): Promise<Ziele | null> {
   if (mock.isDev) return mock.ziele(year)
-  const res = await fetch(`/api/ziele/${year}`, { headers: headers() })
+  const res = await docGet(`/api/ziele/${year}`)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return (await res.json()) as Ziele | null
@@ -255,18 +238,14 @@ export async function saveZiele(year: number, ziele: Ziele): Promise<void> {
     mock.setZiele(year, ziele)
     return
   }
-  const res = await fetch(`/api/ziele/${year}`, {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(ziele),
-  })
+  const res = await docPut(`/api/ziele/${year}`, JSON.stringify(ziele))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
 export async function fetchUmsatz(year: number): Promise<Umsatzkontrolle | null> {
   if (mock.isDev) return mock.umsatz(year)
-  const res = await fetch(`/api/umsatz/${year}`, { headers: headers() })
+  const res = await docGet(`/api/umsatz/${year}`)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return (await res.json()) as Umsatzkontrolle | null
@@ -277,11 +256,7 @@ export async function saveUmsatz(year: number, data: Umsatzkontrolle): Promise<v
     mock.setUmsatz(year, data)
     return
   }
-  const res = await fetch(`/api/umsatz/${year}`, {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(data),
-  })
+  const res = await docPut(`/api/umsatz/${year}`, JSON.stringify(data))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -292,7 +267,7 @@ export async function fetchRechnungsplan(
 ): Promise<Rechnungsplan | null> {
   if (mock.isDev) return mock.rechnungsplan(year, month)
   const key = rechnungsplanKey(year, month)
-  const res = await fetch(`/api/rechnungsplan/${key}`, { headers: headers() })
+  const res = await docGet(`/api/rechnungsplan/${key}`)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return (await res.json()) as Rechnungsplan | null
@@ -308,18 +283,14 @@ export async function saveRechnungsplan(
     return
   }
   const key = rechnungsplanKey(year, month)
-  const res = await fetch(`/api/rechnungsplan/${key}`, {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(data),
-  })
+  const res = await docPut(`/api/rechnungsplan/${key}`, JSON.stringify(data))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
 export async function fetchRoster(): Promise<Roster | null> {
   if (mock.isDev) return mock.roster()
-  const res = await fetch('/api/roster', { headers: headers() })
+  const res = await docGet('/api/roster')
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return (await res.json()) as Roster | null
@@ -330,11 +301,7 @@ export async function saveRoster(data: Roster): Promise<void> {
     mock.setRoster(data)
     return
   }
-  const res = await fetch('/api/roster', {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(data),
-  })
+  const res = await docPut('/api/roster', JSON.stringify(data))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -365,7 +332,7 @@ export async function logActivity(event: Omit<ActivityEvent, 'ts'>): Promise<voi
 
 export async function fetchProjektliste(): Promise<ProjektlisteDoc | null> {
   if (mock.isDev) return mock.projektliste()
-  const res = await fetch('/api/projektliste', { headers: headers() })
+  const res = await docGet('/api/projektliste')
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return (await res.json()) as ProjektlisteDoc | null
@@ -376,18 +343,14 @@ export async function saveProjektliste(data: ProjektlisteDoc): Promise<void> {
     mock.setProjektliste(data)
     return
   }
-  const res = await fetch('/api/projektliste', {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(data),
-  })
+  const res = await docPut('/api/projektliste', JSON.stringify(data))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
 export async function fetchKostenschaetzung(): Promise<unknown> {
   if (mock.isDev) return mock.kostenschaetzung()
-  const res = await fetch('/api/kostenschaetzung', { headers: headers() })
+  const res = await docGet('/api/kostenschaetzung')
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return await res.json()
@@ -398,18 +361,14 @@ export async function saveKostenschaetzung(data: unknown): Promise<void> {
     mock.setKostenschaetzung(data)
     return
   }
-  const res = await fetch('/api/kostenschaetzung', {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(data),
-  })
+  const res = await docPut('/api/kostenschaetzung', JSON.stringify(data))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
 export async function fetchKostenermittlung(): Promise<unknown> {
   if (mock.isDev) return mock.kostenermittlung()
-  const res = await fetch('/api/kostenermittlung', { headers: headers() })
+  const res = await docGet('/api/kostenermittlung')
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return await res.json()
@@ -420,18 +379,14 @@ export async function saveKostenermittlung(data: unknown): Promise<void> {
     mock.setKostenermittlung(data)
     return
   }
-  const res = await fetch('/api/kostenermittlung', {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(data),
-  })
+  const res = await docPut('/api/kostenermittlung', JSON.stringify(data))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
 export async function fetchKatalogOverrides(): Promise<unknown> {
   if (mock.isDev) return mock.katalogOverrides()
-  const res = await fetch('/api/katalog-overrides', { headers: headers() })
+  const res = await docGet('/api/katalog-overrides')
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return await res.json()
@@ -442,18 +397,14 @@ export async function saveKatalogOverrides(data: unknown): Promise<void> {
     mock.setKatalogOverrides(data)
     return
   }
-  const res = await fetch('/api/katalog-overrides', {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(data),
-  })
+  const res = await docPut('/api/katalog-overrides', JSON.stringify(data))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
 export async function fetchHr(): Promise<unknown> {
   if (mock.isDev) return mock.hr()
-  const res = await fetch('/api/hr', { headers: headers() })
+  const res = await docGet('/api/hr')
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
   return await res.json()
@@ -464,11 +415,7 @@ export async function saveHr(data: unknown): Promise<void> {
     mock.setHr(data)
     return
   }
-  const res = await fetch('/api/hr', {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(data),
-  })
+  const res = await docPut('/api/hr', JSON.stringify(data))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }

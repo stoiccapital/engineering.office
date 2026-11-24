@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Eye, EyeOff, Plus, Trash2, Undo2 } from 'lucide-react'
+import { Plus, Trash2, Undo2 } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { Button } from '@/components/ui/button'
+import { Accounts } from '@/components/Accounts'
 import { useAccess } from '@/access-store'
 import { logActivity } from '@/activity-store'
 import {
@@ -19,7 +20,6 @@ const UNDO_MS = 5000
 export function Settings() {
   const roles = useAccess((s) => s.config.roles)
   const currentRole = useAccess((s) => s.currentRole)
-  const currentUser = useAccess((s) => s.currentUser)
   const currentRoleId = currentRole?.id ?? null
   const loadFullConfig = useAccess((s) => s.loadFullConfig)
   const addRole = useAccess((s) => s.addRole)
@@ -31,10 +31,7 @@ export function Settings() {
   }, [loadFullConfig])
 
   const [newName, setNewName] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [newPasswordVisible, setNewPasswordVisible] = useState(false)
   const [newModules, setNewModules] = useState<Set<ModuleId>>(new Set(['plan']))
-  const [revealed, setRevealed] = useState<Set<string>>(new Set())
 
   // Deferred delete with undo window — the store is not touched until the
   // timer fires, so undo is purely local state.
@@ -52,16 +49,7 @@ export function Settings() {
     (p) => !existingNames.has(p.name.toLowerCase()),
   )
 
-  const canAdd = newName.trim().length > 0 && newPassword.length > 0
-
-  function toggleReveal(id: string) {
-    setRevealed((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+  const canAdd = newName.trim().length > 0
 
   function applyPreset(preset: RolePreset) {
     setNewName(preset.name)
@@ -70,11 +58,9 @@ export function Settings() {
 
   function handleAdd() {
     if (!canAdd) return
-    void addRole(newName, newPassword, Array.from(newModules))
+    void addRole(newName, Array.from(newModules))
     logActivity({ kind: 'action', action: 'role.create', target: newName })
     setNewName('')
-    setNewPassword('')
-    setNewPasswordVisible(false)
     setNewModules(new Set(['plan']))
   }
 
@@ -129,16 +115,11 @@ export function Settings() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-md border border-sky-500/30 bg-sky-50 px-4 py-2.5 text-xs text-sky-900 dark:bg-sky-500/10 dark:text-sky-200">
-        Benutzer werden jetzt im Modul{' '}
-        <strong className="font-semibold">Mitarbeiter</strong> gepflegt (Login-Felder
-        pro Person, nicht mehr hier). Die Rollen-Tabelle unten bleibt — sie steuert
-        welche Module eine Rolle sieht.
-      </div>
+      <Accounts />
 
       <Section
         title="Neue Rolle"
-        subtitle="Name, Passwort und sichtbare Module. Die Rolle mit Einstellungen ist Admin."
+        subtitle="Name und sichtbare Module. Die Rolle mit Einstellungen ist Admin."
       >
         <div className="space-y-3">
           <div className="flex flex-wrap items-end gap-3">
@@ -169,29 +150,6 @@ export function Settings() {
                   ))}
                 </div>
               )}
-            </div>
-            <div className="min-w-[180px]">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Passwort
-              </label>
-              <div className="mt-1 flex items-center gap-1">
-                <input
-                  type={newPasswordVisible ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                  placeholder="Passwort"
-                  className="w-full rounded-md border bg-background px-3 py-1.5 font-mono text-sm outline-none focus:ring-1 focus:ring-ring"
-                />
-                <button
-                  type="button"
-                  onClick={() => setNewPasswordVisible((v) => !v)}
-                  className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  aria-label={newPasswordVisible ? 'Verbergen' : 'Anzeigen'}
-                >
-                  {newPasswordVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </button>
-              </div>
             </div>
             <Button onClick={handleAdd} disabled={!canAdd}>
               <Plus className="mr-1 h-4 w-4" />
@@ -246,7 +204,6 @@ export function Settings() {
               <thead>
                 <tr className="border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <th className="w-48 px-3 py-2 text-left">Rolle</th>
-                  <th className="w-52 px-3 py-2 text-left">Passwort</th>
                   <th className="px-3 py-2 text-left">Modulzugriff</th>
                   <th className="w-10 px-3 py-2" />
                 </tr>
@@ -254,8 +211,7 @@ export function Settings() {
               <tbody>
                 {visibleRoles.map((r) => {
                   const allowed = new Set(r.modules)
-                  const isMe = r.id === currentRoleId && !currentUser
-                  const show = revealed.has(r.id)
+                  const isMe = r.id === currentRoleId
                   return (
                     <tr key={r.id} className="border-b last:border-b-0">
                       <td className="px-3 py-2 align-top">
@@ -270,24 +226,6 @@ export function Settings() {
                               Du
                             </span>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 align-top">
-                        <div className="flex items-center gap-1">
-                          <input
-                            type={show ? 'text' : 'password'}
-                            value={r.password}
-                            onChange={(e) => updateRole(r.id, { password: e.target.value })}
-                            className="w-full rounded border bg-background px-2 py-1 font-mono text-sm outline-none focus:ring-1 focus:ring-ring"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => toggleReveal(r.id)}
-                            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                            aria-label={show ? 'Verbergen' : 'Anzeigen'}
-                          >
-                            {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                          </button>
                         </div>
                       </td>
                       <td className="px-3 py-2 align-top">
