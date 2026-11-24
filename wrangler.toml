@@ -3,11 +3,12 @@ compatibility_date = "2024-10-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
 
-# Non-secret settings. RESEND_API_KEY is a secret set in the dashboard;
-# APP_URL is optional (email links fall back to the request origin).
+# Accounts are email + password only, without confirmation mails (decided
+# by the product owner). Setting RESEND_API_KEY (+ MAIL_FROM) later and
+# removing this line turns verification and password-reset mails on.
 # Locally, .dev.vars overrides these.
 [vars]
-MAIL_FROM = "Engineering Office <no-reply@fahrlygo.de>"
+REQUIRE_EMAIL_VERIFICATION = "false"
 
 [[kv_namespaces]]
 binding = "FORECAST_KV"

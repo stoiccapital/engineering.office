@@ -52,6 +52,11 @@ export function AuthScreen() {
   const [claimWho, setClaimWho] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
+  // Password reset needs a mail provider; hide the link where there is none.
+  const [passwordReset, setPasswordReset] = useState(false)
+  useEffect(() => {
+    auth.config().then((c) => setPasswordReset(c.passwordReset), () => {})
+  }, [])
   const [busy, setBusy] = useState(false)
   const verifyStarted = useRef(false)
 
@@ -107,8 +112,8 @@ export function AuthScreen() {
     run(async () => {
       if (password !== password2) throw new ApiError(400, 'mismatch', 'Passwörter stimmen nicht überein')
       const res = await auth.register(email, password, displayName)
-      go(res.verificationRequired ? 'registered' : 'login')
-      if (!res.verificationRequired) setInfo('Konto angelegt. Du kannst dich jetzt anmelden.')
+      if (res.user) await signedIn(res.user)
+      else go('registered')
     })
 
   const resend = () =>
@@ -204,7 +209,9 @@ export function AuthScreen() {
             </button>
             <div className="flex items-center justify-between">
               <button className={linkBtn} onClick={() => go('register')}>Konto anlegen</button>
-              <button className={linkBtn} onClick={() => go('forgot')}>Passwort vergessen?</button>
+              {passwordReset && (
+                <button className={linkBtn} onClick={() => go('forgot')}>Passwort vergessen?</button>
+              )}
             </div>
             <div className="border-t pt-3 text-center">
               <button className={linkBtn} onClick={() => go('legacy')}>

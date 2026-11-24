@@ -72,7 +72,16 @@ export const auth = {
   login: (email: string, password: string) =>
     authPost<{ user: SessionUser }>('/api/auth/login', { email, password }),
   register: (email: string, password: string, displayName: string) =>
-    authPost<{ ok: true; verificationRequired: boolean }>('/api/auth/register', { email, password, displayName }),
+    authPost<{ ok: true; verificationRequired: boolean; user?: SessionUser }>('/api/auth/register', {
+      email,
+      password,
+      displayName,
+    }),
+  config: async (): Promise<{ passwordReset: boolean }> => {
+    if (mock.isDev) return { passwordReset: true }
+    const res = await fetch('/api/auth/config', { headers: headers() })
+    return res.ok ? ((await res.json()) as { passwordReset: boolean }) : { passwordReset: true }
+  },
   verifyEmail: (token: string) => authPost<{ user: SessionUser }>('/api/auth/verify-email', { token }),
   resendVerification: (email: string) => authPost<{ ok: true }>('/api/auth/resend-verification', { email }),
   forgotPassword: (email: string) => authPost<{ ok: true }>('/api/auth/forgot-password', { email }),

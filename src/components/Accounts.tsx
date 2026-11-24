@@ -4,7 +4,7 @@ import { Section } from '@/components/ui/section'
 import { useAccess } from '@/access-store'
 import { useRoster } from '@/roster-store'
 import { logActivity } from '@/activity-store'
-import { deleteAccount, fetchAccounts, updateAccount, type Account, type AccountsResponse } from '@/api'
+import { auth, deleteAccount, fetchAccounts, updateAccount, type Account, type AccountsResponse } from '@/api'
 import { cn } from '@/lib/utils'
 
 const selectCls =
@@ -25,6 +25,11 @@ export function Accounts() {
   const [data, setData] = useState<AccountsResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  // Without a mail provider nobody can confirm an address — don't flag it.
+  const [mailOn, setMailOn] = useState(false)
+  useEffect(() => {
+    auth.config().then((c) => setMailOn(c.passwordReset), () => {})
+  }, [])
 
   const reload = useCallback(async () => {
     try {
@@ -111,7 +116,7 @@ export function Accounts() {
                       </div>
                       <div className="font-mono text-[11px] text-muted-foreground">{a.email}</div>
                       <div className="mt-0.5 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                        {!a.emailVerified && <span className="rounded border px-1">E-Mail unbestätigt</span>}
+                        {mailOn && !a.emailVerified && <span className="rounded border px-1">E-Mail unbestätigt</span>}
                         {a.status === 'disabled' && <span className="rounded border px-1">Deaktiviert</span>}
                         {!a.roleId && a.status === 'active' && <span className="rounded border px-1">Wartet auf Freigabe</span>}
                       </div>

@@ -1,8 +1,8 @@
-import { ALL_MODULES, normalizeEmail, passwordProblem } from '../../../server/auth'
+import { ALL_MODULES, createSession, normalizeEmail, passwordProblem } from '../../../server/auth'
 import { hashPassword } from '../../../server/crypto'
 import { pgTextArray } from '../../../server/db'
 import { handle, error, json, readJson, str } from '../../../server/http'
-import { sendAccountExistsMail, sendVerificationMail, verificationRequired } from '../../../server/account'
+import { loadUser, logLogin, sendAccountExistsMail, sendVerificationMail, verificationRequired } from '../../../server/account'
 import type { Ctx } from '../../../server/routes'
 
 // Self-service sign-up with any email address. New accounts have no role
@@ -42,17 +42,29 @@ export const onRequestPost = handle<Ctx>(async (ctx) => {
     return { kind: 'created' as const, id: user.id, bootstrapAdmin: roleId !== null }
   })
 
+  // Without email verification (no mail provider) the account is usable at
+  // once: sign the new user in. Hiding whether an email exists is moot then.
+  if (!verificationRequired(ctx.env)) {
+    if (result.kind === 'exists') {
+      return error(409, 'exists', 'Für diese E-Mail-Adresse gibt es bereits ein Konto. Bitte anmelden.')
+    }
+    const cookie = await createSession(sql, ctx.request, result.id)
+    const user = await loadUser(sql, result.id)
+    if (user) await logLogin(sql, user)
+    return json({ ok: true, verificationRequired: false, user }, 200, { 'set-cookie': cookie })
+  }
+
   try {
     if (result.kind === 'exists') {
       // Same response either way, so the form can't be used to probe emails.
       if (!result.email_verified_at) await sendVerificationMail(ctx.env, ctx.request, sql, { id: result.id, email })
       else await sendAccountExistsMail(ctx.env, ctx.request, email)
-    } else if (verificationRequired(ctx.env)) {
+    } else {
       await sendVerificationMail(ctx.env, ctx.request, sql, { id: result.id, email })
     }
   } catch (e) {
     console.error('[register] mail failed', e)
     return error(502, 'mail failed', 'Die E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.')
   }
-  return json({ ok: true, verificationRequired: verificationRequired(ctx.env) })
+  return json({ ok: true, verificationRequired: true })
 })

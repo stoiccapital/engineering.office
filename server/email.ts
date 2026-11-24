@@ -2,6 +2,10 @@ import type { Env } from './env'
 
 type Mail = { to: string; subject: string; text: string; html: string }
 
+export function mailConfigured(env: Env): boolean {
+  return Boolean(env.RESEND_API_KEY || env.MAILPIT_URL)
+}
+
 // Sends through Resend in production (any recipient domain works — Gmail,
 // company domains, GMX, …). Locally, Mailpit catches everything. With
 // neither configured the message is only logged so links stay reachable.

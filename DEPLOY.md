@@ -37,9 +37,9 @@ email account from the sign-in screen ("Bisher mit Kürzel angemeldet?").
 | Name | Required | Notes |
 |---|---|---|
 | `DATABASE_URL` | yes* | Postgres connection string (secret). *Or a Hyperdrive binding named `HYPERDRIVE` (recommended for latency/pooling). |
-| `APP_URL` | yes | Public base URL used in email links, e.g. `https://engineering-office-dkf.pages.dev` |
-| `RESEND_API_KEY` | yes | Email delivery via [Resend](https://resend.com) (secret). The sending domain must be verified in Resend to deliver to arbitrary addresses (Gmail, company domains, GMX, …). |
-| `MAIL_FROM` | yes | e.g. `Engineering Office <no-reply@your-domain.de>` (domain verified in Resend) |
+| `APP_URL` | no | Public base URL used in email links, e.g. `https://engineering-office-dkf.pages.dev` |
+| `RESEND_API_KEY` | no — off by default (`REQUIRE_EMAIL_VERIFICATION = "false"` in wrangler.toml; no confirmation or reset mails) | Email delivery via [Resend](https://resend.com) (secret). The sending domain must be verified in Resend to deliver to arbitrary addresses (Gmail, company domains, GMX, …). |
+| `MAIL_FROM` | with Resend | e.g. `Engineering Office <no-reply@your-domain.de>` (domain verified in Resend) |
 | `BACKUP_SECRET` | yes | Shared secret for the cron endpoints `/api/admin/backup` and `/api/admin/weekly-rollover` (unchanged) |
 | `REQUIRE_EMAIL_VERIFICATION` | no | Default on. Set to `false` only for testing. |
 
