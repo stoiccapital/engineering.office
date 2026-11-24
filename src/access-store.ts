@@ -1,61 +1,29 @@
 import { create } from 'zustand'
-import {
-  clearRoleCredentials,
-  clearUserCredentials,
-  fetchAccess,
-  fetchPublicRoles,
-  fetchPublicUsers,
-  logActivity as apiLogActivity,
-  saveAccess,
-  setRoleCredentials,
-  setUserCredentials,
-  signInRole,
-  signInUser,
-  type PublicRole,
-  type PublicUser,
-} from './api'
-import {
-  displayUserName,
-  emptyAccessConfig,
-  migrateModuleIds,
-  type AccessConfig,
-  type ModuleId,
-  type Role,
-  type User,
-} from './types'
-
-const CURRENT_ROLE_KEY = 'eo:currentRoleId'
-const CURRENT_USER_KEY = 'eo:currentUserId'
+import { auth, fetchAccess, fetchMe, saveAccess, type SessionUser as ApiSessionUser } from './api'
+import { emptyAccessConfig, migrateModuleIds, type AccessConfig, type ModuleId, type Role } from './types'
 
 type Status = 'idle' | 'loading' | 'ready' | 'saving' | 'error'
 
-// Minimal session identity. currentRole carries the modules; currentUser (if
-// signed in via user login) carries the display name.
+// Session identity. currentRole carries the modules; currentUser the person.
 export type SessionRole = { id: string; name: string; modules: ModuleId[] }
-export type SessionUser = { id: string; kuerzel: string; displayName: string }
+export type SessionUser = { id: string; kuerzel: string; displayName: string; email: string; employeeId: string | null }
 
 type State = {
-  publicRoles: PublicRole[]
-  publicUsers: PublicUser[]
   config: AccessConfig
   currentRole: SessionRole | null
   currentUser: SessionUser | null
+  // Signed in, but no role assigned yet (waiting for an admin).
+  awaitingRole: SessionUser | null
   status: Status
   error: string | null
   load: () => Promise<void>
   loadFullConfig: () => Promise<void>
-  signInAsRole: (roleId: string, password: string) => Promise<boolean>
-  signInAsUser: (kuerzel: string, password: string) => Promise<boolean>
-  signOut: () => void
-  addRole: (name: string, password: string, modules: ModuleId[]) => Promise<Role>
+  // Apply a session returned by login / verify / reset / claim.
+  setSession: (user: ApiSessionUser | null) => Promise<void>
+  signOut: () => Promise<void>
+  addRole: (name: string, modules: ModuleId[]) => Promise<Role>
   updateRole: (id: string, patch: Partial<Omit<Role, 'id'>>) => void
   removeRole: (id: string) => void
-  addUser: (data: Omit<User, 'id'>) => Promise<User>
-  updateUser: (id: string, patch: Partial<Omit<User, 'id'>>) => void
-  removeUser: (id: string) => void
-  // Wipe every entry in AccessConfig.users except the one matching exceptId
-  // (keeps the currently signed-in legacy admin functional, if any).
-  clearLegacyUsers: (exceptId?: string) => void
 }
 
 function newId(prefix: string): string {
@@ -63,24 +31,24 @@ function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
-function readLS(key: string): string | null {
-  if (typeof localStorage === 'undefined') return null
-  return localStorage.getItem(key)
-}
-
 function hydrate(raw: AccessConfig | null): AccessConfig {
   if (!raw) return emptyAccessConfig()
   // Expand legacy coarse module IDs (ziele, umsatz, kostenschaetzung) to
   // their fine-grained equivalents so existing stored roles keep working.
-  const roles = (raw.roles ?? []).map((r) => ({
-    ...r,
-    modules: migrateModuleIds(r.modules ?? []),
-  }))
-  return { roles, users: raw.users ?? [] }
+  const roles = (raw.roles ?? []).map((r) => ({ ...r, password: '', modules: migrateModuleIds(r.modules ?? []) }))
+  return { roles, users: [] }
 }
 
-function migrateSessionModules(modules: unknown): ModuleId[] {
-  return migrateModuleIds(Array.isArray(modules) ? (modules as string[]) : [])
+function toSessionUser(u: ApiSessionUser): SessionUser {
+  return {
+    id: u.id,
+    // Label used in the activity log and elsewhere: Kürzel if linked to a
+    // Mitarbeiter, otherwise the email address.
+    kuerzel: u.kuerzel || u.email,
+    displayName: u.displayName || u.email,
+    email: u.email,
+    employeeId: u.employeeId,
+  }
 }
 
 export const useAccess = create<State>()((set, get) => {
@@ -92,160 +60,76 @@ export const useAccess = create<State>()((set, get) => {
       set({ status: 'ready' })
     } catch (e) {
       set({ status: 'error', error: (e as Error).message })
+      // Server rejected the change (e.g. removing the last admin): reload truth.
+      try {
+        set({ config: hydrate(await fetchAccess()) })
+      } catch {
+        // ignore
+      }
     }
   }
 
-  async function refreshPublic() {
-    try {
-      const [roles, users] = await Promise.all([fetchPublicRoles(), fetchPublicUsers()])
-      set({ publicRoles: roles, publicUsers: users })
-    } catch {
-      // ignore
+  async function applyUser(user: ApiSessionUser | null) {
+    if (!user) {
+      set({ currentUser: null, currentRole: null, awaitingRole: null, config: emptyAccessConfig() })
+      return
     }
-  }
-
-  async function maybeLoadFullConfig(modules: ModuleId[]) {
-    if (!modules.includes('settings')) return
-    try {
-      const raw = await fetchAccess()
-      set({ config: hydrate(raw) })
-    } catch {
-      // ignore
+    const su = toSessionUser(user)
+    if (!user.role) {
+      set({ currentUser: null, currentRole: null, awaitingRole: su })
+      return
+    }
+    const modules = migrateModuleIds(user.role.modules)
+    set({ currentUser: su, awaitingRole: null, currentRole: { id: user.role.id, name: user.role.name, modules } })
+    if (modules.includes('settings')) {
+      try {
+        set({ config: hydrate(await fetchAccess()) })
+      } catch {
+        // ignore
+      }
     }
   }
 
   return {
-    publicRoles: [],
-    publicUsers: [],
     config: emptyAccessConfig(),
     currentRole: null,
     currentUser: null,
+    awaitingRole: null,
     status: 'idle',
     error: null,
 
     load: async () => {
       set({ status: 'loading', error: null })
       try {
-        const [roles, users] = await Promise.all([fetchPublicRoles(), fetchPublicUsers()])
-        set({ publicRoles: roles, publicUsers: users, status: 'ready' })
-
-        // Resume user session first (primary path).
-        const userId = readLS(CURRENT_USER_KEY)
-        if (userId) {
-          const pubUser = users.find((u) => u.id === userId)
-          const pw = localStorage.getItem('eo:currentUserPassword') ?? ''
-          if (pubUser && pw) {
-            const res = await signInUser(pubUser.kuerzel, pw)
-            if (res) {
-              set({
-                currentRole: { id: res.role.id, name: res.role.name, modules: migrateSessionModules(res.role.modules) },
-                currentUser: res.user ?? { id: pubUser.id, kuerzel: pubUser.kuerzel, displayName: pubUser.displayName },
-              })
-              await maybeLoadFullConfig(migrateSessionModules(res.role.modules))
-              return
-            }
-          }
-          clearUserCredentials()
-          localStorage.removeItem(CURRENT_USER_KEY)
-        }
-
-        // Legacy role-only resume (bootstrap before any users exist).
-        const roleId = readLS(CURRENT_ROLE_KEY)
-        if (!roleId) return
-        const match = roles.find((r) => r.id === roleId)
-        if (!match) {
-          clearRoleCredentials()
-          localStorage.removeItem(CURRENT_ROLE_KEY)
-          return
-        }
-        try {
-          const raw = await fetchAccess()
-          const cfg = hydrate(raw)
-          set({ config: cfg })
-          const role = cfg.roles.find((r) => r.id === roleId)
-          if (role) {
-            set({
-              currentRole: { id: role.id, name: role.name, modules: role.modules },
-            })
-            return
-          }
-        } catch {
-          // Non-admin: can't read /api/settings/access.
-        }
-        const pw = localStorage.getItem('eo:currentRolePassword') ?? ''
-        if (pw) {
-          const res = await signInRole(roleId, pw)
-          if (res) {
-            set({
-              currentRole: { id: res.role.id, name: res.role.name, modules: migrateSessionModules(res.role.modules) },
-            })
-            return
-          }
-        }
-        clearRoleCredentials()
-        localStorage.removeItem(CURRENT_ROLE_KEY)
+        await applyUser(await fetchMe())
+        set({ status: 'ready' })
       } catch (e) {
         set({ status: 'error', error: (e as Error).message })
       }
     },
 
     loadFullConfig: async () => {
-      const raw = await fetchAccess()
-      set({ config: hydrate(raw) })
+      set({ config: hydrate(await fetchAccess()) })
     },
 
-    signInAsRole: async (roleId, password) => {
+    setSession: async (user) => {
+      await applyUser(user)
+      set({ status: 'ready' })
+    },
+
+    signOut: async () => {
       try {
-        const res = await signInRole(roleId, password)
-        if (!res) return false
-        setRoleCredentials(roleId, password)
-        localStorage.setItem(CURRENT_ROLE_KEY, roleId)
-        set({
-          currentRole: { id: res.role.id, name: res.role.name, modules: migrateSessionModules(res.role.modules) },
-          currentUser: null,
-        })
-        await maybeLoadFullConfig(migrateSessionModules(res.role.modules))
-        void apiLogActivity({ kind: 'login', user: res.role.name })
-        return true
+        await auth.logout()
       } catch {
-        return false
+        // ignore — local state is cleared regardless
       }
+      set({ currentRole: null, currentUser: null, awaitingRole: null, config: emptyAccessConfig() })
     },
 
-    signInAsUser: async (kuerzel, password) => {
-      try {
-        const res = await signInUser(kuerzel, password)
-        if (!res || !res.user) return false
-        setUserCredentials(kuerzel, password)
-        localStorage.setItem(CURRENT_USER_KEY, res.user.id)
-        // Drop any legacy role login so headers() picks the user header.
-        clearRoleCredentials()
-        localStorage.removeItem(CURRENT_ROLE_KEY)
-        set({
-          currentRole: { id: res.role.id, name: res.role.name, modules: migrateSessionModules(res.role.modules) },
-          currentUser: res.user,
-        })
-        await maybeLoadFullConfig(migrateSessionModules(res.role.modules))
-        void apiLogActivity({ kind: 'login', user: res.user.kuerzel })
-        return true
-      } catch {
-        return false
-      }
-    },
-
-    signOut: () => {
-      clearUserCredentials()
-      clearRoleCredentials()
-      localStorage.removeItem(CURRENT_USER_KEY)
-      localStorage.removeItem(CURRENT_ROLE_KEY)
-      set({ currentRole: null, currentUser: null, config: emptyAccessConfig() })
-    },
-
-    addRole: async (name, password, modules) => {
-      const role: Role = { id: newId('r'), name: name.trim(), password, modules }
+    addRole: async (name, modules) => {
+      const role: Role = { id: newId('r'), name: name.trim(), password: '', modules }
       set((s) => ({ config: { ...s.config, roles: [...s.config.roles, role] } }))
       await persist()
-      await refreshPublic()
       return role
     },
 
@@ -259,7 +143,6 @@ export const useAccess = create<State>()((set, get) => {
       void persist()
       const cur = get().currentRole
       if (cur && cur.id === id) {
-        if (patch.password && !get().currentUser) setRoleCredentials(id, patch.password)
         set({
           currentRole: {
             ...cur,
@@ -271,85 +154,8 @@ export const useAccess = create<State>()((set, get) => {
     },
 
     removeRole: (id) => {
-      set((s) => ({
-        config: {
-          ...s.config,
-          roles: s.config.roles.filter((r) => r.id !== id),
-          // Orphaned users keep their roleId; admin should reassign or remove them.
-        },
-      }))
-      if (get().currentRole?.id === id) {
-        clearRoleCredentials()
-        clearUserCredentials()
-        localStorage.removeItem(CURRENT_ROLE_KEY)
-        localStorage.removeItem(CURRENT_USER_KEY)
-        set({ currentRole: null, currentUser: null })
-      }
+      set((s) => ({ config: { ...s.config, roles: s.config.roles.filter((r) => r.id !== id) } }))
       void persist()
-    },
-
-    addUser: async (data) => {
-      const user: User = { id: newId('u'), ...data, kuerzel: data.kuerzel.trim() }
-      set((s) => ({ config: { ...s.config, users: [...s.config.users, user] } }))
-      await persist()
-      await refreshPublic()
-      return user
-    },
-
-    updateUser: (id, patch) => {
-      set((s) => ({
-        config: {
-          ...s.config,
-          users: s.config.users.map((u) => (u.id === id ? { ...u, ...patch } : u)),
-        },
-      }))
-      void persist()
-      const cur = get().currentUser
-      if (cur && cur.id === id) {
-        const updated = get().config.users.find((u) => u.id === id)
-        if (updated) {
-          if (patch.password) setUserCredentials(updated.kuerzel, patch.password)
-          else if (patch.kuerzel) {
-            const pw = localStorage.getItem('eo:currentUserPassword') ?? ''
-            if (pw) setUserCredentials(updated.kuerzel, pw)
-          }
-          set({
-            currentUser: {
-              id: updated.id,
-              kuerzel: updated.kuerzel,
-              displayName: displayUserName(updated),
-            },
-          })
-        }
-      }
-      void refreshPublic()
-    },
-
-    removeUser: (id) => {
-      set((s) => ({
-        config: {
-          ...s.config,
-          users: s.config.users.filter((u) => u.id !== id),
-        },
-      }))
-      if (get().currentUser?.id === id) {
-        clearUserCredentials()
-        localStorage.removeItem(CURRENT_USER_KEY)
-        set({ currentUser: null, currentRole: null })
-      }
-      void persist()
-      void refreshPublic()
-    },
-
-    clearLegacyUsers: (exceptId) => {
-      set((s) => ({
-        config: {
-          ...s.config,
-          users: exceptId ? s.config.users.filter((u) => u.id === exceptId) : [],
-        },
-      }))
-      void persist()
-      void refreshPublic()
     },
   }
 })

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useMemo } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Section } from '@/components/ui/section'
 import { LoadingCard } from '@/components/ui/loading-card'
 import { Num } from '@/components/ui/num'
@@ -21,12 +21,8 @@ export function Mitarbeiter() {
   const updateEmployee = useRoster((s) => s.updateEmployee)
   const removeEmployee = useRoster((s) => s.removeEmployee)
   const roles = useAccess((s) => s.config.roles)
-  const legacyUsers = useAccess((s) => s.config.users)
   const loadFullConfig = useAccess((s) => s.loadFullConfig)
-  const clearLegacyUsers = useAccess((s) => s.clearLegacyUsers)
   const currentUser = useAccess((s) => s.currentUser)
-  const clearAllLogins = useRoster((s) => s.clearAllLogins)
-  const [revealedPw, setRevealedPw] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!roster) void load()
@@ -36,15 +32,6 @@ export function Mitarbeiter() {
   useEffect(() => {
     if (roles.length === 0) void loadFullConfig()
   }, [roles.length, loadFullConfig])
-
-  function toggleRevealPw(id: string) {
-    setRevealedPw((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   const grouped = useMemo(() => {
     if (!roster) return { byTeam: new Map<string, RosterEmployee[]>(), unassigned: [] as RosterEmployee[] }
@@ -254,28 +241,6 @@ export function Mitarbeiter() {
         action={
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => {
-                const otherLogins =
-                  roster.employees.filter((e) => e.kuerzel && e.id !== currentUser?.id).length +
-                  legacyUsers.filter((u) => u.id !== currentUser?.id).length
-                if (otherLogins === 0) {
-                  alert('Außer dir sind keine weiteren Logins aktiv.')
-                  return
-                }
-                const ok = confirm(
-                  `Alle anderen Logins (${otherLogins}) zurücksetzen? Kürzel, Passwort, Personalnr. und Rolle werden auf diesen Mitarbeiter-Zeilen gelöscht. Dein eigener Login bleibt.`,
-                )
-                if (!ok) return
-                clearAllLogins(currentUser?.id)
-                clearLegacyUsers(currentUser?.id)
-              }}
-              className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
-              title="Alle anderen Logins zurücksetzen"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Logins zurücksetzen
-            </button>
-            <button
               onClick={() => addEmployee()}
               className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
             >
@@ -301,7 +266,6 @@ export function Mitarbeiter() {
                   <th className="w-32 px-3 py-2 text-left">Kürzel</th>
                   <th className="w-36 px-3 py-2 text-left">Personalnr.</th>
                   <th className="w-40 px-3 py-2 text-left">Rolle</th>
-                  <th className="w-40 px-3 py-2 text-left">Passwort</th>
                   <th className="w-10 px-3 py-2" />
                 </tr>
               </thead>
@@ -312,9 +276,7 @@ export function Mitarbeiter() {
                     emp={e}
                     teams={roster.teams}
                     roles={roles}
-                    isMe={e.id === currentUser?.id}
-                    pwRevealed={revealedPw.has(e.id)}
-                    onTogglePw={() => toggleRevealPw(e.id)}
+                    isMe={!!currentUser?.employeeId && e.id === currentUser.employeeId}
                     onUpdate={(patch) => updateEmployee(e.id, patch)}
                     onRemove={() => {
                       const label = `${e.vorname} ${e.name}`.trim() || 'Unbenannt'
@@ -336,8 +298,6 @@ function EmployeeRow({
   teams,
   roles,
   isMe,
-  pwRevealed,
-  onTogglePw,
   onUpdate,
   onRemove,
 }: {
@@ -345,8 +305,6 @@ function EmployeeRow({
   teams: RosterTeam[]
   roles: Role[]
   isMe: boolean
-  pwRevealed: boolean
-  onTogglePw: () => void
   onUpdate: (patch: Partial<Omit<RosterEmployee, 'id'>>) => void
   onRemove: () => void
 }) {
@@ -425,24 +383,6 @@ function EmployeeRow({
             </option>
           ))}
         </select>
-      </td>
-      <td className="px-3 py-2">
-        <div className="flex items-center gap-1">
-          <input
-            type={pwRevealed ? 'text' : 'password'}
-            value={emp.password ?? ''}
-            onChange={(e) => onUpdate({ password: e.target.value || undefined })}
-            placeholder="•••••••"
-            className="w-full rounded bg-foreground/[0.03] px-2 py-1 font-mono text-sm outline-none transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]"
-          />
-          <button
-            onClick={onTogglePw}
-            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-            title={pwRevealed ? 'Verbergen' : 'Anzeigen'}
-          >
-            {pwRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          </button>
-        </div>
       </td>
       <td className="px-3 py-2 text-right">
         <button

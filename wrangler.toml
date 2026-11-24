@@ -1,7 +1,23 @@
 name = "engineering-office"
 compatibility_date = "2024-10-01"
+compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
+
+# Accounts are email + password only, without confirmation mails (decided
+# by the product owner). Setting RESEND_API_KEY (+ MAIL_FROM) later and
+# removing this line turns verification and password-reset mails on.
+# Locally, .dev.vars overrides these.
+[vars]
+REQUIRE_EMAIL_VERIFICATION = "false"
 
 [[kv_namespaces]]
 binding = "FORECAST_KV"
 id = "a15981c0aa5342d1ac7dfc63aaf91fc5"
+
+# Postgres on our server via Hyperdrive (Workers VPC → Tunnel). The app
+# prefers this binding over DATABASE_URL. Locally, wrangler connects straight
+# to the docker compose Postgres instead.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "e87e97dffe1241939795808b004020fe"
+localConnectionString = "postgres://eo:eo@localhost:54329/engineering_office"

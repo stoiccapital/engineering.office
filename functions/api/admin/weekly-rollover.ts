@@ -12,10 +12,9 @@
 //  - Original is locked read-only; duplicate carries progress, text, days
 //    and a reference back to its origin.
 
-interface Env {
-  FORECAST_KV: KVNamespace
-  BACKUP_SECRET: string
-}
+import type { Env } from '../../../server/env'
+import { getDocText, putDoc } from '../../../server/documents'
+import type { Data } from '../../../server/routes'
 
 type TodoState = 'offen' | 'inProgress' | 'zurFreigabe' | 'erledigt'
 
@@ -42,7 +41,7 @@ type QuartalPlan = {
 
 const MAX_CARRY = 3
 
-export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
+export const onRequestPost: PagesFunction<Env, string, Data> = async ({ env, request, data: { sql } }) => {
   const provided = request.headers.get('x-backup-secret') ?? ''
   if (!env.BACKUP_SECRET) return json({ error: 'not configured' }, 503)
   if (provided !== env.BACKUP_SECRET) return json({ error: 'unauthorized' }, 401)
@@ -71,7 +70,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
   // plan while originals are in previous-year plan. We may need to load both.
   for (const year of affectedYears) {
     const key = `plan-${year}`
-    const raw = await env.FORECAST_KV.get(key)
+    const raw = await getDocText(sql, key)
     if (!raw) {
       summary.push({ year, rolled: 0, skippedAlreadyCarried: 0, skippedMaxReached: 0, skippedFinished: 0 })
       continue
@@ -96,7 +95,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
     } else {
       // Previous-year plan only matters if the previous week lives there.
       if (previousYear !== year) continue
-      const otherRaw = await env.FORECAST_KV.get(currentYearPlanKey)
+      const otherRaw = await getDocText(sql, currentYearPlanKey)
       if (!otherRaw) {
         summary.push({ year, rolled: 0, skippedAlreadyCarried: 0, skippedMaxReached: 0, skippedFinished: 0 })
         continue
@@ -157,9 +156,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ env, request }) => {
 
     // Persist both docs if any rolls happened.
     if (rolled > 0) {
-      await env.FORECAST_KV.put(key, JSON.stringify(plan))
+      await putDoc(sql, key, plan, null)
       if (year !== currentYear) {
-        await env.FORECAST_KV.put(currentYearPlanKey, JSON.stringify(currentYearPlan!))
+        await putDoc(sql, currentYearPlanKey, currentYearPlan!, null)
       }
     }
 

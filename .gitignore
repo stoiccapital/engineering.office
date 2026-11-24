@@ -6,3 +6,5 @@ dist
 .env*
 *.tsbuildinfo
 .wrangler
+.dev.vars
+backups/

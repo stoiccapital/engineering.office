@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { ChevronRight, Crop, Image, ImagePlus, LogOut, Moon, Replace, Sun, Trash2, UserCog } from 'lucide-react'
-import { clearToken } from '@/api'
+import { ChevronRight, Crop, Image, ImagePlus, LogOut, Moon, Replace, Sun, Trash2 } from 'lucide-react'
 import { LogoMark } from '@/components/Logo'
 import { useLogo } from '@/logo-store'
 import { useAccess, isAdmin } from '@/access-store'
@@ -33,17 +32,14 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorSrc, setEditorSrc] = useState<string | null>(null)
 
-  const switchRole = () => signOut()
-
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     localStorage.setItem(KEY, theme)
   }, [theme])
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
-  const logout = () => {
-    signOut()
-    clearToken()
+  const logout = async () => {
+    await signOut()
     location.reload()
   }
 
@@ -165,21 +161,12 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
                 </div>
                 {currentUser && (
                   <div className="truncate font-mono text-[10px] text-muted-foreground">
-                    {currentUser.kuerzel}
+                    {currentUser.kuerzel ? `${currentUser.kuerzel} · ` : ''}
+                    {currentUser.email}
                   </div>
                 )}
               </div>
             )}
-            <DropdownMenu.Item
-              onSelect={switchRole}
-              className="flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
-            >
-              <UserCog className="h-4 w-4 text-muted-foreground" />
-              <span className="flex-1">
-                {currentUser ? 'Benutzer wechseln' : 'Rolle wechseln'}
-              </span>
-            </DropdownMenu.Item>
-            <DropdownMenu.Separator className="my-1 h-px bg-border" />
             <DropdownMenu.Item
               onSelect={toggleTheme}
               className="flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"

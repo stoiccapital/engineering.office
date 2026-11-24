@@ -1,0 +1,7 @@
+DATABASE_URL=postgres://eo:eo@localhost:54329/engineering_office
+MAILPIT_URL=http://localhost:8026
+MAIL_FROM=Engineering Office <no-reply@engineering-office.test>
+BACKUP_SECRET=dev-backup-secret
+# Production runs without confirmation mails (wrangler.toml); locally the
+# mail flows stay on so test:api covers them.
+REQUIRE_EMAIL_VERIFICATION=true

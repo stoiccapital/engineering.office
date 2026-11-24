@@ -1,0 +1,29 @@
+# Local development services. Production uses a managed Postgres (reached
+# from Cloudflare via Hyperdrive or DATABASE_URL) and Resend for email.
+name: engineering-office
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: eo
+      POSTGRES_PASSWORD: eo
+      POSTGRES_DB: engineering_office
+    ports:
+      - '54329:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U eo -d engineering_office']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Catches every email the app sends in dev. UI: http://localhost:8026
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - '8026:8025'
+
+volumes:
+  pgdata:
