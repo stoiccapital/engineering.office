@@ -35,9 +35,14 @@ if (!namespaceId) {
 
 const wrangler = path.join(ROOT, 'node_modules', '.bin', 'wrangler')
 const extra = args['persist-to'] ? ['--persist-to', args['persist-to']] : []
+// wrangler 3 reads remote KV by default and rejects --remote; wrangler 4
+// defaults to local and needs it.
+const { stdout: wranglerVersion } = await run(wrangler, ['--version'], { cwd: ROOT })
+const major = Number(wranglerVersion.match(/(\d+)\.\d+\.\d+/)?.[1] ?? 4)
+const modeArgs = mode === '--remote' && major < 4 ? [] : [mode]
 
 async function wr(cmdArgs, encoding = 'utf8') {
-  const { stdout } = await run(wrangler, [...cmdArgs, '--namespace-id', namespaceId, mode, ...extra], {
+  const { stdout } = await run(wrangler, [...cmdArgs, '--namespace-id', namespaceId, ...modeArgs, ...extra], {
     cwd: ROOT,
     maxBuffer: 256 * 1024 * 1024,
     encoding,

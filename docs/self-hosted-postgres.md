@@ -7,11 +7,12 @@ fixed — so the database must be reachable from Cloudflare without opening port
 5432 to the internet.
 
 Recommended path: **Postgres bound to localhost → Cloudflare Tunnel →
-Hyperdrive → Pages Functions.** No inbound port is opened; Hyperdrive pools
-connections and adds caching near the database.
+Workers VPC service → Hyperdrive → Pages Functions.** No inbound port is
+opened, no public hostname/domain and no Access service token are needed;
+Hyperdrive pools connections near the database.
 
 ```
-Pages Function ──► Hyperdrive ──► Cloudflare Tunnel ──► cloudflared (server) ──► 127.0.0.1:5432 Postgres
+Pages Function ──► Hyperdrive ──► Workers VPC service ──► Tunnel ──► cloudflared (server) ──► 127.0.0.1:5432 Postgres
 ```
 
 ## 1. Postgres (own database + role in the host's PostgreSQL)
@@ -36,24 +37,25 @@ unset PW
 create it as the database owner. Keep a copy of the password in the password
 manager; never paste it in chat or commit it.
 
-## 2. Cloudflare Tunnel + Hyperdrive (Cloudflare account that owns the Pages project)
+## 2. Tunnel + Workers VPC + Hyperdrive (account that owns the Pages project)
 
-Follow Cloudflare's guide "Connect to a private database using Tunnel"
-(Hyperdrive docs). In short:
+See Cloudflare's "Connect to a private database using Workers VPC"
+(Hyperdrive docs). In the dashboard:
 
-1. Zero Trust → Networks → Tunnels: create a tunnel, install/run `cloudflared`
-   on the server with the given token (an existing `cloudflared` on the box
-   can host an additional route instead).
-2. Add a public hostname, e.g. `eo-db.<zone>`, service **TCP** →
-   `localhost:5432`.
-3. Zero Trust → Access: create an application for that hostname with a
-   **Service Token** policy (Hyperdrive authenticates with it).
-4. Workers & Pages → Hyperdrive → Create: host `eo-db.<zone>` (Access-protected, no port),
-   database `engineering_office`, user `eo`, the password from `.pgpass`,
-   plus the Access client id/secret.
-5. Pages project → Settings → Bindings → add Hyperdrive binding named
-   **`HYPERDRIVE`** (Production and Preview). The app prefers it over
-   `DATABASE_URL` automatically.
+1. Compute → VPC → Tunnels → create a tunnel; run the shown install command
+   on the server (installs `cloudflared` as a service with the tunnel token —
+   the token is a secret, don't paste it anywhere else).
+2. Compute → VPC → Services → create a **TCP** service on that tunnel:
+   host `127.0.0.1` (IPv4), port `5432`.
+3. Storage & databases → Hyperdrive → Create → *Connect to private
+   database* → *Workers VPC* → pick the service; database
+   `engineering_office`, user `eo`, the password from `.pgpass`. The last hop
+   is localhost on the server and the host Postgres uses Ubuntu's
+   self-signed cert, so set certificate verification to *disabled*
+   (the tunnel itself is encrypted).
+4. Pages project → Settings → Bindings → add Hyperdrive binding named
+   **`HYPERDRIVE`** (Preview first, Production at cutover). The app prefers it
+   over `DATABASE_URL` automatically.
 
 ## 3. Schema + data
 
