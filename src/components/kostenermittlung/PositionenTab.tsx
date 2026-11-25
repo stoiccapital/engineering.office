@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 import type { Position } from '@/features/kostenermittlung/types'
 import { KatalogDialog, pickToPatch, type KatalogPick } from './KatalogDialog'
 import { ExportMenu, type ExportChoice } from './ExportMenu'
+import { useColumnResize, useColumnWidths } from './useColumnWidths'
 import {
   DndContext,
   KeyboardSensor,
@@ -369,6 +370,30 @@ export function PositionenTab() {
   )
 }
 
+// Columns the user can resize. Drag handle + actions columns stay fixed.
+const RESIZABLE_COLUMNS = [
+  'kgk',
+  'text',
+  'anmerkung',
+  'menge',
+  'einheit',
+  'einheitspreis',
+  'kosten',
+  'erlaeuterung',
+] as const
+type ResizableCol = (typeof RESIZABLE_COLUMNS)[number]
+
+const DEFAULT_WIDTHS: Record<ResizableCol, number> = {
+  kgk: 110,
+  text: 220,
+  anmerkung: 360,
+  menge: 90,
+  einheit: 80,
+  einheitspreis: 120,
+  kosten: 120,
+  erlaeuterung: 320,
+}
+
 function PositionsTable({
   positions,
   hauptgruppe,
@@ -378,6 +403,10 @@ function PositionsTable({
   hauptgruppe: Position['hauptgruppe']
   onOpenPicker: (id: string) => void
 }) {
+  const { getWidth, setWidth, resetWidth } = useColumnWidths(
+    'ke.positionen',
+    DEFAULT_WIDTHS,
+  )
   if (positions.length === 0) {
     return (
       <div className="rounded-md border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">
@@ -387,19 +416,50 @@ function PositionsTable({
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-separate border-spacing-0 text-sm">
+      <table
+        className="border-separate border-spacing-0 text-sm"
+        style={{ tableLayout: 'fixed', width: 'max-content', minWidth: '100%' }}
+      >
+        <colgroup>
+          <col style={{ width: 28 }} />
+          <col style={{ width: getWidth('kgk') }} />
+          <col style={{ width: getWidth('text') }} />
+          <col style={{ width: getWidth('anmerkung') }} />
+          <col style={{ width: getWidth('menge') }} />
+          <col style={{ width: getWidth('einheit') }} />
+          <col style={{ width: getWidth('einheitspreis') }} />
+          <col style={{ width: getWidth('kosten') }} />
+          <col style={{ width: getWidth('erlaeuterung') }} />
+          <col style={{ width: 80 }} />
+        </colgroup>
         <thead>
           <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            <Th className="w-[28px]"></Th>
-            <Th className="w-[110px]">KGK</Th>
-            <Th className="w-[200px]">Text</Th>
-            <Th>Anmerkung</Th>
-            <Th className="w-[90px] text-right">Menge</Th>
-            <Th className="w-[80px]">Einheit</Th>
-            <Th className="w-[110px] text-right">Einheitspreis</Th>
-            <Th className="w-[120px] text-right">Kosten</Th>
-            <Th className="w-[320px]">Erläuterung</Th>
-            <Th className="w-[80px]"></Th>
+            <Th></Th>
+            <ResizableTh col="kgk" getWidth={getWidth} setWidth={setWidth} resetWidth={resetWidth}>
+              KGK
+            </ResizableTh>
+            <ResizableTh col="text" getWidth={getWidth} setWidth={setWidth} resetWidth={resetWidth}>
+              Text
+            </ResizableTh>
+            <ResizableTh col="anmerkung" getWidth={getWidth} setWidth={setWidth} resetWidth={resetWidth}>
+              Anmerkung
+            </ResizableTh>
+            <ResizableTh col="menge" getWidth={getWidth} setWidth={setWidth} resetWidth={resetWidth} className="text-right">
+              Menge
+            </ResizableTh>
+            <ResizableTh col="einheit" getWidth={getWidth} setWidth={setWidth} resetWidth={resetWidth}>
+              Einheit
+            </ResizableTh>
+            <ResizableTh col="einheitspreis" getWidth={getWidth} setWidth={setWidth} resetWidth={resetWidth} className="text-right">
+              Einheitspreis
+            </ResizableTh>
+            <ResizableTh col="kosten" getWidth={getWidth} setWidth={setWidth} resetWidth={resetWidth} className="text-right">
+              Kosten
+            </ResizableTh>
+            <ResizableTh col="erlaeuterung" getWidth={getWidth} setWidth={setWidth} resetWidth={resetWidth}>
+              Erläuterung
+            </ResizableTh>
+            <Th></Th>
           </tr>
         </thead>
         <SortableContext
@@ -419,6 +479,42 @@ function PositionsTable({
         </SortableContext>
       </table>
     </div>
+  )
+}
+
+function ResizableTh({
+  col,
+  children,
+  className,
+  getWidth,
+  setWidth,
+  resetWidth,
+}: {
+  col: ResizableCol
+  children?: React.ReactNode
+  className?: string
+  getWidth: (id: string) => number
+  setWidth: (id: string, px: number) => void
+  resetWidth: (id: string) => void
+}) {
+  const { onPointerDown } = useColumnResize(col, getWidth, setWidth)
+  return (
+    <th
+      className={cn(
+        'relative border-b px-2 pb-2 text-left font-medium',
+        className,
+      )}
+    >
+      {children}
+      <div
+        role="separator"
+        aria-label="Spaltenbreite ändern"
+        title="Ziehen zum Ändern der Spaltenbreite · Doppelklick zum Zurücksetzen"
+        onPointerDown={onPointerDown}
+        onDoubleClick={() => resetWidth(col)}
+        className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none hover:bg-foreground/20"
+      />
+    </th>
   )
 }
 
