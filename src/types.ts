@@ -713,7 +713,7 @@ export function emptyAccessConfig(): AccessConfig {
 export type Derived = {
   forecastDEBereinigt: number | null // G - I
   abgerechnetDEBereinigt: number | null // M - N
-  nochOffenDE: number | null // K - O
+  nochOffenDE: number | null // Forecast gesamt − Abgerechnet gesamt
   diffPL: number | null // I - N
   gewichtetDE: number | null // K * R
   gewichtetPL: number | null // I * T
@@ -727,7 +727,7 @@ export function derive(r: ProjectRow): Derived {
   return {
     forecastDEBereinigt: K,
     abgerechnetDEBereinigt: O,
-    nochOffenDE: sub(K, O),
+    nochOffenDE: sub(r.forecastDE, r.abgerechnetDE),
     diffPL: sub(r.forecastPL, r.abgerechnetPL),
     gewichtetDE: mul(K, r.leistungsstandDE),
     gewichtetPL: mul(r.forecastPL, r.leistungsstandPL),
