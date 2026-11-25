@@ -7,6 +7,8 @@ import { Section } from '@/components/ui/section'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ModuleId } from '@/types'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const fmtDateTime = (iso: string): string => {
   const d = new Date(iso)
@@ -26,6 +28,7 @@ function fullName(e: { vorname: string; name: string; kuerzel?: string }): strin
 }
 
 export function GespraecheTab() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const doc = useHr((s) => s.doc)
   const postUtterance = useHr((s) => s.postUtterance)
   const removeUtterance = useHr((s) => s.removeUtterance)
@@ -103,7 +106,16 @@ export function GespraecheTab() {
   }
 
   return (
-    <div className="grid grid-cols-[280px_1fr] gap-4">
+    <div
+      ref={containerRef}
+      className={cn(
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
+      <div className="mb-3 flex justify-end">
+        <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+      </div>
+      <div className="grid grid-cols-[280px_1fr] gap-4">
       <aside className="rounded-lg border bg-card">
         <div className="border-b px-3 py-2">
           <div className="flex items-center gap-2">
@@ -182,6 +194,7 @@ export function GespraecheTab() {
             </div>
           </Section>
         )}
+      </div>
       </div>
     </div>
   )

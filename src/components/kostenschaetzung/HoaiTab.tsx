@@ -15,6 +15,9 @@ import {
 import { NumCell } from '@/components/NumCell'
 import { Section } from '@/components/ui/section'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 type Row = {
   id: string
@@ -31,6 +34,7 @@ const fmtEUR0 = (v: number): string =>
   new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(v)
 
 export function HoaiTab() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const doc = useKostenschaetzung((s) => s.doc)
 
   const anrech = useMemo(() => {
@@ -104,7 +108,16 @@ export function HoaiTab() {
   if (!doc) return null
 
   return (
-    <div className="space-y-6">
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-6',
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
+      <div className="flex justify-end">
+        <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+      </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <AnrechCard
           label="Anrechenbar OP · §42 HOAI"

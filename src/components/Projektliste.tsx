@@ -31,6 +31,8 @@ import {
 } from '@/types'
 import { fmtEUR } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const STATUS_CHIP: Record<string, string> = {
   'in Bearbeitung':
@@ -65,6 +67,7 @@ export function Projektliste() {
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
 
   const shown = useMemo(() => {
     if (!doc) return []
@@ -113,8 +116,16 @@ export function Projektliste() {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-4',
+        isFullscreen && 'flex h-screen w-screen flex-col bg-background p-4',
+      )}
+    >
       <Section
+        className={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
+        contentClassName={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
         title="Projektliste"
         subtitle={
           filtered
@@ -162,6 +173,7 @@ export function Projektliste() {
             <Button size="sm" onClick={() => addRow()}>
               <Plus className="mr-1 h-3.5 w-3.5" /> Zeile
             </Button>
+            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
           </div>
         }
       >
@@ -216,7 +228,7 @@ export function Projektliste() {
           </div>
         )}
 
-        <div className="overflow-x-auto">
+        <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
           <table className="w-full min-w-[1800px] border-collapse text-[13px]">
             <thead className="bg-muted/60">
               <tr className="border-b text-[11px] font-medium uppercase tracking-wider text-muted-foreground">

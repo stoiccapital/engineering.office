@@ -16,10 +16,13 @@ import { KPICard, KPIGrid } from '@/components/ui/kpi-card'
 import { LoadingCard } from '@/components/ui/loading-card'
 import { Section } from '@/components/ui/section'
 import { cn } from '@/lib/utils'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const KRIT_HIGH = 0.3
 
 export function Dashboard() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const periods = useDashboard((s) => s.periods)
   const year = useDashboard((s) => s.year)
   const quarter = useDashboard((s) => s.quarter)
@@ -47,7 +50,16 @@ export function Dashboard() {
   }
 
   return (
-    <>
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-8',
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
+      <div className="flex justify-end">
+        <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+      </div>
       <HeroCard
         year={year}
         quarter={quarter}
@@ -113,7 +125,7 @@ export function Dashboard() {
       >
         <PMTable groups={groups} totals={totals} abgerechnet={abgerechnet} />
       </Section>
-    </>
+    </div>
   )
 }
 

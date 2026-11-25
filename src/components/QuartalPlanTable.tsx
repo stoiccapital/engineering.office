@@ -19,7 +19,9 @@ import {
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
-import { ArrowRightLeft, ChevronDown, ChevronRight, Flame, GripVertical, Maximize2, Minimize2, Plus, X } from 'lucide-react'
+import { ArrowRightLeft, ChevronDown, ChevronRight, Flame, GripVertical, Plus, X } from 'lucide-react'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 import { Section } from '@/components/ui/section'
 import { AlwaysOnScrollbar } from '@/components/ui/always-on-scrollbar'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
@@ -188,20 +190,8 @@ export function QuartalPlanTable() {
     return t.year === year ? t.week : null
   }, [year])
 
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
-    document.addEventListener('fullscreenchange', onChange)
-    return () => document.removeEventListener('fullscreenchange', onChange)
-  }, [])
-
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement) void document.exitFullscreen()
-    else void containerRef.current?.requestFullscreen()
-  }
 
   if (!plan) return null
 
@@ -263,18 +253,7 @@ export function QuartalPlanTable() {
             </button>
             <TeamFilterToggle value={teamFilter} onChange={setTeamFilter} />
             <PlanLegend />
-            <button
-              onClick={toggleFullscreen}
-              title={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
-            >
-              {isFullscreen ? (
-                <Minimize2 className="h-3.5 w-3.5" />
-              ) : (
-                <Maximize2 className="h-3.5 w-3.5" />
-              )}
-            </button>
+            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
           </div>
         }
       >

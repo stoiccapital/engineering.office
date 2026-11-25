@@ -13,6 +13,8 @@ import { Section } from '@/components/ui/section'
 import { KPICard, KPIGrid } from '@/components/ui/kpi-card'
 import { cn } from '@/lib/utils'
 import { loadKatalog, type Katalog } from '@/features/kostenermittlung/lib/katalog'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const fmtEUR2 = (v: number): string =>
   new Intl.NumberFormat('de-DE', {
@@ -28,6 +30,7 @@ const fmtPct1 = (v: number): string =>
   }).format(v)
 
 export function UebersichtTab() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const doc = useKostenermittlung((s) => s.doc)
   const [katalog, setKatalog] = useState<Katalog | null>(null)
   const logoUrl = useLogo((s) => s.dataUrl)
@@ -110,11 +113,22 @@ export function UebersichtTab() {
           }
 
   return (
-    <div className="space-y-6">
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-6',
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
       <Section
         title={doc.kopf.projekt}
         subtitle={headerSub(doc)}
-        action={<ExportMenu onSelect={handleExport} />}
+        action={
+          <div className="flex items-center gap-1">
+            <ExportMenu onSelect={handleExport} />
+            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+          </div>
+        }
       >
         <KPIGrid>
           <KPICard

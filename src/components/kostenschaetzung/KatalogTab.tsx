@@ -9,6 +9,8 @@ import type {
   KatalogEntry,
   KatalogMeta,
 } from '@/features/kostenschaetzung/types'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const CATALOG = katalogData as KatalogEntry[]
 const META = katalogMeta as KatalogMeta
@@ -23,6 +25,7 @@ const fmtPrice = (v: number | null | undefined): string => {
 }
 
 export function KatalogTab() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const [q, setQ] = useState('')
   const [rootFilter, setRootFilter] = useState<string | null>(null)
   const [selected, setSelected] = useState<KatalogEntry | null>(null)
@@ -53,12 +56,17 @@ export function KatalogTab() {
   const totalSize = virtualizer.getTotalSize()
 
   return (
+    <div
+      ref={containerRef}
+      className={cn(isFullscreen && 'flex h-screen w-screen flex-col bg-background p-4')}
+    >
     <Section
       title={META.quelle}
       subtitle={`Preisstand ${META.quartal} · ${META.count} Einträge · schreibgeschützt`}
       padded={false}
-      className="flex h-[calc(100vh-180px)] flex-col"
+      className={cn('flex flex-col', isFullscreen ? 'min-h-0 flex-1' : 'h-[calc(100vh-180px)]')}
       contentClassName="flex min-h-0 flex-1"
+      action={<FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />}
     >
       <aside className="w-56 shrink-0 overflow-y-auto border-r">
         <div className="border-b px-3 py-2 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -222,6 +230,7 @@ export function KatalogTab() {
         )}
       </aside>
     </Section>
+    </div>
   )
 }
 

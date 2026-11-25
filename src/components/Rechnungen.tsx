@@ -29,6 +29,8 @@ import { NumCell } from './NumCell'
 import { TextCell } from './TextCell'
 import { fmtEUR } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 // 4-state cycle used for HV + N0x cells.
 const N_CYCLE: NStatus[] = ['aktuell', 'neu', 'rgGestellt', 'nichtRelevant']
@@ -82,6 +84,7 @@ export function Rechnungen() {
 
   const [importOpen, setImportOpen] = useState(false)
   const [pmFilter, setPmFilter] = useState<string>('all')
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
 
   const pms = useMemo(() => uniquePMs(data?.rows ?? []), [data])
   const filteredRows = useMemo(() => {
@@ -108,7 +111,13 @@ export function Rechnungen() {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-4',
+        isFullscreen && 'flex h-screen w-screen flex-col bg-background p-4',
+      )}
+    >
       <Toolbar
         plan={data}
         onCopyPrevious={triggerCopy}
@@ -118,10 +127,14 @@ export function Rechnungen() {
         pmFilter={pmFilter}
         onChangePmFilter={setPmFilter}
         pms={pms}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
       />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
       <Section
+        className={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
+        contentClassName={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
         title="Rechnungsplanung"
         subtitle={
           <>
@@ -141,7 +154,7 @@ export function Rechnungen() {
         }
         padded={false}
       >
-        <div className="overflow-auto">
+        <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
           <table className="w-max min-w-full border-collapse text-xs">
             <thead className="sticky top-0 z-20 bg-muted/90 backdrop-blur">
               <tr className="border-b font-medium text-muted-foreground">
@@ -445,6 +458,8 @@ function Toolbar({
   pmFilter,
   onChangePmFilter,
   pms,
+  isFullscreen,
+  onToggleFullscreen,
 }: {
   plan: Rechnungsplan
   onCopyPrevious: () => void
@@ -454,6 +469,8 @@ function Toolbar({
   pmFilter: string
   onChangePmFilter: (v: string) => void
   pms: string[]
+  isFullscreen: boolean
+  onToggleFullscreen: () => void
 }) {
   return (
     <div className="flex items-center justify-end gap-2">
@@ -479,6 +496,7 @@ function Toolbar({
         onChangeNachtragCount={onChangeNachtragCount}
         onToggleZeithonorar={onToggleZeithonorar}
       />
+      <FullscreenToggle isFullscreen={isFullscreen} onToggle={onToggleFullscreen} />
     </div>
   )
 }

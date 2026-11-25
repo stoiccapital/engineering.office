@@ -27,6 +27,8 @@ import type { Position } from '@/features/kostenermittlung/types'
 import { KatalogDialog, pickToPatch, type KatalogPick } from './KatalogDialog'
 import { ExportMenu, type ExportChoice } from './ExportMenu'
 import { useColumnResize, useColumnWidths } from './useColumnWidths'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 import {
   DndContext,
   KeyboardSensor,
@@ -52,6 +54,7 @@ const fmtEUR2 = (v: number): string =>
   }).format(v)
 
 export function PositionenTab() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const doc = useKostenermittlung((s) => s.doc)
   const addPosition = useKostenermittlung((s) => s.addPosition)
   const updatePosition = useKostenermittlung((s) => s.updatePosition)
@@ -178,8 +181,22 @@ export function PositionenTab() {
   const preisstandMatch = meta ? normalizeQuartal(k.projektpreisstand) === meta.quartal : null
 
   return (
-    <div className="space-y-4">
-      <Section title="Projektkopf" action={<ExportMenu onSelect={handleExport} />}>
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-4',
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
+      <Section
+        title="Projektkopf"
+        action={
+          <div className="flex items-center gap-1">
+            <ExportMenu onSelect={handleExport} />
+            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+          </div>
+        }
+      >
         <div className="grid grid-cols-[180px_1fr] gap-x-6 gap-y-3 text-sm">
           <Label>Projekt</Label>
           <TextCell value={k.projekt} onChange={(v) => setKopf({ projekt: v })} multiline />

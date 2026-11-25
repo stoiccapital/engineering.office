@@ -18,10 +18,13 @@ import {
 } from '@/lib/umsatz'
 import { fmtDecimal, fmtEUR } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const HIGHLIGHT_THRESHOLD_EUR = 20_000
 
 export function Umsatzkontrolle() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const data = useUmsatz((s) => s.data)
   const quarter = useUmsatz((s) => s.quarter)
   const umsatzYear = useUmsatz((s) => s.year)
@@ -95,7 +98,16 @@ export function Umsatzkontrolle() {
   )
 
   return (
-    <div className="space-y-6">
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-6',
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
+      <div className="flex justify-end">
+        <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+      </div>
       <CollapsibleSection
         title="Verbleibender Puffer (kumuliert)"
         summary={

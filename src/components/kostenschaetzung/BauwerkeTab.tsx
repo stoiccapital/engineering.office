@@ -17,6 +17,8 @@ import { TextCell } from '@/components/TextCell'
 import { cn } from '@/lib/utils'
 import { KatalogPicker } from './KatalogPicker'
 import { BauwerkeExport } from './BauwerkeExport'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const fmtEUR2 = (v: number): string =>
   new Intl.NumberFormat('de-DE', {
@@ -28,6 +30,7 @@ const fmtEUR0 = (v: number): string =>
   new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(v)
 
 export function BauwerkeTab() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const doc = useKostenschaetzung((s) => s.doc)
   const activeId = useKostenschaetzung((s) => s.activeBauwerkId)
   const setActive = useKostenschaetzung((s) => s.setActiveBauwerk)
@@ -65,7 +68,13 @@ export function BauwerkeTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-4',
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
       <Section
         padded={false}
         contentClassName="flex items-center gap-2 px-4 py-3"
@@ -124,6 +133,7 @@ export function BauwerkeTab() {
             {fmtEUR0(total)} €
           </div>
         </div>
+        <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
       </Section>
 
       {bauwerk ? (

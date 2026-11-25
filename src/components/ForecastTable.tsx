@@ -11,6 +11,8 @@ import { Section } from '@/components/ui/section'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { Num } from '@/components/ui/num'
 import { cn } from '@/lib/utils'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 type ColGroup = { label: string; span: number; leading?: boolean }
 
@@ -30,6 +32,7 @@ export function ForecastTable() {
   const setFlag = useForecast((s) => s.setFlag)
   const [locked, setLocked] = useState(true)
   const [pmFilter, setPmFilter] = useState<string>('all')
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
 
   const rows = period?.rows ?? []
   const pms = useMemo(() => uniquePMs(rows), [rows])
@@ -66,19 +69,26 @@ export function ForecastTable() {
     : undefined
 
   return (
+    <div
+      ref={containerRef}
+      className={cn(isFullscreen && 'flex h-screen w-screen flex-col bg-background p-4')}
+    >
     <Section
       title="Projekte"
       subtitle={subtitle}
       padded={false}
+      className={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
+      contentClassName={cn(isFullscreen && 'flex min-h-0 flex-1 flex-col')}
       action={
         <div className="flex items-center gap-2">
           <PMFilter value={pmFilter} onChange={setPmFilter} pms={pms} />
           <LockToggle locked={locked} onToggle={() => setLocked((v) => !v)} />
           <ForecastLegend />
+          <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
         </div>
       }
     >
-      <div className="w-full max-h-[calc(100vh-320px)] overflow-auto">
+      <div className={cn('w-full overflow-auto', isFullscreen ? 'min-h-0 flex-1' : 'max-h-[calc(100vh-320px)]')}>
         <table className="w-full min-w-[1800px] border-collapse text-sm">
           <colgroup>
             <col className="w-12" /> {/* PRIO */}
@@ -175,6 +185,7 @@ export function ForecastTable() {
         </table>
       </div>
     </Section>
+    </div>
   )
 }
 

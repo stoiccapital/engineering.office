@@ -9,6 +9,8 @@ import {
   type KgkEntry,
 } from '@/features/kostenermittlung/lib/katalog'
 import { HAUPTGRUPPEN } from '@/features/kostenermittlung/lib/kgk'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const KATALOG_GRID = '6rem minmax(0, 1fr) 3.5rem 7rem'
 
@@ -29,6 +31,7 @@ function formatRange(von: number | null, bis: number | null): string {
 }
 
 export function DatenbankTab() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const [katalog, setKatalog] = useState<Katalog | null>(null)
   const [q, setQ] = useState('')
   const [rootFilter, setRootFilter] = useState<number | null>(null)
@@ -80,6 +83,10 @@ export function DatenbankTab() {
   const meta = katalog?.meta
 
   return (
+    <div
+      ref={containerRef}
+      className={cn(isFullscreen && 'flex h-screen w-screen flex-col bg-background p-4')}
+    >
     <Section
       title={meta?.quelle ?? 'Datenbank Ril 808'}
       subtitle={
@@ -88,8 +95,12 @@ export function DatenbankTab() {
           : 'Lade Katalog …'
       }
       padded={false}
-      className="flex h-[calc(100vh-180px)] flex-col"
+      className={cn(
+        'flex flex-col',
+        isFullscreen ? 'min-h-0 flex-1' : 'h-[calc(100vh-180px)]',
+      )}
       contentClassName="flex min-h-0 flex-1"
+      action={<FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />}
     >
       <aside className="w-56 shrink-0 overflow-y-auto border-r">
         <div className="border-b px-3 py-2 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -266,6 +277,7 @@ export function DatenbankTab() {
         )}
       </aside>
     </Section>
+    </div>
   )
 }
 

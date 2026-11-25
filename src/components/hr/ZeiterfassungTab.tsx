@@ -17,6 +17,8 @@ import { TextCell } from '@/components/TextCell'
 import { cn } from '@/lib/utils'
 import type { ModuleId } from '@/types'
 import type { ZeitEntry } from '@/features/hr/types'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const TAG_LABELS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
 
@@ -43,6 +45,7 @@ function fullName(e: { vorname: string; name: string; kuerzel?: string }): strin
 }
 
 export function ZeiterfassungTab() {
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const doc = useHr((s) => s.doc)
   const addEntry = useHr((s) => s.addEntry)
   const currentUser = useAccess((s) => s.currentUser)
@@ -129,7 +132,16 @@ export function ZeiterfassungTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-4',
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
+      <div className="flex justify-end">
+        <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+      </div>
       <Section
         padded={false}
         className="bg-card"

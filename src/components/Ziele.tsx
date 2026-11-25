@@ -28,14 +28,26 @@ import type {
 import { fmtDecimal, fmtEUR, fmtPct } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { logActivity } from '@/activity-store'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 // Dashboard page — read-only FTE pool summary. Lives under the Ziele sidebar
 // group as its own sub-view.
 export function ZieleDashboardPage() {
   const ziele = useZiele((s) => s.ziele)
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   if (!ziele) return <LoadingCard>Lade Ziele…</LoadingCard>
   return (
-    <div className="space-y-6">
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-6',
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
+      <div className="flex justify-end">
+        <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+      </div>
       <DashboardSection />
     </div>
   )
@@ -49,13 +61,23 @@ export function ZieleTeamsPage() {
   const lock = useZiele((s) => s.lock)
   const unlock = useZiele((s) => s.unlock)
   const currentRole = useAccess((s) => s.currentRole)
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
   const locked = !!ziele?.locked
   const canUnlock = currentRole?.modules.includes('plan') ?? false
 
   if (!ziele) return <LoadingCard>Lade Ziele…</LoadingCard>
 
   return (
-    <div className="space-y-6">
+    <div
+      ref={containerRef}
+      className={cn(
+        'space-y-6',
+        isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
+      )}
+    >
+      <div className="flex justify-end">
+        <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+      </div>
       <LockBar
         locked={locked}
         lockedBy={ziele.lockedBy}

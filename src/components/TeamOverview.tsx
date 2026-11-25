@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { usePlan, cellKey } from '@/plan-store'
 import {
@@ -15,7 +15,6 @@ import {
   weeksInISOYear,
 } from '@/lib/iso-week'
 import { cn } from '@/lib/utils'
-import { Maximize2, Minimize2 } from 'lucide-react'
 import { useRoster } from '@/roster-store'
 import {
   TeamFilterToggle,
@@ -27,6 +26,8 @@ import {
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
 import { StateCycle } from '@/components/ui/state-cycle'
+import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 // Status badge tones mirror the Plan tab's tone palette so the colour language
 // stays consistent: Abgabe = emerald, Urlaub = sky, Abstimmen = amber.
@@ -51,19 +52,7 @@ export function TeamOverview() {
     if (!roster) void loadRoster()
   }, [roster, loadRoster])
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
-    document.addEventListener('fullscreenchange', onChange)
-    return () => document.removeEventListener('fullscreenchange', onChange)
-  }, [])
-
-  const toggleFullscreen = () => {
-    if (document.fullscreenElement) void document.exitFullscreen()
-    else void containerRef.current?.requestFullscreen()
-  }
+  const { ref: containerRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLDivElement>()
 
   const { weekRows, todayWeek } = useMemo(() => {
     const total = weeksInISOYear(year)
@@ -157,18 +146,7 @@ export function TeamOverview() {
         action={
           <div className="flex items-center gap-1">
             <TeamFilterToggle value={teamFilter} onChange={setTeamFilter} />
-            <button
-              onClick={toggleFullscreen}
-              title={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild anzeigen'}
-            >
-              {isFullscreen ? (
-                <Minimize2 className="h-3.5 w-3.5" />
-              ) : (
-                <Maximize2 className="h-3.5 w-3.5" />
-              )}
-            </button>
+            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
           </div>
         }
       >
