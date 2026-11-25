@@ -1,7 +1,7 @@
 import { documentRoutes } from '../../server/routes'
 
-// Kostenermittlung projects.
+// Kostenermittlung workspace — one blob holding multiple projects.
 export const { onRequestGet, onRequestPut } = documentRoutes({
   key: () => 'kostenermittlung',
-  maxBytes: 2_000_000,
+  maxBytes: 10_000_000,
 })

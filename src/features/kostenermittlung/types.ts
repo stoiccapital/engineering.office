@@ -29,7 +29,15 @@ export type Position = {
 }
 
 export type Kostenermittlung = {
+  // ID of the owning Projektliste row — one Kostenermittlung per project.
+  projektId: string
   kopf: Projektkopf
   positionen: Position[]
+  updatedAt?: string
+}
+
+export type KostenermittlungWorkspace = {
+  projects: Kostenermittlung[]
+  activeProjektId: string | null
   updatedAt?: string
 }

@@ -22,6 +22,7 @@ import { KostenschaetzungSaveStatus } from '@/components/KostenschaetzungSaveSta
 import { PositionenTab as KePositionenTab } from '@/components/kostenermittlung/PositionenTab'
 import { UebersichtTab as KeUebersichtTab } from '@/components/kostenermittlung/UebersichtTab'
 import { DatenbankTab as KeDatenbankTab } from '@/components/kostenermittlung/DatenbankTab'
+import { ProjectPicker as KeProjectPicker } from '@/components/kostenermittlung/ProjectPicker'
 import { KostenermittlungSaveStatus } from '@/components/KostenermittlungSaveStatus'
 import { ZeiterfassungTab as HrZeiterfassungTab } from '@/components/hr/ZeiterfassungTab'
 import { GespraecheTab as HrGespraecheTab } from '@/components/hr/GespraecheTab'
@@ -276,6 +277,8 @@ function Shell() {
   const kostenDoc = useKostenschaetzung((s) => s.doc)
   const loadKostenermittlung = useKostenermittlung((s) => s.load)
   const keDoc = useKostenermittlung((s) => s.doc)
+  const keWorkspace = useKostenermittlung((s) => s.workspace)
+  const selectKeProject = useKostenermittlung((s) => s.selectProject)
   const loadHr = useHr((s) => s.load)
   const hrDoc = useHr((s) => s.doc)
   const loadProjektliste = useProjektliste((s) => s.load)
@@ -335,10 +338,58 @@ function Shell() {
   }, [view, kostenDoc, loadKostenschaetzung])
 
   useEffect(() => {
-    // Datenbank loads its own catalog JSON; it doesn't depend on the Kostenermittlung doc.
+    // Datenbank loads its own catalog JSON; it doesn't depend on the Kostenermittlung workspace.
     const isKeDocView = view === 'ke_positionen' || view === 'ke_uebersicht'
-    if (isKeDocView && !keDoc) void loadKostenermittlung()
-  }, [view, keDoc, loadKostenermittlung])
+    if (isKeDocView && !keWorkspace) void loadKostenermittlung()
+  }, [view, keWorkspace, loadKostenermittlung])
+
+  // Projektliste rows are needed by the KE project picker to show names
+  // and offer new rows to attach a KE doc to.
+  useEffect(() => {
+    const isKeDocView = view === 'ke_positionen' || view === 'ke_uebersicht'
+    if (isKeDocView && !projektlisteDoc) void loadProjektliste()
+  }, [view, projektlisteDoc, loadProjektliste])
+
+  // URL ↔ active KE project sync. The URL (?projekt=<id>) is session source
+  // of truth; active project in the workspace is the persisted fallback.
+  const isKeDocView = view === 'ke_positionen' || view === 'ke_uebersicht'
+  useEffect(() => {
+    if (!isKeDocView || !keWorkspace) return
+    const params = new URLSearchParams(window.location.search)
+    const urlId = params.get('projekt')
+    const activeId = keWorkspace.activeProjektId
+    const exists = (id: string | null) =>
+      !!id && keWorkspace.projects.some((p) => p.projektId === id)
+    if (urlId && exists(urlId)) {
+      if (urlId !== activeId) selectKeProject(urlId)
+    } else if (activeId && exists(activeId)) {
+      const next = new URLSearchParams(window.location.search)
+      next.set('projekt', activeId)
+      window.history.replaceState(null, '', `?${next.toString()}`)
+    } else if (urlId) {
+      // Stale URL, no matching project — clean it.
+      const next = new URLSearchParams(window.location.search)
+      next.delete('projekt')
+      const qs = next.toString()
+      window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+    }
+  }, [isKeDocView, keWorkspace, selectKeProject])
+
+  // Keep URL in sync when the user picks a different project inside the picker.
+  useEffect(() => {
+    if (!isKeDocView) return
+    const params = new URLSearchParams(window.location.search)
+    const urlId = params.get('projekt')
+    const activeId = keWorkspace?.activeProjektId ?? null
+    if (activeId && urlId !== activeId) {
+      params.set('projekt', activeId)
+      window.history.replaceState(null, '', `?${params.toString()}`)
+    } else if (!activeId && urlId) {
+      params.delete('projekt')
+      const qs = params.toString()
+      window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+    }
+  }, [isKeDocView, keWorkspace?.activeProjektId])
 
   useEffect(() => {
     const isHrView = view === 'hr_zeiterfassung' || view === 'hr_gespraeche'
@@ -460,10 +511,24 @@ function Shell() {
             (kostenDoc ? <HoaiTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
           {view === 'ks_katalog' &&
             (kostenDoc ? <KatalogTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
-          {view === 'ke_positionen' &&
-            (keDoc ? <KePositionenTab /> : <LoadingCard>Lade Kostenermittlung…</LoadingCard>)}
-          {view === 'ke_uebersicht' &&
-            (keDoc ? <KeUebersichtTab /> : <LoadingCard>Lade Kostenermittlung…</LoadingCard>)}
+          {(view === 'ke_positionen' || view === 'ke_uebersicht') && (
+            keWorkspace ? (
+              <div className="-mx-6 -mt-6">
+                <KeProjectPicker
+                  onNavigateProjektliste={() => setView('projektliste')}
+                />
+                <div className="px-6 py-6">
+                  {keDoc ? (
+                    view === 'ke_positionen' ? <KePositionenTab /> : <KeUebersichtTab />
+                  ) : (
+                    <EmptyKeState />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <LoadingCard>Lade Kostenermittlung…</LoadingCard>
+            )
+          )}
           {view === 'ke_datenbank' && <KeDatenbankTab />}
           {view === 'hr_zeiterfassung' &&
             (hrDoc ? <HrZeiterfassungTab /> : <LoadingCard>Lade HR…</LoadingCard>)}
@@ -972,5 +1037,17 @@ function FlyoutItem({
         </span>
       )}
     </button>
+  )
+}
+
+function EmptyKeState() {
+  return (
+    <div className="mx-auto max-w-md rounded-md border bg-card px-6 py-10 text-center">
+      <div className="text-sm font-semibold">Kein Projekt ausgewählt</div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Wähle oben ein Projekt aus der Projektliste, oder lege eins über
+        «Neu» an.
+      </p>
+    </div>
   )
 }
