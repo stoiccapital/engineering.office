@@ -236,12 +236,7 @@ export function TeamOverview() {
                             : null
                           return (
                             <div className="flex flex-col text-sm font-semibold text-foreground">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate">{displayName}</span>
-                                <span className="rounded border bg-muted/60 px-1 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
-                                  {emp.branch}
-                                </span>
-                              </div>
+                              <span className="truncate">{displayName}</span>
                               {context && (
                                 <span className="truncate font-mono text-[10px] font-normal text-muted-foreground">
                                   {context}
