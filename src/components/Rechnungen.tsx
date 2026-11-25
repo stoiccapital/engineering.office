@@ -21,6 +21,7 @@ import {
   type NStatus,
   type PlBranchStatus,
   type Rechnungsplan,
+  type RechnungsplanRow,
 } from '@/types'
 import { Section } from '@/components/ui/section'
 import { Num } from '@/components/ui/num'
@@ -79,8 +80,20 @@ export function Rechnungen() {
   const renameNoteColumn = useRechnungen((s) => s.renameNoteColumn)
   const copyFromPreviousMonth = useRechnungen((s) => s.copyFromPreviousMonth)
 
-  const totals = useMemo(() => computeTotals(data), [data])
   const [importOpen, setImportOpen] = useState(false)
+  const [pmFilter, setPmFilter] = useState<string>('all')
+
+  const pms = useMemo(() => uniquePMs(data?.rows ?? []), [data])
+  const filteredRows = useMemo(() => {
+    const rows = data?.rows ?? []
+    if (pmFilter === 'all') return rows
+    if (pmFilter === '__unassigned__') {
+      return rows.filter((r) => !(r.pl ?? '').trim())
+    }
+    const canon = pmFilter.toLowerCase()
+    return rows.filter((r) => (r.pl ?? '').trim().toLowerCase() === canon)
+  }, [data, pmFilter])
+  const totals = useMemo(() => computeTotals(filteredRows), [filteredRows])
 
   if (!data) return null
 
@@ -102,6 +115,9 @@ export function Rechnungen() {
         onOpenImport={() => setImportOpen(true)}
         onChangeNachtragCount={setNachtragCount}
         onToggleZeithonorar={setShowZeithonorar}
+        pmFilter={pmFilter}
+        onChangePmFilter={setPmFilter}
+        pms={pms}
       />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
@@ -109,7 +125,14 @@ export function Rechnungen() {
         title="Rechnungsplanung"
         subtitle={
           <>
-            <Num>{data.rows.length}</Num> Projekte · DE Σ {fmtEUR(totals.rgSummeDE) || '0'} € · PL Σ{' '}
+            {pmFilter === 'all' ? (
+              <><Num>{data.rows.length}</Num> Projekte</>
+            ) : (
+              <>
+                <Num>{filteredRows.length}</Num> von <Num>{data.rows.length}</Num> Projekten
+              </>
+            )}{' '}
+            · DE Σ {fmtEUR(totals.rgSummeDE) || '0'} € · PL Σ{' '}
             {fmtEUR(totals.rgSummePL) || '0'} €
             {totals.erbrachteLeistung > 0 && (
               <> · Erbr. Leistung {fmtEUR(totals.erbrachteLeistung)} €</>
@@ -162,7 +185,7 @@ export function Rechnungen() {
               </tr>
             </thead>
             <tbody>
-              {data.rows.map((row) => (
+              {filteredRows.map((row) => (
                 <tr
                   key={row.id}
                   className="group border-b last:border-b-0 hover:bg-accent/30"
@@ -334,16 +357,70 @@ function computedRgDe(r: {
   return (r.rgGesamt ?? 0) - (r.rgSummePL ?? 0) - (r.nachtragErbracht ?? 0)
 }
 
-function computeTotals(data: Rechnungsplan | null) {
+function PMFilter({
+  value,
+  onChange,
+  pms,
+}: {
+  value: string
+  onChange: (v: string) => void
+  pms: string[]
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-accent focus:ring-1 focus:ring-ring"
+      title="Nach Projektleiter filtern"
+    >
+      <option value="all">Alle Projektleiter</option>
+      {pms.map((pm) => (
+        <option key={pm} value={pm}>
+          {pm}
+        </option>
+      ))}
+      <option value="__unassigned__">Ohne Zuordnung</option>
+    </select>
+  )
+}
+
+function computeTotals(rows: RechnungsplanRow[]) {
   const acc = { rgGesamt: 0, rgSummeDE: 0, rgSummePL: 0, erbrachteLeistung: 0 }
-  if (!data) return acc
-  for (const r of data.rows) {
+  for (const r of rows) {
     acc.rgGesamt += r.rgGesamt ?? 0
     acc.rgSummeDE += computedRgDe(r) ?? 0
     acc.rgSummePL += r.rgSummePL ?? 0
     acc.erbrachteLeistung += r.nachtragErbracht ?? 0
   }
   return acc
+}
+
+// Build the PM list from the free-text `pl` field. Canonicalize case so
+// "sch", "Sch", "SCH" collapse into one option; display the most-common raw form.
+function uniquePMs(rows: RechnungsplanRow[]): string[] {
+  const counts = new Map<string, Map<string, number>>()
+  for (const r of rows) {
+    const name = (r.pl ?? '').trim()
+    if (!name) continue
+    const canon = name.toLowerCase()
+    const inner = counts.get(canon) ?? new Map<string, number>()
+    inner.set(name, (inner.get(name) ?? 0) + 1)
+    counts.set(canon, inner)
+  }
+  const out: string[] = []
+  for (const inner of counts.values()) {
+    let best = ''
+    let bestN = -1
+    for (const [raw, n] of inner) {
+      if (n > bestN) {
+        best = raw
+        bestN = n
+      }
+    }
+    out.push(best)
+  }
+  out.sort((a, b) => a.localeCompare(b, 'de'))
+  return out
 }
 
 function totalColSpan(data: Rechnungsplan): number {
@@ -365,15 +442,22 @@ function Toolbar({
   onOpenImport,
   onChangeNachtragCount,
   onToggleZeithonorar,
+  pmFilter,
+  onChangePmFilter,
+  pms,
 }: {
   plan: Rechnungsplan
   onCopyPrevious: () => void
   onOpenImport: () => void
   onChangeNachtragCount: (n: number) => void
   onToggleZeithonorar: (show: boolean) => void
+  pmFilter: string
+  onChangePmFilter: (v: string) => void
+  pms: string[]
 }) {
   return (
     <div className="flex items-center justify-end gap-2">
+      <PMFilter value={pmFilter} onChange={onChangePmFilter} pms={pms} />
       <button
         onClick={onOpenImport}
         className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
