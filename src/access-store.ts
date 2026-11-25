@@ -10,7 +10,15 @@ export type SessionUser = { id: string; kuerzel: string; displayName: string; em
 
 type State = {
   config: AccessConfig
+  // The user's actual role — never overwritten by "view as". Used to check
+  // admin privileges before entering view-as mode.
+  realRole: SessionRole | null
+  // The role the UI should respect for nav/module gating. Equal to realRole
+  // except while an admin is impersonating via "view as".
   currentRole: SessionRole | null
+  // When an admin is impersonating another role for testing, this is the id
+  // of the role being viewed. null = viewing as the real role.
+  viewAsRoleId: string | null
   currentUser: SessionUser | null
   // Signed in, but no role assigned yet (waiting for an admin).
   awaitingRole: SessionUser | null
@@ -21,6 +29,9 @@ type State = {
   // Apply a session returned by login / verify / reset / claim.
   setSession: (user: ApiSessionUser | null) => Promise<void>
   signOut: () => Promise<void>
+  // Admin-only: impersonate another role for the current session. Pass null
+  // to return to the real role.
+  setViewAsRole: (roleId: string | null) => void
   addRole: (name: string, modules: ModuleId[]) => Promise<Role>
   updateRole: (id: string, patch: Partial<Omit<Role, 'id'>>) => void
   removeRole: (id: string) => void
@@ -71,16 +82,30 @@ export const useAccess = create<State>()((set, get) => {
 
   async function applyUser(user: ApiSessionUser | null) {
     if (!user) {
-      set({ currentUser: null, currentRole: null, awaitingRole: null, config: emptyAccessConfig() })
+      set({
+        currentUser: null,
+        currentRole: null,
+        realRole: null,
+        viewAsRoleId: null,
+        awaitingRole: null,
+        config: emptyAccessConfig(),
+      })
       return
     }
     const su = toSessionUser(user)
     if (!user.role) {
-      set({ currentUser: null, currentRole: null, awaitingRole: su })
+      set({ currentUser: null, currentRole: null, realRole: null, viewAsRoleId: null, awaitingRole: su })
       return
     }
     const modules = migrateModuleIds(user.role.modules)
-    set({ currentUser: su, awaitingRole: null, currentRole: { id: user.role.id, name: user.role.name, modules } })
+    const role: SessionRole = { id: user.role.id, name: user.role.name, modules }
+    set({
+      currentUser: su,
+      awaitingRole: null,
+      realRole: role,
+      currentRole: role,
+      viewAsRoleId: null,
+    })
     if (modules.includes('settings')) {
       try {
         set({ config: hydrate(await fetchAccess()) })
@@ -92,7 +117,9 @@ export const useAccess = create<State>()((set, get) => {
 
   return {
     config: emptyAccessConfig(),
+    realRole: null,
     currentRole: null,
+    viewAsRoleId: null,
     currentUser: null,
     awaitingRole: null,
     status: 'idle',
@@ -123,7 +150,31 @@ export const useAccess = create<State>()((set, get) => {
       } catch {
         // ignore — local state is cleared regardless
       }
-      set({ currentRole: null, currentUser: null, awaitingRole: null, config: emptyAccessConfig() })
+      set({
+        currentRole: null,
+        realRole: null,
+        viewAsRoleId: null,
+        currentUser: null,
+        awaitingRole: null,
+        config: emptyAccessConfig(),
+      })
+    },
+
+    setViewAsRole: (roleId) => {
+      const s = get()
+      // Only an admin (by their real role) may enter view-as mode.
+      if (!s.realRole || !s.realRole.modules.includes('settings')) return
+      if (roleId === null) {
+        set({ viewAsRoleId: null, currentRole: s.realRole })
+        return
+      }
+      const found = s.config.roles.find((r) => r.id === roleId)
+      if (!found) return
+      const modules = migrateModuleIds(found.modules)
+      set({
+        viewAsRoleId: roleId,
+        currentRole: { id: found.id, name: found.name, modules },
+      })
     },
 
     addRole: async (name, modules) => {
@@ -141,13 +192,26 @@ export const useAccess = create<State>()((set, get) => {
         },
       }))
       void persist()
-      const cur = get().currentRole
-      if (cur && cur.id === id) {
+      const s = get()
+      const nextName = (cur: SessionRole) => patch.name ?? cur.name
+      const nextModules = (cur: SessionRole) =>
+        (patch.modules as ModuleId[] | undefined) ?? cur.modules
+      if (s.realRole && s.realRole.id === id) {
+        const updated: SessionRole = {
+          ...s.realRole,
+          name: nextName(s.realRole),
+          modules: nextModules(s.realRole),
+        }
+        set({ realRole: updated })
+        // Mirror into currentRole if not impersonating.
+        if (!s.viewAsRoleId) set({ currentRole: updated })
+      }
+      if (s.viewAsRoleId && s.viewAsRoleId === id && s.currentRole) {
         set({
           currentRole: {
-            ...cur,
-            name: patch.name ?? cur.name,
-            modules: (patch.modules as ModuleId[] | undefined) ?? cur.modules,
+            ...s.currentRole,
+            name: nextName(s.currentRole),
+            modules: nextModules(s.currentRole),
           },
         })
       }
@@ -156,6 +220,11 @@ export const useAccess = create<State>()((set, get) => {
     removeRole: (id) => {
       set((s) => ({ config: { ...s.config, roles: s.config.roles.filter((r) => r.id !== id) } }))
       void persist()
+      const s = get()
+      // If the admin was impersonating the just-removed role, snap back.
+      if (s.viewAsRoleId === id && s.realRole) {
+        set({ viewAsRoleId: null, currentRole: s.realRole })
+      }
     },
   }
 })

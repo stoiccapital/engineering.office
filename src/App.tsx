@@ -36,6 +36,7 @@ import { AuthScreen, AwaitingApproval } from '@/components/AuthScreen'
 import { ConflictNotice } from '@/components/ConflictNotice'
 import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
 import { UserMenu } from '@/components/ui/user-menu'
+import { ViewAsBanner } from '@/components/ui/view-as-banner'
 import { CommandPalette } from '@/components/ui/command-palette'
 import { useDashboard } from '@/dashboard-store'
 import { LoadingCard } from '@/components/ui/loading-card'
@@ -461,6 +462,7 @@ function Shell() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <ViewAsBanner />
         <header className="bg-background">
           <div className="flex min-h-[62px] items-center justify-between gap-4 px-6 py-4">
             <h1 className="text-base font-semibold">{meta.title}</h1>
