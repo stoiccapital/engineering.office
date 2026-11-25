@@ -43,6 +43,13 @@ export function TeamOverview() {
   const teamFilter = usePlan((s) => s.teamFilter)
   const setTeamFilter = usePlan((s) => s.setTeamFilter)
   const roster = useRoster((s) => s.roster)
+  const loadRoster = useRoster((s) => s.load)
+
+  // Overview-only users land here without passing through QuartalPlanTable,
+  // so the roster wouldn't be loaded otherwise — leaving the team filter empty.
+  useEffect(() => {
+    if (!roster) void loadRoster()
+  }, [roster, loadRoster])
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
