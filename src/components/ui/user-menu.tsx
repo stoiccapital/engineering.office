@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { ChevronRight, Crop, Image, ImagePlus, LogOut, Moon, Replace, Sun, Trash2 } from 'lucide-react'
+import { Check, ChevronRight, Crop, Eye, Image, ImagePlus, LogOut, Moon, Replace, Sun, Trash2 } from 'lucide-react'
 import { LogoMark } from '@/components/Logo'
 import { useLogo } from '@/logo-store'
 import { useAccess, isAdmin } from '@/access-store'
@@ -25,9 +25,15 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
   const removeLogo = useLogo((s) => s.remove)
   const logoStatus = useLogo((s) => s.status)
   const currentRole = useAccess((s) => s.currentRole)
+  const realRole = useAccess((s) => s.realRole)
+  const viewAsRoleId = useAccess((s) => s.viewAsRoleId)
+  const setViewAsRole = useAccess((s) => s.setViewAsRole)
+  const roles = useAccess((s) => s.config.roles)
   const currentUser = useAccess((s) => s.currentUser)
   const signOut = useAccess((s) => s.signOut)
-  const admin = isAdmin(currentRole)
+  // Admin check must be against the REAL role, not currentRole — otherwise
+  // an admin viewing as a non-admin role would lose access to the submenu.
+  const admin = isAdmin(realRole)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorSrc, setEditorSrc] = useState<string | null>(null)
@@ -178,6 +184,59 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
               )}
               <span className="flex-1">{theme === 'dark' ? 'Hell' : 'Dunkel'}</span>
             </DropdownMenu.Item>
+            {admin && (
+              <>
+                <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                <DropdownMenu.Sub>
+                  <DropdownMenu.SubTrigger className="flex cursor-default items-center gap-2.5 rounded px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent data-[state=open]:bg-accent">
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                    <span className="flex-1">Ansicht als Rolle</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </DropdownMenu.SubTrigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.SubContent
+                      sideOffset={4}
+                      className="z-50 w-56 rounded-md border bg-card p-1 text-sm shadow-md focus:outline-none"
+                    >
+                      <DropdownMenu.Item
+                        onSelect={() => setViewAsRole(null)}
+                        className="flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
+                      >
+                        {viewAsRoleId === null ? (
+                          <Check className="h-4 w-4 text-foreground" />
+                        ) : (
+                          <span className="h-4 w-4" />
+                        )}
+                        <span className="flex-1">Eigene Rolle ({realRole?.name})</span>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                      {roles.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          Keine Rollen konfiguriert.
+                        </div>
+                      ) : (
+                        roles
+                          .filter((r) => r.id !== realRole?.id)
+                          .map((r) => (
+                            <DropdownMenu.Item
+                              key={r.id}
+                              onSelect={() => setViewAsRole(r.id)}
+                              className="flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
+                            >
+                              {viewAsRoleId === r.id ? (
+                                <Check className="h-4 w-4 text-foreground" />
+                              ) : (
+                                <span className="h-4 w-4" />
+                              )}
+                              <span className="flex-1 truncate">{r.name}</span>
+                            </DropdownMenu.Item>
+                          ))
+                      )}
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Sub>
+              </>
+            )}
             <DropdownMenu.Separator className="my-1 h-px bg-border" />
             <DropdownMenu.Item
               onSelect={logout}
