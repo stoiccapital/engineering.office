@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
-import { Building2, Calculator, CalendarDays, CheckSquare, Database, FolderKanban, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Users } from 'lucide-react'
+import { CalendarDays, CheckSquare, FolderKanban, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Users } from 'lucide-react'
 import { useAccess } from '@/access-store'
 import { cn } from '@/lib/utils'
 
@@ -12,9 +12,6 @@ type View =
   | 'ziele_dashboard'
   | 'ziele_teams'
   | 'ziele_kontrolle'
-  | 'ks_bauwerke'
-  | 'ks_hoai'
-  | 'ks_katalog'
   | 'projektliste'
 
 type Props = {
@@ -29,9 +26,6 @@ const ITEMS: { view: View; label: string; keywords: string; icon: typeof Table2 
   { view: 'forecast', label: 'Forecast', keywords: 'forecast projekte abgerechnet quartal', icon: Table2 },
   { view: 'plan', label: 'Quartalsplanung', keywords: 'plan quartalsplanung aufgaben mitarbeiter kw', icon: CalendarDays },
   { view: 'freigaben', label: 'Freigaben', keywords: 'freigaben validierung erledigt aufgaben pm', icon: CheckSquare },
-  { view: 'ks_bauwerke', label: 'Kostenschätzung · Bauwerke', keywords: 'kosten schätzung bauwerk position abschnitt menge einheitspreis', icon: Building2 },
-  { view: 'ks_hoai', label: 'Kostenschätzung · HOAI-Honorar', keywords: 'hoai honorar objektplanung tragwerksplanung leistungsphase', icon: Calculator },
-  { view: 'ks_katalog', label: 'Kostenschätzung · Datenbank Ril 808', keywords: 'katalog ril 808 db baupreise datenbank suche', icon: Database },
   { view: 'projektliste', label: 'Projektliste', keywords: 'projektliste controlling kosten forecast abrechnung portfolio excel import', icon: FolderKanban },
 ]
 

@@ -553,12 +553,6 @@ export type ModuleId =
   | 'plan_overview'
   | 'rechnungen'
   | 'projektliste'
-  | 'ks_bauwerke'
-  | 'ks_hoai'
-  | 'ks_katalog'
-  | 'ke_positionen'
-  | 'ke_uebersicht'
-  | 'ke_datenbank'
   | 'ke_imv_uebersicht'
   | 'ke_imv_projekte'
   | 'ke_imv_ril'
@@ -581,12 +575,6 @@ export const MODULES: ModuleId[] = [
   'plan_overview',
   'rechnungen',
   'projektliste',
-  'ks_bauwerke',
-  'ks_hoai',
-  'ks_katalog',
-  'ke_positionen',
-  'ke_uebersicht',
-  'ke_datenbank',
   'ke_imv_uebersicht',
   'ke_imv_projekte',
   'ke_imv_ril',
@@ -610,12 +598,6 @@ export const MODULE_LABELS: Record<ModuleId, string> = {
   ziele_kontrolle: 'Zielkontrolle',
   rechnungen: 'Rechnungen',
   projektliste: 'Projektliste',
-  ks_bauwerke: 'Bauwerke',
-  ks_hoai: 'HOAI-Honorar',
-  ks_katalog: 'Datenbank Ril 808',
-  ke_positionen: 'Projekte',
-  ke_uebersicht: 'Übersicht',
-  ke_datenbank: 'Datenbank Ril 808',
   ke_imv_uebersicht: 'Übersicht',
   ke_imv_projekte: 'Kostenermittlungen',
   ke_imv_ril: 'Datenbank Ril 808',
@@ -637,16 +619,15 @@ export const MODULE_GROUPS: { label: string; modules: ModuleId[] }[] = [
   { label: 'Operative Planung', modules: ['dashboard', 'forecast', 'plan', 'plan_overview'] },
   { label: 'Rechnungen', modules: ['rechnungen'] },
   { label: 'Projektliste', modules: ['projektliste'] },
-  { label: 'Kostenschätzung', modules: ['ks_bauwerke', 'ks_hoai', 'ks_katalog'] },
-  { label: 'Kostenermittlung', modules: ['ke_positionen', 'ke_uebersicht', 'ke_datenbank'] },
   { label: 'Kostenermittlung IMV', modules: ['ke_imv_uebersicht', 'ke_imv_projekte', 'ke_imv_ril', 'ke_imv_free', 'ke_imv_entry', 'ke_imv_indices'] },
   { label: 'HR', modules: ['hr_zeiterfassung', 'hr_gespraeche', 'hr_team_view'] },
   { label: 'Einstellungen', modules: ['mitarbeiter', 'settings'] },
 ]
 
-// Backwards compatibility: expand deprecated coarse IDs ('ziele', 'umsatz',
-// 'kostenschaetzung') to their fine-grained children so stored role data
-// keeps working. Called when loading access config from KV / mock.
+// Backwards compatibility: expand deprecated coarse IDs so stored role data
+// keeps working. Called when loading access config from KV / mock. Dropped
+// kostenschaetzung / kostenermittlung legacy mappings — those modules were
+// removed; the equivalent functionality lives in Kostenermittlung IMV.
 const KNOWN_MODULES = new Set<string>(MODULES)
 export function migrateModuleIds(mods: string[]): ModuleId[] {
   const out = new Set<ModuleId>()
@@ -657,12 +638,7 @@ export function migrateModuleIds(mods: string[]): ModuleId[] {
     } else if (m === 'umsatz') {
       out.add('ziele_dashboard')
       out.add('ziele_kontrolle')
-    } else if (m === 'kostenschaetzung') {
-      out.add('ks_bauwerke')
-      out.add('ks_hoai')
-      out.add('ks_katalog')
     } else if (m === 'ke_imv') {
-      // Legacy coarse ke_imv ModuleId → expand to all six IMV sub-modules.
       out.add('ke_imv_uebersicht')
       out.add('ke_imv_projekte')
       out.add('ke_imv_ril')
@@ -713,15 +689,15 @@ export type RolePreset = { name: string; modules: ModuleId[] }
 export const PRESET_ROLES: RolePreset[] = [
   {
     name: 'GF und Teamleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'ke_imv_uebersicht', 'ke_imv_projekte', 'ke_imv_ril', 'ke_imv_free', 'ke_imv_entry', 'ke_imv_indices', 'mitarbeiter', 'settings'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projektliste', 'ke_imv_uebersicht', 'ke_imv_projekte', 'ke_imv_ril', 'ke_imv_free', 'ke_imv_entry', 'ke_imv_indices', 'mitarbeiter', 'settings'],
   },
   {
     name: 'Verwaltung',
-    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'ke_imv_uebersicht', 'ke_imv_projekte', 'ke_imv_ril', 'ke_imv_free', 'ke_imv_entry', 'ke_imv_indices', 'mitarbeiter'],
+    modules: ['dashboard', 'forecast', 'plan', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projektliste', 'ke_imv_uebersicht', 'ke_imv_projekte', 'ke_imv_ril', 'ke_imv_free', 'ke_imv_entry', 'ke_imv_indices', 'mitarbeiter'],
   },
   {
     name: 'Projektleiter',
-    modules: ['dashboard', 'forecast', 'plan', 'rechnungen', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'ke_imv_uebersicht', 'ke_imv_projekte', 'ke_imv_ril', 'ke_imv_free', 'ke_imv_entry', 'ke_imv_indices', 'mitarbeiter'],
+    modules: ['dashboard', 'forecast', 'plan', 'rechnungen', 'projektliste', 'ke_imv_uebersicht', 'ke_imv_projekte', 'ke_imv_ril', 'ke_imv_free', 'ke_imv_entry', 'ke_imv_indices', 'mitarbeiter'],
   },
   { name: 'Projektingenieur', modules: ['plan_overview', 'projektliste'] },
   { name: 'Konstrukteur', modules: ['plan_overview', 'projektliste'] },

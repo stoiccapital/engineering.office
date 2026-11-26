@@ -357,42 +357,6 @@ export async function saveProjektliste(data: ProjektlisteDoc): Promise<void> {
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
-export async function fetchKostenschaetzung(): Promise<unknown> {
-  if (mock.isDev) return mock.kostenschaetzung()
-  const res = await docGet('/api/kostenschaetzung')
-  if (res.status === 401) throw new Error('unauthorized')
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
-  return await res.json()
-}
-
-export async function saveKostenschaetzung(data: unknown): Promise<void> {
-  if (mock.isDev) {
-    mock.setKostenschaetzung(data)
-    return
-  }
-  const res = await docPut('/api/kostenschaetzung', JSON.stringify(data))
-  if (res.status === 401) throw new Error('unauthorized')
-  if (!res.ok) throw new Error(`save failed: ${res.status}`)
-}
-
-export async function fetchKostenermittlung(): Promise<unknown> {
-  if (mock.isDev) return mock.kostenermittlung()
-  const res = await docGet('/api/kostenermittlung')
-  if (res.status === 401) throw new Error('unauthorized')
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
-  return await res.json()
-}
-
-export async function saveKostenermittlung(data: unknown): Promise<void> {
-  if (mock.isDev) {
-    mock.setKostenermittlung(data)
-    return
-  }
-  const res = await docPut('/api/kostenermittlung', JSON.stringify(data))
-  if (res.status === 401) throw new Error('unauthorized')
-  if (!res.ok) throw new Error(`save failed: ${res.status}`)
-}
-
 export async function fetchUserPrefs(): Promise<unknown> {
   if (mock.isDev) return mock.userPrefs()
   const res = await docGet('/api/user-prefs')
@@ -425,24 +389,6 @@ export async function saveKostenermittlungImv(data: unknown): Promise<void> {
     return
   }
   const res = await docPut('/api/kostenermittlung_imv', JSON.stringify(data))
-  if (res.status === 401) throw new Error('unauthorized')
-  if (!res.ok) throw new Error(`save failed: ${res.status}`)
-}
-
-export async function fetchKatalogOverrides(): Promise<unknown> {
-  if (mock.isDev) return mock.katalogOverrides()
-  const res = await docGet('/api/katalog-overrides')
-  if (res.status === 401) throw new Error('unauthorized')
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
-  return await res.json()
-}
-
-export async function saveKatalogOverrides(data: unknown): Promise<void> {
-  if (mock.isDev) {
-    mock.setKatalogOverrides(data)
-    return
-  }
-  const res = await docPut('/api/katalog-overrides', JSON.stringify(data))
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }

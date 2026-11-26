@@ -15,15 +15,6 @@ import { Umsatzkontrolle } from '@/components/Umsatzkontrolle'
 import { Rechnungen } from '@/components/Rechnungen'
 import { Mitarbeiter } from '@/components/Mitarbeiter'
 import { Settings } from '@/components/Settings'
-import { BauwerkeTab } from '@/components/kostenschaetzung/BauwerkeTab'
-import { HoaiTab } from '@/components/kostenschaetzung/HoaiTab'
-import { KatalogTab } from '@/components/kostenschaetzung/KatalogTab'
-import { KostenschaetzungSaveStatus } from '@/components/KostenschaetzungSaveStatus'
-import { PositionenTab as KePositionenTab } from '@/components/kostenermittlung/PositionenTab'
-import { UebersichtTab as KeUebersichtTab } from '@/components/kostenermittlung/UebersichtTab'
-import { DatenbankTab as KeDatenbankTab } from '@/components/kostenermittlung/DatenbankTab'
-import { ProjectPicker as KeProjectPicker } from '@/components/kostenermittlung/ProjectPicker'
-import { KostenermittlungSaveStatus } from '@/components/KostenermittlungSaveStatus'
 import { ZeiterfassungTab as HrZeiterfassungTab } from '@/components/hr/ZeiterfassungTab'
 import { GespraecheTab as HrGespraecheTab } from '@/components/hr/GespraecheTab'
 import { HrSaveStatus } from '@/components/HrSaveStatus'
@@ -46,8 +37,6 @@ import { useZiele } from '@/ziele-store'
 import { useUmsatz } from '@/umsatz-store'
 import { useRechnungen } from '@/rechnungen-store'
 import { useRoster } from '@/roster-store'
-import { useKostenschaetzung } from '@/kostenschaetzung-store'
-import { useKostenermittlung } from '@/kostenermittlung-store'
 import { useImv } from '@/imv-store'
 import { usePrefs } from '@/prefs-store'
 import { KostenermittlungImvSaveStatus } from '@/components/KostenermittlungImvSaveStatus'
@@ -55,7 +44,7 @@ import { useHr } from '@/hr-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
 import { cn } from '@/lib/utils'
-import { Activity, Briefcase, Building2, Calculator, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Clock, Database, FileSpreadsheet, FileText, FolderKanban, Gauge, LayoutDashboard, ListTree, MessageSquare, PanelLeftClose, PanelLeftOpen, Receipt, Ruler, Settings as SettingsIcon, Table2, Target, UserCog, Users } from 'lucide-react'
+import { Activity, Briefcase, CalendarDays, CheckSquare, ChevronDown, ChevronRight, Clock, Database, FileSpreadsheet, FileText, FolderKanban, Gauge, LayoutDashboard, ListTree, MessageSquare, PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon, Table2, Target, UserCog, Users } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'eo:sidebarCollapsed'
 // Accordion mode — at most one sidebar group is expanded at a time.
@@ -65,17 +54,9 @@ const VIEW_KEY = 'eo:view'
 // plan_overview isn't a separate nav entry — it collapses into 'plan' view
 // but with the overview-only tab inside PlanTabs.
 // 'freigaben' is a virtual view gated by the 'plan' module (any PM-capable role).
-// 'ks_*' are virtual views under the 'kostenschaetzung' module; access is coarse
-// (if a role has 'kostenschaetzung', all four children are visible).
 type View =
-  | Exclude<ModuleId, 'plan_overview' | 'kostenschaetzung' | 'ziele' | 'umsatz' | 'hr_team_view'>
+  | Exclude<ModuleId, 'plan_overview' | 'ziele' | 'umsatz' | 'hr_team_view'>
   | 'freigaben'
-  | 'ks_bauwerke'
-  | 'ks_hoai'
-  | 'ks_katalog'
-  | 'ke_positionen'
-  | 'ke_uebersicht'
-  | 'ke_datenbank'
   | 'ke_imv_uebersicht'
   | 'ke_imv_projekte'
   | 'ke_imv_ril'
@@ -89,8 +70,6 @@ type View =
   | 'ziele_kontrolle'
   | 'aktivitaet'
 
-const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_hoai', 'ks_katalog']
-const KE_VIEWS: View[] = ['ke_positionen', 'ke_uebersicht', 'ke_datenbank']
 const KE_IMV_VIEWS: View[] = [
   'ke_imv_uebersicht',
   'ke_imv_projekte',
@@ -112,12 +91,6 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ziele_kontrolle: { title: 'Ziele · Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
   projektliste: { title: 'Projektliste', label: 'Projektliste', icon: FolderKanban },
-  ks_bauwerke: { title: 'Bauwerke', label: 'Bauwerke', icon: Building2 },
-  ks_hoai: { title: 'HOAI-Honorar', label: 'HOAI-Honorar', icon: Calculator },
-  ks_katalog: { title: 'Datenbank · Ril 808', label: 'Datenbank Ril 808', icon: Database },
-  ke_positionen: { title: 'Kostenermittlung · Projekte', label: 'Projekte', icon: ListTree },
-  ke_uebersicht: { title: 'Kostenermittlung · Übersicht', label: 'Übersicht', icon: Receipt },
-  ke_datenbank: { title: 'Kostenermittlung · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
   ke_imv_uebersicht: { title: 'Kostenermittlung IMV · Übersicht', label: 'Übersicht', icon: LayoutDashboard },
   ke_imv_projekte: { title: 'Kostenermittlung IMV · Kostenermittlungen', label: 'Kostenermittlungen', icon: ListTree },
   ke_imv_ril: { title: 'Kostenermittlung IMV · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
@@ -154,20 +127,6 @@ const NAV: NavEntry[] = [
   { kind: 'leaf', view: 'projektliste' },
   {
     kind: 'group',
-    id: 'kostenschaetzung',
-    label: 'Kostenschätzung',
-    icon: Ruler,
-    children: KS_VIEWS,
-  },
-  {
-    kind: 'group',
-    id: 'kostenermittlung',
-    label: 'Kostenermittlung',
-    icon: FileSpreadsheet,
-    children: KE_VIEWS,
-  },
-  {
-    kind: 'group',
     id: 'kostenermittlung_imv',
     label: 'Kostenermittlung IMV',
     icon: FileSpreadsheet,
@@ -189,14 +148,12 @@ const NAV: NavEntry[] = [
   },
 ]
 
-// Virtual views (ks_*, ziele_*, freigaben, aktivitaet) don't correspond to a
+// Virtual views (ziele_*, freigaben, aktivitaet) don't correspond to a
 // ModuleId directly. Map them back to the most meaningful module for the
-// activity log so admins see e.g. "Kostenschätzung" rather than "ks_bauwerke".
+// activity log.
 function viewToModule(view: View): ModuleId | null {
   if (view === 'freigaben') return 'plan'
   if (view === 'aktivitaet') return 'settings'
-  // Every other View now maps 1:1 to a ModuleId after the ziele/umsatz/
-  // kostenschaetzung split.
   return view as ModuleId
 }
 
@@ -304,12 +261,6 @@ function Shell() {
   const rechnungen = useRechnungen((s) => s.data)
   const loadRoster = useRoster((s) => s.load)
   const roster = useRoster((s) => s.roster)
-  const loadKostenschaetzung = useKostenschaetzung((s) => s.load)
-  const kostenDoc = useKostenschaetzung((s) => s.doc)
-  const loadKostenermittlung = useKostenermittlung((s) => s.load)
-  const keDoc = useKostenermittlung((s) => s.doc)
-  const keWorkspace = useKostenermittlung((s) => s.workspace)
-  const selectKeProject = useKostenermittlung((s) => s.selectProject)
   const loadImv = useImv((s) => s.load)
   const imvHydrated = useImv((s) => s.hydrated)
   const loadHr = useHr((s) => s.load)
@@ -369,72 +320,10 @@ function Shell() {
   }, [view, roster, loadRoster])
 
   useEffect(() => {
-    const isKsView =
-      view === 'ks_bauwerke' ||
-      view === 'ks_hoai' ||
-      view === 'ks_katalog'
-    if (isKsView && !kostenDoc) void loadKostenschaetzung()
-  }, [view, kostenDoc, loadKostenschaetzung])
-
-  useEffect(() => {
-    // Datenbank loads its own catalog JSON; it doesn't depend on the Kostenermittlung workspace.
-    const isKeDocView = view === 'ke_positionen' || view === 'ke_uebersicht'
-    if (isKeDocView && !keWorkspace) void loadKostenermittlung()
-  }, [view, keWorkspace, loadKostenermittlung])
-
-  useEffect(() => {
     // Hydrate the IMV blob once the user enters any IMV sub-view.
     const isImvView = KE_IMV_VIEWS.includes(view)
     if (isImvView && !imvHydrated) void loadImv()
   }, [view, imvHydrated, loadImv])
-
-  // Projektliste rows are needed by the KE project picker to show names
-  // and offer new rows to attach a KE doc to.
-  useEffect(() => {
-    const isKeDocView = view === 'ke_positionen' || view === 'ke_uebersicht'
-    if (isKeDocView && !projektlisteDoc) void loadProjektliste()
-  }, [view, projektlisteDoc, loadProjektliste])
-
-  // URL ↔ active KE project sync. The URL (?projekt=<id>) is session source
-  // of truth; active project in the workspace is the persisted fallback.
-  const isKeDocView = view === 'ke_positionen' || view === 'ke_uebersicht'
-  useEffect(() => {
-    if (!isKeDocView || !keWorkspace) return
-    const params = new URLSearchParams(window.location.search)
-    const urlId = params.get('projekt')
-    const activeId = keWorkspace.activeProjektId
-    const exists = (id: string | null) =>
-      !!id && keWorkspace.projects.some((p) => p.projektId === id)
-    if (urlId && exists(urlId)) {
-      if (urlId !== activeId) selectKeProject(urlId)
-    } else if (activeId && exists(activeId)) {
-      const next = new URLSearchParams(window.location.search)
-      next.set('projekt', activeId)
-      window.history.replaceState(null, '', `?${next.toString()}`)
-    } else if (urlId) {
-      // Stale URL, no matching project — clean it.
-      const next = new URLSearchParams(window.location.search)
-      next.delete('projekt')
-      const qs = next.toString()
-      window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-    }
-  }, [isKeDocView, keWorkspace, selectKeProject])
-
-  // Keep URL in sync when the user picks a different project inside the picker.
-  useEffect(() => {
-    if (!isKeDocView) return
-    const params = new URLSearchParams(window.location.search)
-    const urlId = params.get('projekt')
-    const activeId = keWorkspace?.activeProjektId ?? null
-    if (activeId && urlId !== activeId) {
-      params.set('projekt', activeId)
-      window.history.replaceState(null, '', `?${params.toString()}`)
-    } else if (!activeId && urlId) {
-      params.delete('projekt')
-      const qs = params.toString()
-      window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-    }
-  }, [isKeDocView, keWorkspace?.activeProjektId])
 
   useEffect(() => {
     const isHrView = view === 'hr_zeiterfassung' || view === 'hr_gespraeche'
@@ -492,8 +381,6 @@ function Shell() {
         expandedByGroup={{
           operative: activeGroup === 'operative',
           einstellungen: activeGroup === 'einstellungen',
-          kostenschaetzung: activeGroup === 'kostenschaetzung',
-          kostenermittlung: activeGroup === 'kostenermittlung',
           kostenermittlung_imv: activeGroup === 'kostenermittlung_imv',
           hr: activeGroup === 'hr',
           ziele: activeGroup === 'ziele',
@@ -518,13 +405,6 @@ function Shell() {
               {view === 'ziele_kontrolle' && <UmsatzSaveStatus />}
               {view === 'rechnungen' && <RechnungenSaveStatus />}
               {view === 'projektliste' && <ProjektlisteSaveStatus />}
-              {(view === 'ks_bauwerke' ||
-                view === 'ks_hoai' ||
-                view === 'ks_katalog') && <KostenschaetzungSaveStatus />}
-              {(view === 'ke_positionen' || view === 'ke_uebersicht') && (
-                <KostenermittlungSaveStatus />
-              )}
-              {/* ke_datenbank is read-only — no save status needed. */}
               {KE_IMV_VIEWS.includes(view) && <KostenermittlungImvSaveStatus />}
               {(view === 'hr_zeiterfassung' || view === 'hr_gespraeche') && <HrSaveStatus />}
               <ViewPeriodPicker view={view} />
@@ -553,31 +433,6 @@ function Shell() {
           {view === 'ziele_kontrolle' && <Umsatzkontrolle />}
           {view === 'rechnungen' && <Rechnungen />}
           {view === 'projektliste' && <Projektliste />}
-          {view === 'ks_bauwerke' &&
-            (kostenDoc ? <BauwerkeTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
-          {view === 'ks_hoai' &&
-            (kostenDoc ? <HoaiTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
-          {view === 'ks_katalog' &&
-            (kostenDoc ? <KatalogTab /> : <LoadingCard>Lade Kostenschätzung…</LoadingCard>)}
-          {(view === 'ke_positionen' || view === 'ke_uebersicht') && (
-            keWorkspace ? (
-              <div className="-mx-6 -mt-6">
-                <KeProjectPicker
-                  onNavigateProjektliste={() => setView('projektliste')}
-                />
-                <div className="px-6 py-6">
-                  {keDoc ? (
-                    view === 'ke_positionen' ? <KePositionenTab /> : <KeUebersichtTab />
-                  ) : (
-                    <EmptyKeState />
-                  )}
-                </div>
-              </div>
-            ) : (
-              <LoadingCard>Lade Kostenermittlung…</LoadingCard>
-            )
-          )}
-          {view === 'ke_datenbank' && <KeDatenbankTab />}
           {KE_IMV_VIEWS.includes(view) && <KeImvFrame view={view} />}
           {view === 'hr_zeiterfassung' &&
             (hrDoc ? <HrZeiterfassungTab /> : <LoadingCard>Lade HR…</LoadingCard>)}
@@ -826,14 +681,6 @@ function ViewPeriodPicker({ view }: { view: View }) {
     case 'rechnungen':
       return <RechnungenPicker />
     case 'projektliste':
-      return null
-    case 'ks_bauwerke':
-    case 'ks_hoai':
-    case 'ks_katalog':
-      return null
-    case 'ke_positionen':
-    case 'ke_uebersicht':
-    case 'ke_datenbank':
       return null
     case 'hr_zeiterfassung':
     case 'hr_gespraeche':
@@ -1098,18 +945,6 @@ function FlyoutItem({
         </span>
       )}
     </button>
-  )
-}
-
-function EmptyKeState() {
-  return (
-    <div className="mx-auto max-w-md rounded-md border bg-card px-6 py-10 text-center">
-      <div className="text-sm font-semibold">Kein Projekt ausgewählt</div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Wähle oben ein Projekt aus der Projektliste, oder lege eins über
-        «Neu» an.
-      </p>
-    </div>
   )
 }
 

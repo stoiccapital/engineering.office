@@ -371,12 +371,9 @@ const umsatz = new Map<number, Umsatzkontrolle>()
 const rechnungsplaene = new Map<string, Rechnungsplan>()
 let logo: string | null = null
 let roster: Roster | null = seedRoster()
-let kostenschaetzung: unknown = null
-let kostenermittlung: unknown = null
 let kostenermittlungImv: unknown = null
 let userPrefs: unknown = null
 let hr: unknown = null
-let katalogOverrides: unknown = null
 let projektliste: ProjektlisteDoc | null = null
 const activity: ActivityEvent[] = []
 let access: AccessConfig | null = (() => {
@@ -386,7 +383,7 @@ let access: AccessConfig | null = (() => {
       id: 'dev-admin',
       name: 'Admin (dev)',
       password: 'admin',
-      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projektliste', 'ks_bauwerke', 'ks_hoai', 'ks_katalog', 'ke_positionen', 'ke_uebersicht', 'ke_datenbank', 'hr_zeiterfassung', 'hr_gespraeche', 'hr_team_view', 'mitarbeiter', 'settings'],
+      modules: ['dashboard', 'forecast', 'plan', 'plan_overview', 'ziele_dashboard', 'ziele_teams', 'ziele_kontrolle', 'rechnungen', 'projektliste', 'hr_zeiterfassung', 'hr_gespraeche', 'hr_team_view', 'mitarbeiter', 'settings'],
     },
   ]
   return cfg
@@ -469,18 +466,6 @@ export const mock = {
   setRoster(value: Roster) {
     roster = value
   },
-  kostenschaetzung(): unknown {
-    return kostenschaetzung
-  },
-  setKostenschaetzung(value: unknown) {
-    kostenschaetzung = value
-  },
-  kostenermittlung(): unknown {
-    return kostenermittlung
-  },
-  setKostenermittlung(value: unknown) {
-    kostenermittlung = value
-  },
   kostenermittlungImv(): unknown {
     return kostenermittlungImv
   },
@@ -498,12 +483,6 @@ export const mock = {
   },
   setHr(value: unknown) {
     hr = value
-  },
-  katalogOverrides(): unknown {
-    return katalogOverrides
-  },
-  setKatalogOverrides(value: unknown) {
-    katalogOverrides = value
   },
   projektliste(): ProjektlisteDoc | null {
     return projektliste
