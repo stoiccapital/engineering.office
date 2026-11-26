@@ -21,7 +21,7 @@ export function Section({
 }) {
   const hasHeader = Boolean(title || action)
   return (
-    <section className={cn('rounded-lg border bg-card', className)}>
+    <section className={cn('rounded-md border bg-card', className)}>
       {hasHeader && (
         <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
           <div className="min-w-0">
