@@ -145,7 +145,7 @@ function HeroCard({
   kritischShare: number | null
 }) {
   return (
-    <div className="rounded-md border bg-card p-4">
+    <div className="rounded-md border border-l-[3px] border-l-primary bg-card p-4">
       <div className="flex items-start justify-between gap-6">
         <div className="min-w-0">
           <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-muted-foreground">

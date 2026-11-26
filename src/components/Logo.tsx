@@ -18,7 +18,7 @@ export function LogoMark() {
       {dataUrl ? (
         <img src={dataUrl} alt="" className="h-full w-full object-contain p-0.5" />
       ) : (
-        <span className="h-2 w-2 rounded-sm bg-foreground/70" aria-hidden />
+        <span className="h-2 w-2 rounded-sm bg-primary" aria-hidden />
       )}
     </span>
   )

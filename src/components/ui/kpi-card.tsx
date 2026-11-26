@@ -14,8 +14,11 @@ export function KPICard({
   tone?: 'danger'
 }) {
   return (
-    <div className="rounded-lg border bg-card p-3">
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+    <div className="rounded-md border bg-card p-3">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <span aria-hidden className="h-1 w-1 rounded-full bg-primary" />
+        {label}
+      </div>
       <div className="mt-1 flex items-baseline gap-1">
         <span
           className={cn(

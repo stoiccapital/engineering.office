@@ -25,7 +25,12 @@ export function Section({
       {hasHeader && (
         <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
           <div className="min-w-0">
-            {title && <div className="text-sm font-semibold">{title}</div>}
+            {title && (
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <span aria-hidden className="h-3 w-[2px] rounded-full bg-primary" />
+                <span className="truncate">{title}</span>
+              </div>
+            )}
             {subtitle && (
               <div className="mt-0.5 text-xs text-muted-foreground">{subtitle}</div>
             )}
