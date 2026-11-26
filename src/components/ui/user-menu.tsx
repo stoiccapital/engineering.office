@@ -71,18 +71,28 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
     localStorage.setItem(KEY, theme)
   }, [theme])
 
-  useEffect(() => {
+  function applyAccentClass(id: Accent) {
     const html = document.documentElement
-    // Strip every theme-* class then apply the current one. Indigo = no class
-    // (uses the :root / .dark defaults).
-    for (const id of Object.keys(ACCENT_CLASSES) as Accent[]) {
-      const cls = ACCENT_CLASSES[id]
+    for (const key of Object.keys(ACCENT_CLASSES) as Accent[]) {
+      const cls = ACCENT_CLASSES[key]
       if (cls) html.classList.remove(cls)
     }
-    const next = ACCENT_CLASSES[accent]
+    const next = ACCENT_CLASSES[id]
     if (next) html.classList.add(next)
+  }
+
+  useEffect(() => {
+    applyAccentClass(accent)
     localStorage.setItem(ACCENT_KEY, accent)
   }, [accent])
+
+  // Hover-preview: while the pointer sits on a swatch, the accent class
+  // flips without persisting. Leaving the row (or dropdown close) reverts
+  // to the committed accent.
+  const [previewAccent, setPreviewAccent] = useState<Accent | null>(null)
+  useEffect(() => {
+    applyAccentClass(previewAccent ?? accent)
+  }, [previewAccent, accent])
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
   const logout = async () => {
@@ -123,7 +133,7 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
 
   return (
     <>
-      <DropdownMenu.Root>
+      <DropdownMenu.Root onOpenChange={(open) => { if (!open) setPreviewAccent(null) }}>
         <DropdownMenu.Trigger asChild>
           <button
             className={cn(
@@ -225,7 +235,10 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
               )}
               <span className="flex-1">{theme === 'dark' ? 'Hell' : 'Dunkel'}</span>
             </DropdownMenu.Item>
-            <div className="flex items-center gap-1.5 px-2 py-1.5">
+            <div
+              className="flex items-center gap-1.5 px-2 py-1.5"
+              onMouseLeave={() => setPreviewAccent(null)}
+            >
               {ACCENTS.map((a) => (
                 <button
                   key={a.id}
@@ -233,7 +246,11 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
                   onClick={(e) => {
                     e.preventDefault()
                     setAccent(a.id)
+                    setPreviewAccent(null)
                   }}
+                  onMouseEnter={() => setPreviewAccent(a.id)}
+                  onFocus={() => setPreviewAccent(a.id)}
+                  onBlur={() => setPreviewAccent(null)}
                   aria-label={`Akzent · ${a.label}`}
                   aria-pressed={accent === a.id}
                   title={a.label}
