@@ -73,6 +73,12 @@ type View =
   | 'ke_positionen'
   | 'ke_uebersicht'
   | 'ke_datenbank'
+  | 'ke_imv_uebersicht'
+  | 'ke_imv_projekte'
+  | 'ke_imv_ril'
+  | 'ke_imv_free'
+  | 'ke_imv_entry'
+  | 'ke_imv_indices'
   | 'hr_zeiterfassung'
   | 'hr_gespraeche'
   | 'ziele_dashboard'
@@ -82,6 +88,14 @@ type View =
 
 const KS_VIEWS: View[] = ['ks_bauwerke', 'ks_hoai', 'ks_katalog']
 const KE_VIEWS: View[] = ['ke_positionen', 'ke_uebersicht', 'ke_datenbank']
+const KE_IMV_VIEWS: View[] = [
+  'ke_imv_uebersicht',
+  'ke_imv_projekte',
+  'ke_imv_ril',
+  'ke_imv_free',
+  'ke_imv_entry',
+  'ke_imv_indices',
+]
 const HR_VIEWS: View[] = ['hr_zeiterfassung', 'hr_gespraeche']
 const ZIELE_VIEWS: View[] = ['ziele_dashboard', 'ziele_teams', 'ziele_kontrolle']
 
@@ -101,6 +115,12 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ke_positionen: { title: 'Kostenermittlung · Projekte', label: 'Projekte', icon: ListTree },
   ke_uebersicht: { title: 'Kostenermittlung · Übersicht', label: 'Übersicht', icon: Receipt },
   ke_datenbank: { title: 'Kostenermittlung · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
+  ke_imv_uebersicht: { title: 'Kostenermittlung IMV · Übersicht', label: 'Übersicht', icon: LayoutDashboard },
+  ke_imv_projekte: { title: 'Kostenermittlung IMV · Kostenermittlungen', label: 'Kostenermittlungen', icon: ListTree },
+  ke_imv_ril: { title: 'Kostenermittlung IMV · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
+  ke_imv_free: { title: 'Kostenermittlung IMV · Freie Einheitspreise', label: 'Freie Einheitspreise', icon: Database },
+  ke_imv_entry: { title: 'Kostenermittlung IMV · Kostenkennwert hinzufügen', label: 'Kostenkennwert hinzufügen', icon: FileSpreadsheet },
+  ke_imv_indices: { title: 'Kostenermittlung IMV · Preisindizes', label: 'Preisindizes', icon: Gauge },
   hr_zeiterfassung: { title: 'HR · Zeiterfassung', label: 'Zeiterfassung', icon: Clock },
   hr_gespraeche: { title: 'HR · Gespräche', label: 'Gespräche', icon: MessageSquare },
   mitarbeiter: { title: 'Mitarbeiter', label: 'Mitarbeiter', icon: Users },
@@ -142,6 +162,13 @@ const NAV: NavEntry[] = [
     label: 'Kostenermittlung',
     icon: FileSpreadsheet,
     children: KE_VIEWS,
+  },
+  {
+    kind: 'group',
+    id: 'kostenermittlung_imv',
+    label: 'Kostenermittlung IMV',
+    icon: FileSpreadsheet,
+    children: KE_IMV_VIEWS,
   },
   {
     kind: 'group',
@@ -450,6 +477,7 @@ function Shell() {
           einstellungen: activeGroup === 'einstellungen',
           kostenschaetzung: activeGroup === 'kostenschaetzung',
           kostenermittlung: activeGroup === 'kostenermittlung',
+          kostenermittlung_imv: activeGroup === 'kostenermittlung_imv',
           hr: activeGroup === 'hr',
           ziele: activeGroup === 'ziele',
         }}
@@ -532,6 +560,7 @@ function Shell() {
             )
           )}
           {view === 'ke_datenbank' && <KeDatenbankTab />}
+          {KE_IMV_VIEWS.includes(view) && <KeImvFrame view={view} />}
           {view === 'hr_zeiterfassung' &&
             (hrDoc ? <HrZeiterfassungTab /> : <LoadingCard>Lade HR…</LoadingCard>)}
           {view === 'hr_gespraeche' &&
@@ -1051,5 +1080,50 @@ function EmptyKeState() {
         «Neu» an.
       </p>
     </div>
+  )
+}
+
+const IMV_VIEW_MAP: Record<string, string> = {
+  ke_imv_uebersicht: 'overview',
+  ke_imv_projekte: 'estimate',
+  ke_imv_ril: 'ril',
+  ke_imv_free: 'free',
+  ke_imv_entry: 'entry',
+  ke_imv_indices: 'indices',
+}
+
+function KeImvFrame({ view }: { view: View }) {
+  const ref = useRef<HTMLIFrameElement>(null)
+  const readyRef = useRef(false)
+
+  // Flush any pending view change once the IMV page announces it's ready.
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.source !== ref.current?.contentWindow) return
+      if (e.data?.type === 'imv:ready') {
+        readyRef.current = true
+        const target = IMV_VIEW_MAP[view]
+        if (target) ref.current?.contentWindow?.postMessage({ type: 'imv:setView', view: target }, '*')
+      }
+    }
+    window.addEventListener('message', onMsg)
+    return () => window.removeEventListener('message', onMsg)
+  }, [view])
+
+  // On sub-view change after ready, push the new view into the iframe.
+  useEffect(() => {
+    if (!readyRef.current) return
+    const target = IMV_VIEW_MAP[view]
+    if (target) ref.current?.contentWindow?.postMessage({ type: 'imv:setView', view: target }, '*')
+  }, [view])
+
+  return (
+    <iframe
+      ref={ref}
+      src="/imv-kostenermittlung.html"
+      title="Kostenermittlung IMV"
+      className="-m-6 block border-0"
+      style={{ width: 'calc(100% + 3rem)', height: 'calc(100vh - 62px)' }}
+    />
   )
 }
