@@ -72,11 +72,11 @@
    change; semantic colors (success/warning/danger/info) stay fixed so the
    accent is purely "the one Linear color" and doesn't collide with meaning.
    -------------------------------------------------------------------------- */
-.theme-blue   { --primary: 210 80% 50%; --ring: 210 80% 50%; }
-.theme-teal   { --primary: 175 60% 40%; --ring: 175 60% 40%; }
-.theme-amber  { --primary: 35 85% 48%;  --ring: 35 85% 48%; }
-.theme-rose   { --primary: 345 75% 55%; --ring: 345 75% 55%; }
-.theme-violet { --primary: 270 60% 60%; --ring: 270 60% 60%; }
+.theme-blue   { --primary: 210 80% 48%; --ring: 210 80% 48%; }
+.theme-teal   { --primary: 175 62% 36%; --ring: 175 62% 36%; }
+.theme-amber  { --primary: 32 90% 42%;  --ring: 32 90% 42%; }
+.theme-rose   { --primary: 345 75% 50%; --ring: 345 75% 50%; }
+.theme-violet { --primary: 270 60% 55%; --ring: 270 60% 55%; }
 
 .dark.theme-blue   { --primary: 210 80% 62%; --ring: 210 80% 62%; }
 .dark.theme-teal   { --primary: 175 55% 55%; --ring: 175 55% 55%; }

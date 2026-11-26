@@ -16,11 +16,11 @@ const ACCENT_KEY = 'eo:accent'
 type Accent = 'indigo' | 'blue' | 'teal' | 'amber' | 'rose' | 'violet'
 const ACCENTS: { id: Accent; label: string; swatch: string }[] = [
   { id: 'indigo', label: 'Indigo', swatch: 'hsl(233 55% 60%)' },
-  { id: 'blue',   label: 'Blau',   swatch: 'hsl(210 80% 50%)' },
-  { id: 'teal',   label: 'Teal',   swatch: 'hsl(175 60% 40%)' },
-  { id: 'amber',  label: 'Amber',  swatch: 'hsl(35 85% 48%)' },
-  { id: 'rose',   label: 'Rose',   swatch: 'hsl(345 75% 55%)' },
-  { id: 'violet', label: 'Violett',swatch: 'hsl(270 60% 60%)' },
+  { id: 'blue',   label: 'Blau',   swatch: 'hsl(210 80% 48%)' },
+  { id: 'teal',   label: 'Teal',   swatch: 'hsl(175 62% 36%)' },
+  { id: 'amber',  label: 'Amber',  swatch: 'hsl(32 90% 42%)' },
+  { id: 'rose',   label: 'Rose',   swatch: 'hsl(345 75% 50%)' },
+  { id: 'violet', label: 'Violett',swatch: 'hsl(270 60% 55%)' },
 ]
 const ACCENT_CLASSES: Record<Accent, string> = {
   indigo: '',

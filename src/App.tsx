@@ -967,11 +967,17 @@ function NavItem({
         'relative flex w-full items-center gap-2 rounded-md py-1.5 text-[13px] font-medium transition-colors',
         collapsed ? 'justify-center px-2' : nested ? 'pl-7 pr-3' : 'px-3',
         active
-          ? 'bg-accent text-foreground'
+          ? 'bg-primary/10 text-foreground'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
-      <Icon className="h-4 w-4" />
+      {active && !collapsed && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r bg-primary"
+        />
+      )}
+      <Icon className={cn('h-4 w-4', active && 'text-primary')} />
       {!collapsed && <span className="flex-1 text-left">{label}</span>}
       {badge > 0 &&
         (collapsed ? (
