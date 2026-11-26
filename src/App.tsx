@@ -1129,6 +1129,9 @@ function KeImvFrame({ view }: { view: View }) {
         readyRef.current = true
         const target = IMV_VIEW_MAP[view]
         if (target) ref.current?.contentWindow?.postMessage({ type: 'imv:setView', view: target }, '*')
+        // Sync host theme into the iframe on first ready.
+        const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+        ref.current?.contentWindow?.postMessage({ type: 'imv:setTheme', theme }, '*')
       } else if (data.type === 'imv:requestHydrate') {
         // Iframe is asking for initial state. If we've loaded from the server
         // already, reply now; otherwise wait — the effect below will respond
@@ -1144,6 +1147,17 @@ function KeImvFrame({ view }: { view: View }) {
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
   }, [view, receiveFromFrame])
+
+  // Watch host <html> class for dark-mode toggles and mirror into the iframe.
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      if (!readyRef.current) return
+      const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+      ref.current?.contentWindow?.postMessage({ type: 'imv:setTheme', theme }, '*')
+    })
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
 
   // If hydration completes AFTER the iframe asked for state, reply now.
   useEffect(() => {

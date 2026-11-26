@@ -64,6 +64,43 @@ html, :root { font-size: 14px !important; }
   --lav: var(--muted-bg);
 }
 
+/* Dark theme — triggered by html.dark (synced from parent frame) or by
+   OS preference when no explicit class is set. Values mirror
+   engineering.office's own .dark palette in src/index.css. */
+html.dark {
+  --bg: hsl(240 8% 4%);
+  --fg: hsl(220 15% 94%);
+  --muted-bg: hsl(240 6% 13%);
+  --muted-fg: hsl(220 8% 65%);
+  --border-host: hsl(240 6% 22%);
+  --primary-host: hsl(233 55% 67%);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  html:not(.light):not(.dark) {
+    --bg: hsl(240 8% 4%);
+    --fg: hsl(220 15% 94%);
+    --muted-bg: hsl(240 6% 13%);
+    --muted-fg: hsl(220 8% 65%);
+    --border-host: hsl(240 6% 22%);
+    --primary-host: hsl(233 55% 67%);
+    color-scheme: dark;
+  }
+}
+/* Dark-mode drift fixes for a few hardcoded hsl() values in rules below.
+   Repeated under both selectors because @media can't combine with class
+   selectors in a comma list. */
+html.dark .row-input.has-formula { color: hsl(233 55% 78%); background: hsl(233 55% 15% / 0.4); }
+html.dark .row-input.formula-error { color: hsl(0 72% 72%); background: hsl(0 72% 20% / 0.4); }
+html.dark .source-tag.free { background: hsl(142 40% 18%); color: hsl(142 50% 70%); }
+html.dark .row-input.open { color: hsl(35 85% 65%); }
+@media (prefers-color-scheme: dark) {
+  html:not(.light):not(.dark) .row-input.has-formula { color: hsl(233 55% 78%); background: hsl(233 55% 15% / 0.4); }
+  html:not(.light):not(.dark) .row-input.formula-error { color: hsl(0 72% 72%); background: hsl(0 72% 20% / 0.4); }
+  html:not(.light):not(.dark) .source-tag.free { background: hsl(142 40% 18%); color: hsl(142 50% 70%); }
+  html:not(.light):not(.dark) .row-input.open { color: hsl(35 85% 65%); }
+}
+
 html, body { background: var(--bg) !important; color: var(--fg) !important; font-family: var(--font-sans) !important; -webkit-font-smoothing: antialiased; }
 :root, body, button, input, select, textarea { font-family: var(--font-sans) !important; }
 .mono, .numeric, .row-input, .row-total, .group-total, .row-code, .group-code, .sheet-line, .group-line, .picker-price, .formula-bar>span:first-child, .formula-bar input, kbd, .catalog-table .mono { font-family: var(--font-mono) !important; font-variant-numeric: tabular-nums; }
@@ -624,8 +661,16 @@ return {};
   }
   window.addEventListener('message', (e) => {
     const data = e.data;
-    if (!data || data.type !== 'imv:setView') return;
-    dispatch(data.view);
+    if (!data) return;
+    if (data.type === 'imv:setView') {
+      dispatch(data.view);
+    } else if (data.type === 'imv:setTheme') {
+      /* Explicit theme from parent — overrides OS preference. */
+      const html = document.documentElement;
+      html.classList.remove('dark', 'light');
+      if (data.theme === 'dark') html.classList.add('dark');
+      else if (data.theme === 'light') html.classList.add('light');
+    }
   });
   /* imv:ready is now emitted by start() after the first render completes
      (see the main IMV script) — so we don't send a premature one here. */
