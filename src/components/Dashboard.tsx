@@ -145,32 +145,32 @@ function HeroCard({
   kritischShare: number | null
 }) {
   return (
-    <div className="rounded-lg border bg-card p-6">
+    <div className="rounded-md border bg-card p-4">
       <div className="flex items-start justify-between gap-6">
         <div className="min-w-0">
-          <div className="text-xs font-medium text-muted-foreground">
+          <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-muted-foreground">
             Gesamt (DE + PL) · {year} {quarter}
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="font-mono text-4xl font-semibold tabular-nums md:text-5xl">
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="font-mono text-lg font-semibold tabular-nums">
               {fmtEUR(gesamt) || '—'}
             </span>
-            {gesamt > 0 && <span className="text-xl text-muted-foreground">€</span>}
+            {gesamt > 0 && <span className="text-xs text-muted-foreground">€</span>}
           </div>
-          <div className="mt-2 font-mono text-sm text-muted-foreground tabular-nums">
+          <div className="mt-1.5 font-mono text-xs text-muted-foreground tabular-nums">
             {projectCount} {projectCount === 1 ? 'aktives Projekt' : 'aktive Projekte'} ·{' '}
             {pmCount} {pmCount === 1 ? 'Projektleiter' : 'Projektleiter'}
           </div>
         </div>
 
         {kritischShare !== null && (
-          <div className="shrink-0 rounded-md border bg-background px-4 py-3 text-right">
-            <div className="text-[11px] font-medium text-muted-foreground">
+          <div className="shrink-0 text-right">
+            <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-muted-foreground">
               Kritisch-Anteil
             </div>
             <div
-              className={`mt-1 font-mono text-2xl font-semibold tabular-nums ${
-                kritischShare > KRIT_HIGH ? 'text-destructive' : 'text-foreground'
+              className={`mt-1 font-mono text-sm font-semibold tabular-nums ${
+                kritischShare > KRIT_HIGH ? 'text-danger' : 'text-foreground'
               }`}
             >
               {fmtPct(kritischShare)}

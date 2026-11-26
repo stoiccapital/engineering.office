@@ -429,7 +429,7 @@ export function QuartalPlanTable() {
                                 'min-w-[280px] p-0 align-top',
                                 i === 0 && gi > 0 ? 'border-l-2 border-foreground/40' : 'border-l border-foreground/30',
                                 isPast && 'pointer-events-none opacity-60',
-                                cellEmpty && 'bg-red-500/25',
+                                cellEmpty && 'bg-danger-soft/60',
                               )}
                             >
                               <WeekTodosCell

@@ -172,10 +172,10 @@ export function Settings() {
                         key={m}
                         onClick={() => toggleNewModule(m)}
                         className={cn(
-                          'rounded border px-2 py-1 text-xs font-medium transition-colors',
+                          'rounded px-2 py-0.5 text-xs font-medium transition-colors',
                           newModules.has(m)
-                            ? 'border-foreground bg-foreground text-background'
-                            : 'border-border bg-background text-muted-foreground hover:bg-accent',
+                            ? 'bg-primary/10 text-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/70',
                         )}
                       >
                         {MODULE_LABELS[m]}
@@ -252,10 +252,10 @@ export function Settings() {
                                     }
                                     aria-pressed={on}
                                     className={cn(
-                                      'rounded border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                                      'rounded px-2 py-0.5 text-[11px] font-medium transition-colors',
                                       on
-                                        ? 'border-foreground bg-foreground text-background'
-                                        : 'border-border bg-background text-muted-foreground hover:bg-accent',
+                                        ? 'bg-primary/10 text-foreground'
+                                        : 'bg-muted text-muted-foreground hover:bg-muted/70',
                                       lockedForMe && 'cursor-not-allowed opacity-60',
                                     )}
                                   >

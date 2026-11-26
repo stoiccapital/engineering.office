@@ -146,11 +146,13 @@ function LockBar({
       })
     : ''
   return (
-    <div className="flex items-center justify-between rounded-md border border-amber-500/40 bg-amber-50 px-4 py-2.5 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+    <div className="flex items-center justify-between rounded-md border bg-card px-4 py-2 text-foreground">
       <div className="flex items-center gap-2 text-xs">
-        <Lock className="h-4 w-4" />
-        <span className="font-semibold">Gesperrt</span>
-        <span className="text-amber-900/80 dark:text-amber-200/70">
+        <span className="inline-flex items-center gap-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-warning">
+          <Lock className="h-3 w-3" />
+          Gesperrt
+        </span>
+        <span className="text-muted-foreground">
           von {lockedBy || 'Unbekannt'}
           {stamp ? ` · ${stamp}` : ''}
         </span>
@@ -158,13 +160,13 @@ function LockBar({
       {canUnlock ? (
         <button
           onClick={onUnlock}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber-600/40 bg-background px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30"
+          className="inline-flex h-7 items-center gap-1 rounded border px-2.5 text-xs font-medium hover:bg-muted"
         >
           <LockOpen className="h-3.5 w-3.5" />
           Entsperren
         </button>
       ) : (
-        <span className="text-[11px] text-amber-900/70 dark:text-amber-200/60">
+        <span className="text-[11px] text-muted-foreground">
           Entsperren nur durch Projektleiter
         </span>
       )}
@@ -533,29 +535,21 @@ function OverheadBadge({
   tone: 'blue' | 'violet' | 'emerald'
   prominent?: boolean
 }) {
-  const classes =
-    tone === 'blue'
-      ? 'border-sky-500/30 bg-sky-50 text-sky-900 dark:bg-sky-500/10 dark:text-sky-200'
-      : tone === 'violet'
-        ? 'border-violet-500/30 bg-violet-50 text-violet-900 dark:bg-violet-500/10 dark:text-violet-200'
-        : 'border-emerald-500/40 bg-emerald-50 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
+  const dotClass =
+    tone === 'blue' ? 'bg-info' : tone === 'violet' ? 'bg-foreground/40' : 'bg-success'
   return (
-    <div
-      className={cn(
-        'flex flex-col rounded border px-2 py-1.5',
-        classes,
-      )}
-    >
-      <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+    <div className="flex flex-col rounded border bg-card px-2 py-1.5">
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.02em] text-muted-foreground">
+        <span className={cn('h-1.5 w-1.5 rounded-full', dotClass)} />
         {label}
       </span>
       <span
         className={cn(
-          'font-mono tabular-nums font-semibold',
-          prominent ? 'text-base' : 'text-xs',
+          'font-mono tabular-nums font-semibold text-foreground',
+          prominent ? 'text-sm' : 'text-xs',
         )}
       >
-        {fmtDecimal(fte, 2)} <span className="text-[10px] opacity-70">FTE</span>
+        {fmtDecimal(fte, 2)} <span className="text-[11px] text-muted-foreground">FTE</span>
       </span>
     </div>
   )
