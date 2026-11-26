@@ -393,6 +393,24 @@ export async function saveKostenermittlung(data: unknown): Promise<void> {
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
 
+export async function fetchKostenermittlungImv(): Promise<unknown> {
+  if (mock.isDev) return mock.kostenermittlungImv()
+  const res = await docGet('/api/kostenermittlung_imv')
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`)
+  return await res.json()
+}
+
+export async function saveKostenermittlungImv(data: unknown): Promise<void> {
+  if (mock.isDev) {
+    mock.setKostenermittlungImv(data)
+    return
+  }
+  const res = await docPut('/api/kostenermittlung_imv', JSON.stringify(data))
+  if (res.status === 401) throw new Error('unauthorized')
+  if (!res.ok) throw new Error(`save failed: ${res.status}`)
+}
+
 export async function fetchKatalogOverrides(): Promise<unknown> {
   if (mock.isDev) return mock.katalogOverrides()
   const res = await docGet('/api/katalog-overrides')

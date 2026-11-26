@@ -373,6 +373,7 @@ let logo: string | null = null
 let roster: Roster | null = seedRoster()
 let kostenschaetzung: unknown = null
 let kostenermittlung: unknown = null
+let kostenermittlungImv: unknown = null
 let hr: unknown = null
 let katalogOverrides: unknown = null
 let projektliste: ProjektlisteDoc | null = null
@@ -478,6 +479,12 @@ export const mock = {
   },
   setKostenermittlung(value: unknown) {
     kostenermittlung = value
+  },
+  kostenermittlungImv(): unknown {
+    return kostenermittlungImv
+  },
+  setKostenermittlungImv(value: unknown) {
+    kostenermittlungImv = value
   },
   hr(): unknown {
     return hr

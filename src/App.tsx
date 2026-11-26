@@ -48,6 +48,8 @@ import { useRechnungen } from '@/rechnungen-store'
 import { useRoster } from '@/roster-store'
 import { useKostenschaetzung } from '@/kostenschaetzung-store'
 import { useKostenermittlung } from '@/kostenermittlung-store'
+import { useImv } from '@/imv-store'
+import { KostenermittlungImvSaveStatus } from '@/components/KostenermittlungImvSaveStatus'
 import { useHr } from '@/hr-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
@@ -307,6 +309,8 @@ function Shell() {
   const keDoc = useKostenermittlung((s) => s.doc)
   const keWorkspace = useKostenermittlung((s) => s.workspace)
   const selectKeProject = useKostenermittlung((s) => s.selectProject)
+  const loadImv = useImv((s) => s.load)
+  const imvHydrated = useImv((s) => s.hydrated)
   const loadHr = useHr((s) => s.load)
   const hrDoc = useHr((s) => s.doc)
   const loadProjektliste = useProjektliste((s) => s.load)
@@ -370,6 +374,12 @@ function Shell() {
     const isKeDocView = view === 'ke_positionen' || view === 'ke_uebersicht'
     if (isKeDocView && !keWorkspace) void loadKostenermittlung()
   }, [view, keWorkspace, loadKostenermittlung])
+
+  useEffect(() => {
+    // Hydrate the IMV blob once the user enters any IMV sub-view.
+    const isImvView = KE_IMV_VIEWS.includes(view)
+    if (isImvView && !imvHydrated) void loadImv()
+  }, [view, imvHydrated, loadImv])
 
   // Projektliste rows are needed by the KE project picker to show names
   // and offer new rows to attach a KE doc to.
@@ -508,6 +518,7 @@ function Shell() {
                 <KostenermittlungSaveStatus />
               )}
               {/* ke_datenbank is read-only — no save status needed. */}
+              {KE_IMV_VIEWS.includes(view) && <KostenermittlungImvSaveStatus />}
               {(view === 'hr_zeiterfassung' || view === 'hr_gespraeche') && <HrSaveStatus />}
               <ViewPeriodPicker view={view} />
               {view === 'forecast' && <ImportDialog />}
@@ -1095,20 +1106,51 @@ const IMV_VIEW_MAP: Record<string, string> = {
 function KeImvFrame({ view }: { view: View }) {
   const ref = useRef<HTMLIFrameElement>(null)
   const readyRef = useRef(false)
+  const doc = useImv((s) => s.doc)
+  const hydrated = useImv((s) => s.hydrated)
+  const receiveFromFrame = useImv((s) => s.receiveFromFrame)
+  // Hold the latest doc in a ref so the message handler can respond to a
+  // late requestHydrate without re-subscribing.
+  const docRef = useRef(doc)
+  useEffect(() => {
+    docRef.current = doc
+  }, [doc])
+  const hydratedRef = useRef(hydrated)
+  useEffect(() => {
+    hydratedRef.current = hydrated
+  }, [hydrated])
 
-  // Flush any pending view change once the IMV page announces it's ready.
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (e.source !== ref.current?.contentWindow) return
-      if (e.data?.type === 'imv:ready') {
+      const data = e.data
+      if (!data || typeof data !== 'object') return
+      if (data.type === 'imv:ready') {
         readyRef.current = true
         const target = IMV_VIEW_MAP[view]
         if (target) ref.current?.contentWindow?.postMessage({ type: 'imv:setView', view: target }, '*')
+      } else if (data.type === 'imv:requestHydrate') {
+        // Iframe is asking for initial state. If we've loaded from the server
+        // already, reply now; otherwise wait — the effect below will respond
+        // when the store flips to hydrated.
+        if (hydratedRef.current) {
+          ref.current?.contentWindow?.postMessage({ type: 'imv:hydrate', state: docRef.current }, '*')
+        }
+      } else if (data.type === 'imv:persist') {
+        // Iframe reports its current full state; debounce-save to server.
+        receiveFromFrame(data.state)
       }
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
-  }, [view])
+  }, [view, receiveFromFrame])
+
+  // If hydration completes AFTER the iframe asked for state, reply now.
+  useEffect(() => {
+    if (hydrated) {
+      ref.current?.contentWindow?.postMessage({ type: 'imv:hydrate', state: doc }, '*')
+    }
+  }, [hydrated, doc])
 
   // On sub-view change after ready, push the new view into the iframe.
   useEffect(() => {
