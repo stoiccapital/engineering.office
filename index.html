@@ -13,6 +13,25 @@
     />
   </head>
   <body>
+    <script>
+      /* FOUC guard — apply stored theme + accent class before React mounts.
+         Reads the same localStorage keys that prefs-store falls back to, so
+         the first paint matches the user's committed prefs. The server
+         hydrate later overwrites both if different. */
+      (function () {
+        try {
+          var html = document.documentElement
+          var theme = localStorage.getItem('eo:theme')
+          if (theme !== 'light' && theme !== 'dark') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          }
+          if (theme === 'dark') html.classList.add('dark')
+          var accent = localStorage.getItem('eo:accent')
+          var ok = ['blue', 'teal', 'amber', 'rose', 'violet']
+          if (accent && ok.indexOf(accent) >= 0) html.classList.add('theme-' + accent)
+        } catch (e) {}
+      })()
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

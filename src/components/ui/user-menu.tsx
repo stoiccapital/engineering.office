@@ -4,16 +4,12 @@ import { Check, ChevronRight, Crop, Eye, Image, ImagePlus, LogOut, Moon, Replace
 import { LogoMark } from '@/components/Logo'
 import { useLogo } from '@/logo-store'
 import { useAccess, isAdmin } from '@/access-store'
+import { usePrefs, type Accent } from '@/prefs-store'
 import { LogoEditor } from '@/components/ui/logo-editor'
 import { cn } from '@/lib/utils'
 
 const MAX_BYTES = 500 * 1024
 
-const KEY = 'eo:theme'
-type Theme = 'light' | 'dark'
-
-const ACCENT_KEY = 'eo:accent'
-type Accent = 'indigo' | 'blue' | 'teal' | 'amber' | 'rose' | 'violet'
 const ACCENTS: { id: Accent; label: string; swatch: string }[] = [
   { id: 'indigo', label: 'Indigo', swatch: 'hsl(233 55% 60%)' },
   { id: 'blue',   label: 'Blau',   swatch: 'hsl(210 80% 48%)' },
@@ -31,23 +27,11 @@ const ACCENT_CLASSES: Record<Accent, string> = {
   violet: 'theme-violet',
 }
 
-function initialTheme(): Theme {
-  const stored = localStorage.getItem(KEY)
-  if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
-
-function initialAccent(): Accent {
-  const stored = localStorage.getItem(ACCENT_KEY)
-  if (stored && (stored === 'indigo' || stored === 'blue' || stored === 'teal' || stored === 'amber' || stored === 'rose' || stored === 'violet')) {
-    return stored
-  }
-  return 'indigo'
-}
-
 export function UserMenu({ collapsed }: { collapsed: boolean }) {
-  const [theme, setTheme] = useState<Theme>(initialTheme)
-  const [accent, setAccent] = useState<Accent>(initialAccent)
+  const theme = usePrefs((s) => s.theme)
+  const accent = usePrefs((s) => s.accent)
+  const setTheme = usePrefs((s) => s.setTheme)
+  const setAccent = usePrefs((s) => s.setAccent)
   const dataUrl = useLogo((s) => s.dataUrl)
   const uploadLogo = useLogo((s) => s.upload)
   const removeLogo = useLogo((s) => s.remove)
@@ -68,7 +52,6 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
-    localStorage.setItem(KEY, theme)
   }, [theme])
 
   function applyAccentClass(id: Accent) {
@@ -89,10 +72,9 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
 
   useEffect(() => {
     applyAccentClass(accent)
-    localStorage.setItem(ACCENT_KEY, accent)
   }, [accent])
 
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark')
   const logout = async () => {
     await signOut()
     location.reload()

@@ -374,6 +374,7 @@ let roster: Roster | null = seedRoster()
 let kostenschaetzung: unknown = null
 let kostenermittlung: unknown = null
 let kostenermittlungImv: unknown = null
+let userPrefs: unknown = null
 let hr: unknown = null
 let katalogOverrides: unknown = null
 let projektliste: ProjektlisteDoc | null = null
@@ -485,6 +486,12 @@ export const mock = {
   },
   setKostenermittlungImv(value: unknown) {
     kostenermittlungImv = value
+  },
+  userPrefs(): unknown {
+    return userPrefs
+  },
+  setUserPrefs(value: unknown) {
+    userPrefs = value
   },
   hr(): unknown {
     return hr

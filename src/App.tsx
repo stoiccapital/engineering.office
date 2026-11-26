@@ -49,6 +49,7 @@ import { useRoster } from '@/roster-store'
 import { useKostenschaetzung } from '@/kostenschaetzung-store'
 import { useKostenermittlung } from '@/kostenermittlung-store'
 import { useImv } from '@/imv-store'
+import { usePrefs } from '@/prefs-store'
 import { KostenermittlungImvSaveStatus } from '@/components/KostenermittlungImvSaveStatus'
 import { useHr } from '@/hr-store'
 import { useAccess, allowedModules } from '@/access-store'
@@ -315,6 +316,12 @@ function Shell() {
   const hrDoc = useHr((s) => s.doc)
   const loadProjektliste = useProjektliste((s) => s.load)
   const projektlisteDoc = useProjektliste((s) => s.doc)
+
+  const loadPrefs = usePrefs((s) => s.load)
+  const prefsHydrated = usePrefs((s) => s.hydrated)
+  useEffect(() => {
+    if (!prefsHydrated) void loadPrefs()
+  }, [prefsHydrated, loadPrefs])
 
   useEffect(() => {
     void loadForecast()
