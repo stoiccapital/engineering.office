@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { auth, fetchAccess, fetchMe, saveAccess, type SessionUser as ApiSessionUser } from './api'
-import { emptyAccessConfig, migrateModuleIds, type AccessConfig, type ModuleId, type Role } from './types'
+import { emptyAccessConfig, migrateModuleIds, MODULES, type AccessConfig, type ModuleId, type Role } from './types'
 
 type Status = 'idle' | 'loading' | 'ready' | 'saving' | 'error'
 
@@ -235,5 +235,9 @@ export function isAdmin(role: SessionRole | null): boolean {
 
 export function allowedModules(role: SessionRole | null): Set<ModuleId> {
   if (!role) return new Set()
+  // Admins (any role granting the 'settings' module) implicitly get access
+  // to every module in the system, so new modules are visible to admins
+  // without needing to remember to add them to the admin role.
+  if (role.modules.includes('settings')) return new Set(MODULES)
   return new Set(role.modules)
 }
