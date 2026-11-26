@@ -9,8 +9,10 @@
   --card-foreground: 240 10% 3.9%;
   --muted: 240 4.8% 95.9%;
   --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
+  /* Accent is a tint of the active theme's primary. Light mode: ~94%
+     lightness. Each theme-* class below overrides it with its own hue. */
+  --accent: 233 55% 94%;
+  --accent-foreground: 240 10% 10%;
   --primary: 233 55% 60%;
   --primary-foreground: 0 0% 100%;
   --destructive: 0 72% 51%;
@@ -42,7 +44,8 @@
   --card-foreground: 220 15% 94%;
   --muted: 240 6% 13%;
   --muted-foreground: 220 8% 65%;
-  --accent: 240 6% 17%;
+  /* Dark accent = indigo-tinted dark gray, overridden per theme-* below. */
+  --accent: 233 30% 20%;
   --accent-foreground: 220 15% 94%;
   --primary: 233 55% 67%;
   --primary-foreground: 0 0% 100%;
@@ -72,17 +75,17 @@
    change; semantic colors (success/warning/danger/info) stay fixed so the
    accent is purely "the one Linear color" and doesn't collide with meaning.
    -------------------------------------------------------------------------- */
-.theme-blue   { --primary: 210 80% 48%; --ring: 210 80% 48%; }
-.theme-teal   { --primary: 175 62% 36%; --ring: 175 62% 36%; }
-.theme-amber  { --primary: 32 90% 42%;  --ring: 32 90% 42%; }
-.theme-rose   { --primary: 345 75% 50%; --ring: 345 75% 50%; }
-.theme-violet { --primary: 270 60% 55%; --ring: 270 60% 55%; }
+.theme-blue   { --primary: 210 80% 48%; --ring: 210 80% 48%; --accent: 210 60% 94%; }
+.theme-teal   { --primary: 175 62% 36%; --ring: 175 62% 36%; --accent: 175 40% 93%; }
+.theme-amber  { --primary: 32 90% 42%;  --ring: 32 90% 42%;  --accent: 32 70% 93%; }
+.theme-rose   { --primary: 345 75% 50%; --ring: 345 75% 50%; --accent: 345 60% 94%; }
+.theme-violet { --primary: 270 60% 55%; --ring: 270 60% 55%; --accent: 270 40% 94%; }
 
-.dark.theme-blue   { --primary: 210 80% 62%; --ring: 210 80% 62%; }
-.dark.theme-teal   { --primary: 175 55% 55%; --ring: 175 55% 55%; }
-.dark.theme-amber  { --primary: 35 85% 60%;  --ring: 35 85% 60%; }
-.dark.theme-rose   { --primary: 345 75% 65%; --ring: 345 75% 65%; }
-.dark.theme-violet { --primary: 270 60% 72%; --ring: 270 60% 72%; }
+.dark.theme-blue   { --primary: 210 80% 62%; --ring: 210 80% 62%; --accent: 210 40% 20%; }
+.dark.theme-teal   { --primary: 175 55% 55%; --ring: 175 55% 55%; --accent: 175 30% 18%; }
+.dark.theme-amber  { --primary: 35 85% 60%;  --ring: 35 85% 60%;  --accent: 32 40% 18%; }
+.dark.theme-rose   { --primary: 345 75% 65%; --ring: 345 75% 65%; --accent: 345 30% 20%; }
+.dark.theme-violet { --primary: 270 60% 72%; --ring: 270 60% 72%; --accent: 270 30% 22%; }
 
 * {
   border-color: hsl(var(--border));
