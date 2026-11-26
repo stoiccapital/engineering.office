@@ -81,18 +81,16 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
     if (next) html.classList.add(next)
   }
 
+  // Preview = which swatch is being hovered right now. Tracked only to
+  // drive the ring/scale visual on the swatch itself. The DOM class is
+  // updated imperatively via onMouseEnter/Leave below so the preview
+  // is instant and doesn't depend on a React commit.
+  const [previewAccent, setPreviewAccent] = useState<Accent | null>(null)
+
   useEffect(() => {
     applyAccentClass(accent)
     localStorage.setItem(ACCENT_KEY, accent)
   }, [accent])
-
-  // Hover-preview: while the pointer sits on a swatch, the accent class
-  // flips without persisting. Leaving the row (or dropdown close) reverts
-  // to the committed accent.
-  const [previewAccent, setPreviewAccent] = useState<Accent | null>(null)
-  useEffect(() => {
-    applyAccentClass(previewAccent ?? accent)
-  }, [previewAccent, accent])
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
   const logout = async () => {
@@ -133,7 +131,14 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
 
   return (
     <>
-      <DropdownMenu.Root onOpenChange={(open) => { if (!open) setPreviewAccent(null) }}>
+      <DropdownMenu.Root
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewAccent(null)
+            applyAccentClass(accent)
+          }
+        }}
+      >
         <DropdownMenu.Trigger asChild>
           <button
             className={cn(
@@ -237,7 +242,10 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
             </DropdownMenu.Item>
             <div
               className="flex items-center justify-between gap-0.5 px-1 py-1"
-              onMouseLeave={() => setPreviewAccent(null)}
+              onPointerLeave={() => {
+                setPreviewAccent(null)
+                applyAccentClass(accent)
+              }}
             >
               {ACCENTS.map((a) => {
                 const isCommitted = accent === a.id
@@ -251,9 +259,18 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
                       setAccent(a.id)
                       setPreviewAccent(null)
                     }}
-                    onMouseEnter={() => setPreviewAccent(a.id)}
-                    onFocus={() => setPreviewAccent(a.id)}
-                    onBlur={() => setPreviewAccent(null)}
+                    onPointerEnter={() => {
+                      setPreviewAccent(a.id)
+                      applyAccentClass(a.id)
+                    }}
+                    onFocus={() => {
+                      setPreviewAccent(a.id)
+                      applyAccentClass(a.id)
+                    }}
+                    onBlur={() => {
+                      setPreviewAccent(null)
+                      applyAccentClass(accent)
+                    }}
                     aria-label={`Akzent · ${a.label}`}
                     aria-pressed={isCommitted}
                     title={a.label}
