@@ -356,19 +356,17 @@ export function Projektliste() {
       />
 
       {lastImportBackup && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 shadow-lg">
-            <span className="text-sm">
-              <strong className="font-semibold">Import angewendet.</strong>{' '}
-              <span className="text-muted-foreground">
-                Rückgängig für 15 Sekunden möglich.
-              </span>
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2">
+          <span className="text-xs">
+            <strong className="font-semibold">Import angewendet.</strong>{' '}
+            <span className="text-muted-foreground">
+              Rückgängig für 15 Sekunden möglich.
             </span>
-            <Button variant="ghost" size="sm" onClick={undoLastImport}>
-              <Undo2 className="mr-1 h-3.5 w-3.5" />
-              Rückgängig
-            </Button>
-          </div>
+          </span>
+          <Button variant="ghost" size="sm" onClick={undoLastImport}>
+            <Undo2 className="mr-1 h-3.5 w-3.5" />
+            Rückgängig
+          </Button>
         </div>
       )}
     </div>

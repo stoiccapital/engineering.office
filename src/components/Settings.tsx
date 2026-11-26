@@ -294,13 +294,13 @@ export function Settings() {
       </Section>
 
       {pending.length > 0 && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex flex-col items-center gap-2">
+        <div className="flex flex-col gap-2">
           {pending.map((r) => (
             <div
               key={r.id}
-              className="pointer-events-auto flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5 shadow-lg"
+              className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2"
             >
-              <span className="text-sm">
+              <span className="text-xs">
                 Rolle <strong className="font-semibold">{r.name}</strong> gelöscht
               </span>
               <Button variant="ghost" size="sm" onClick={() => undoDelete(r.id)}>
