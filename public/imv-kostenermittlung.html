@@ -64,6 +64,19 @@ html, :root { font-size: 14px !important; }
   --lav: var(--muted-bg);
 }
 
+/* Accent themes — mirror src/index.css. Applied via html class alongside
+   .dark. Only --primary-host changes; semantic colors stay fixed. */
+html.theme-blue   { --primary-host: hsl(210 80% 50%); }
+html.theme-teal   { --primary-host: hsl(175 60% 40%); }
+html.theme-amber  { --primary-host: hsl(35 85% 48%); }
+html.theme-rose   { --primary-host: hsl(345 75% 55%); }
+html.theme-violet { --primary-host: hsl(270 60% 60%); }
+html.dark.theme-blue   { --primary-host: hsl(210 80% 62%); }
+html.dark.theme-teal   { --primary-host: hsl(175 55% 55%); }
+html.dark.theme-amber  { --primary-host: hsl(35 85% 60%); }
+html.dark.theme-rose   { --primary-host: hsl(345 75% 65%); }
+html.dark.theme-violet { --primary-host: hsl(270 60% 72%); }
+
 /* Dark theme — triggered by html.dark (synced from parent frame) or by
    OS preference when no explicit class is set. Values mirror
    engineering.office's own .dark palette in src/index.css. */
@@ -670,6 +683,11 @@ return {};
       html.classList.remove('dark', 'light');
       if (data.theme === 'dark') html.classList.add('dark');
       else if (data.theme === 'light') html.classList.add('light');
+    } else if (data.type === 'imv:setAccent') {
+      /* One of 'indigo' (default, no class) / 'blue' / 'teal' / 'amber' / 'rose' / 'violet'. */
+      const html = document.documentElement;
+      ['theme-blue','theme-teal','theme-amber','theme-rose','theme-violet'].forEach(c => html.classList.remove(c));
+      if (data.accent && data.accent !== 'indigo') html.classList.add('theme-' + data.accent);
     }
   });
   /* imv:ready is now emitted by start() after the first render completes

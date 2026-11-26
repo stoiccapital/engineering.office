@@ -12,14 +12,42 @@ const MAX_BYTES = 500 * 1024
 const KEY = 'eo:theme'
 type Theme = 'light' | 'dark'
 
+const ACCENT_KEY = 'eo:accent'
+type Accent = 'indigo' | 'blue' | 'teal' | 'amber' | 'rose' | 'violet'
+const ACCENTS: { id: Accent; label: string; swatch: string }[] = [
+  { id: 'indigo', label: 'Indigo', swatch: 'hsl(233 55% 60%)' },
+  { id: 'blue',   label: 'Blau',   swatch: 'hsl(210 80% 50%)' },
+  { id: 'teal',   label: 'Teal',   swatch: 'hsl(175 60% 40%)' },
+  { id: 'amber',  label: 'Amber',  swatch: 'hsl(35 85% 48%)' },
+  { id: 'rose',   label: 'Rose',   swatch: 'hsl(345 75% 55%)' },
+  { id: 'violet', label: 'Violett',swatch: 'hsl(270 60% 60%)' },
+]
+const ACCENT_CLASSES: Record<Accent, string> = {
+  indigo: '',
+  blue: 'theme-blue',
+  teal: 'theme-teal',
+  amber: 'theme-amber',
+  rose: 'theme-rose',
+  violet: 'theme-violet',
+}
+
 function initialTheme(): Theme {
   const stored = localStorage.getItem(KEY)
   if (stored === 'light' || stored === 'dark') return stored
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
+function initialAccent(): Accent {
+  const stored = localStorage.getItem(ACCENT_KEY)
+  if (stored && (stored === 'indigo' || stored === 'blue' || stored === 'teal' || stored === 'amber' || stored === 'rose' || stored === 'violet')) {
+    return stored
+  }
+  return 'indigo'
+}
+
 export function UserMenu({ collapsed }: { collapsed: boolean }) {
   const [theme, setTheme] = useState<Theme>(initialTheme)
+  const [accent, setAccent] = useState<Accent>(initialAccent)
   const dataUrl = useLogo((s) => s.dataUrl)
   const uploadLogo = useLogo((s) => s.upload)
   const removeLogo = useLogo((s) => s.remove)
@@ -42,6 +70,19 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     localStorage.setItem(KEY, theme)
   }, [theme])
+
+  useEffect(() => {
+    const html = document.documentElement
+    // Strip every theme-* class then apply the current one. Indigo = no class
+    // (uses the :root / .dark defaults).
+    for (const id of Object.keys(ACCENT_CLASSES) as Accent[]) {
+      const cls = ACCENT_CLASSES[id]
+      if (cls) html.classList.remove(cls)
+    }
+    const next = ACCENT_CLASSES[accent]
+    if (next) html.classList.add(next)
+    localStorage.setItem(ACCENT_KEY, accent)
+  }, [accent])
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
   const logout = async () => {
@@ -184,6 +225,26 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
               )}
               <span className="flex-1">{theme === 'dark' ? 'Hell' : 'Dunkel'}</span>
             </DropdownMenu.Item>
+            <div className="flex items-center gap-1.5 px-2 py-1.5">
+              {ACCENTS.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setAccent(a.id)
+                  }}
+                  aria-label={`Akzent · ${a.label}`}
+                  aria-pressed={accent === a.id}
+                  title={a.label}
+                  className={cn(
+                    'h-4 w-4 rounded-full ring-offset-1 ring-offset-card transition-shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                    accent === a.id && 'ring-1 ring-foreground',
+                  )}
+                  style={{ backgroundColor: a.swatch }}
+                />
+              ))}
+            </div>
             {admin && (
               <>
                 <DropdownMenu.Separator className="my-1 h-px bg-border" />

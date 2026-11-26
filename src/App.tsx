@@ -1129,9 +1129,12 @@ function KeImvFrame({ view }: { view: View }) {
         readyRef.current = true
         const target = IMV_VIEW_MAP[view]
         if (target) ref.current?.contentWindow?.postMessage({ type: 'imv:setView', view: target }, '*')
-        // Sync host theme into the iframe on first ready.
-        const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+        // Sync host theme + accent into the iframe on first ready.
+        const cls = document.documentElement.classList
+        const theme = cls.contains('dark') ? 'dark' : 'light'
         ref.current?.contentWindow?.postMessage({ type: 'imv:setTheme', theme }, '*')
+        const accent = ['blue','teal','amber','rose','violet'].find((a) => cls.contains('theme-' + a)) ?? 'indigo'
+        ref.current?.contentWindow?.postMessage({ type: 'imv:setAccent', accent }, '*')
       } else if (data.type === 'imv:requestHydrate') {
         // Iframe is asking for initial state. If we've loaded from the server
         // already, reply now; otherwise wait — the effect below will respond
@@ -1148,12 +1151,15 @@ function KeImvFrame({ view }: { view: View }) {
     return () => window.removeEventListener('message', onMsg)
   }, [view, receiveFromFrame])
 
-  // Watch host <html> class for dark-mode toggles and mirror into the iframe.
+  // Watch host <html> class for theme + accent changes and mirror into the iframe.
   useEffect(() => {
     const obs = new MutationObserver(() => {
       if (!readyRef.current) return
-      const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+      const cls = document.documentElement.classList
+      const theme = cls.contains('dark') ? 'dark' : 'light'
       ref.current?.contentWindow?.postMessage({ type: 'imv:setTheme', theme }, '*')
+      const accent = ['blue','teal','amber','rose','violet'].find((a) => cls.contains('theme-' + a)) ?? 'indigo'
+      ref.current?.contentWindow?.postMessage({ type: 'imv:setAccent', accent }, '*')
     })
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
     return () => obs.disconnect()

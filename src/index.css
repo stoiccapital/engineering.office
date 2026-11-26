@@ -66,6 +66,24 @@
   --info-soft: 210 50% 22%;
 }
 
+/* ---------------------------------------------------------------------------
+   Accent themes. Applied via `html` class alongside `.dark`. Default (no
+   class) = indigo as defined in :root / .dark. Only --primary and --ring
+   change; semantic colors (success/warning/danger/info) stay fixed so the
+   accent is purely "the one Linear color" and doesn't collide with meaning.
+   -------------------------------------------------------------------------- */
+.theme-blue   { --primary: 210 80% 50%; --ring: 210 80% 50%; }
+.theme-teal   { --primary: 175 60% 40%; --ring: 175 60% 40%; }
+.theme-amber  { --primary: 35 85% 48%;  --ring: 35 85% 48%; }
+.theme-rose   { --primary: 345 75% 55%; --ring: 345 75% 55%; }
+.theme-violet { --primary: 270 60% 60%; --ring: 270 60% 60%; }
+
+.dark.theme-blue   { --primary: 210 80% 62%; --ring: 210 80% 62%; }
+.dark.theme-teal   { --primary: 175 55% 55%; --ring: 175 55% 55%; }
+.dark.theme-amber  { --primary: 35 85% 60%;  --ring: 35 85% 60%; }
+.dark.theme-rose   { --primary: 345 75% 65%; --ring: 345 75% 65%; }
+.dark.theme-violet { --primary: 270 60% 72%; --ring: 270 60% 72%; }
+
 * {
   border-color: hsl(var(--border));
 }
