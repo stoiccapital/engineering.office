@@ -29,7 +29,7 @@ export function Checkbox({
         'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1',
         'disabled:cursor-not-allowed disabled:opacity-50',
         checked
-          ? 'border-foreground bg-foreground text-background hover:bg-foreground/90'
+          ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90'
           : 'border-muted-foreground/40 bg-background hover:border-foreground/60',
         className,
       )}

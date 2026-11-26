@@ -967,14 +967,20 @@ function NavItem({
         'relative flex w-full items-center gap-2 rounded-md py-1.5 text-[13px] font-medium transition-colors',
         collapsed ? 'justify-center px-2' : nested ? 'pl-7 pr-3' : 'px-3',
         active
-          ? 'bg-primary/10 text-foreground'
+          ? 'bg-primary/15 text-foreground'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
       {active && !collapsed && (
         <span
           aria-hidden
-          className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r bg-primary"
+          className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-primary"
+        />
+      )}
+      {active && collapsed && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-primary"
         />
       )}
       <Icon className={cn('h-4 w-4', active && 'text-primary')} />
@@ -1037,7 +1043,7 @@ function NavGroupHeader({
         'hover:bg-accent hover:text-foreground',
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={cn('h-4 w-4', childActive && 'text-primary')} />
       <span className="flex-1 text-left">{label}</span>
       {badge > 0 && (
         <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-none text-destructive-foreground">

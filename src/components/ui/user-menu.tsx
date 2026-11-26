@@ -236,31 +236,42 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
               <span className="flex-1">{theme === 'dark' ? 'Hell' : 'Dunkel'}</span>
             </DropdownMenu.Item>
             <div
-              className="flex items-center gap-1.5 px-2 py-1.5"
+              className="flex items-center justify-between gap-0.5 px-1 py-1"
               onMouseLeave={() => setPreviewAccent(null)}
             >
-              {ACCENTS.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setAccent(a.id)
-                    setPreviewAccent(null)
-                  }}
-                  onMouseEnter={() => setPreviewAccent(a.id)}
-                  onFocus={() => setPreviewAccent(a.id)}
-                  onBlur={() => setPreviewAccent(null)}
-                  aria-label={`Akzent · ${a.label}`}
-                  aria-pressed={accent === a.id}
-                  title={a.label}
-                  className={cn(
-                    'h-4 w-4 rounded-full ring-offset-1 ring-offset-card transition-shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                    accent === a.id && 'ring-1 ring-foreground',
-                  )}
-                  style={{ backgroundColor: a.swatch }}
-                />
-              ))}
+              {ACCENTS.map((a) => {
+                const isCommitted = accent === a.id
+                const isPreview = previewAccent === a.id
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setAccent(a.id)
+                      setPreviewAccent(null)
+                    }}
+                    onMouseEnter={() => setPreviewAccent(a.id)}
+                    onFocus={() => setPreviewAccent(a.id)}
+                    onBlur={() => setPreviewAccent(null)}
+                    aria-label={`Akzent · ${a.label}`}
+                    aria-pressed={isCommitted}
+                    title={a.label}
+                    className={cn(
+                      'group grid h-7 w-7 place-items-center rounded transition-colors focus:outline-none focus-visible:bg-accent hover:bg-accent',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'h-4 w-4 rounded-full transition-transform',
+                        (isCommitted || isPreview) && 'ring-2 ring-foreground ring-offset-2 ring-offset-card',
+                        isPreview && 'scale-110',
+                      )}
+                      style={{ backgroundColor: a.swatch }}
+                    />
+                  </button>
+                )
+              })}
             </div>
             {admin && (
               <>
