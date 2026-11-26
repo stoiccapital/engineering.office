@@ -276,7 +276,7 @@ export function QuartalPlanTable() {
             isFullscreen ? 'min-h-0 flex-1' : 'max-h-[calc(100vh-240px)]',
           )}
         >
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-xs">
             {/* Pin Monat + KW column widths so sticky left offsets line up
                 exactly with the column edges — prevents the horizontal gap
                 between the two left-pinned columns during horizontal scroll. */}
@@ -541,7 +541,7 @@ function PoolRow({
   onAssign: (task: PoolTask) => void
 }) {
   return (
-    <tr className="border-t-4 border-foreground/30">
+    <tr className="border-t border-border bg-muted/60">
       <td
         className="sticky left-0 z-10 border-r bg-muted px-2 py-2 align-top text-xs font-semibold text-muted-foreground"
         style={{ width: 64, minWidth: 64, maxWidth: 64 }}

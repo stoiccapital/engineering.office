@@ -326,7 +326,7 @@ export function Rechnungen() {
                   </button>
                 </td>
               </tr>
-              <tr className="border-t-2 border-foreground/20 bg-muted/40 font-semibold">
+              <tr className="border-t border-border bg-muted/40 bg-muted/40 font-semibold">
                 <td
                   colSpan={summaryLabelSpan(data)}
                   className="px-2 py-2 text-right text-xs text-muted-foreground"

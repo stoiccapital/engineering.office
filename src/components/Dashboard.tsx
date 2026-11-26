@@ -448,7 +448,7 @@ function TotalsRow({
   abgerechnet: AbgerechnetMetrics
 }) {
   return (
-    <tr className="border-t-2 border-foreground/20 font-semibold">
+    <tr className="border-t border-border bg-muted/40 font-semibold">
       <td className="px-3 py-2 text-xs text-muted-foreground">
         Summe
       </td>

@@ -119,7 +119,7 @@ export function Umsatzkontrolle() {
         }
         action={colorLegend}
       >
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-xs">
           <HeaderRow filter={filter} />
           <tbody>
             <tr className="border-b hover:bg-accent">
@@ -319,7 +319,7 @@ function TeamsOverview({ teams, totalFte }: { teams: UmsatzTeamView[]; totalFte:
   const totalOperative = teams.reduce((s, t) => s + (t.operativeFte || 0), 0)
   const totalOverhead = teams.reduce((s, t) => s + (t.overheadAlloc || 0), 0)
   return (
-    <table className="w-full border-collapse text-sm">
+    <table className="w-full border-collapse text-xs">
       <thead className="bg-muted/20">
         <tr className="border-b text-xs font-medium text-muted-foreground">
           <th className="px-2 py-1.5 text-left">Team</th>
@@ -380,7 +380,7 @@ function MetricTable({
 }) {
   const updateCell = useUmsatz((s) => s.updateCell)
   return (
-    <table className="w-full border-collapse text-sm">
+    <table className="w-full border-collapse text-xs">
       <HeaderRow filter={filter} trailing={trailing ? trailingTotalLabel : undefined} />
       <tbody>
         {teams.map((team) => (
@@ -414,7 +414,7 @@ function ZielvorgabenTable({
   filter: QuarterFilter
 }) {
   return (
-    <table className="w-full border-collapse text-sm">
+    <table className="w-full border-collapse text-xs">
       <HeaderRow filter={filter} />
       <tbody>
         {teams.map((team) => (
@@ -444,7 +444,7 @@ function DerivedMetricTable({
   filter: QuarterFilter
 }) {
   return (
-    <table className="w-full border-collapse text-sm">
+    <table className="w-full border-collapse text-xs">
       <HeaderRow filter={filter} />
       <tbody>
         {teams.map((team, i) => (

@@ -89,7 +89,7 @@ export function ForecastTable() {
       }
     >
       <div className={cn('w-full overflow-auto', isFullscreen ? 'min-h-0 flex-1' : 'max-h-[calc(100vh-320px)]')}>
-        <table className="w-full min-w-[1800px] border-collapse text-sm">
+        <table className="w-full min-w-[1800px] border-collapse text-xs">
           <colgroup>
             <col className="w-12" /> {/* PRIO */}
             <col className="w-14" /> {/* PL DE */}
@@ -478,7 +478,7 @@ function TotalsRow({
   totals: Totals
   highlight?: boolean
 }) {
-  const rowCls = highlight ? 'border-t-2 border-foreground/20 font-semibold' : ''
+  const rowCls = highlight ? 'border-t border-border bg-muted/40 font-semibold' : ''
   return (
     <tr className={`border-t ${rowCls}`}>
       <td colSpan={6} className="px-3 py-2 text-xs font-medium text-muted-foreground">

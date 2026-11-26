@@ -248,7 +248,7 @@ export function ZeiterfassungTab() {
                     Noch keine Buchung.
                   </div>
                 ) : (
-                  <table className="w-full border-separate border-spacing-0 text-sm">
+                  <table className="w-full border-separate border-spacing-0 text-xs">
                     <thead>
                       <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
                         <Th className="w-[280px]">Projekt</Th>

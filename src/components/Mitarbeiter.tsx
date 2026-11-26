@@ -77,7 +77,7 @@ export function Mitarbeiter() {
             Noch keine Standorte angelegt. Teams werden unten einem Standort zugeordnet.
           </div>
         ) : (
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 text-left">Name</th>
@@ -143,7 +143,7 @@ export function Mitarbeiter() {
             Noch keine Teams angelegt.
           </div>
         ) : (
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 text-left">Teamname</th>
@@ -257,7 +257,7 @@ export function Mitarbeiter() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   <th className="px-3 py-2 text-left">Vorname</th>

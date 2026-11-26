@@ -193,7 +193,7 @@ export function UebersichtTab() {
       </Section>
 
       <Section title="Kosten nach Hauptgruppen">
-        <table className="w-full border-separate border-spacing-0 text-sm">
+        <table className="w-full border-separate border-spacing-0 text-xs">
           <thead>
             <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
               <Th className="w-[110px]">KGK-Code</Th>
@@ -235,7 +235,7 @@ export function UebersichtTab() {
       </Section>
 
       <Section title="Kosten nach zweiter Kostengliederungsebene">
-        <table className="w-full border-separate border-spacing-0 text-sm">
+        <table className="w-full border-separate border-spacing-0 text-xs">
           <thead>
             <tr className="text-[11px] uppercase tracking-wider text-muted-foreground">
               <Th className="w-[110px]">KGK-Code</Th>

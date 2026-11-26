@@ -353,7 +353,7 @@ function BranchDashboard({
           Keine operativen Teams vorhanden.
         </div>
       ) : (
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="border-b">
               <th className="px-2 py-1.5 text-left text-[11px] font-medium text-muted-foreground">
@@ -433,7 +433,7 @@ function BranchDashboard({
                 </td>
               </tr>
             ))}
-            <tr className="border-t-2 border-foreground/20 font-semibold">
+            <tr className="border-t border-border bg-muted/40 font-semibold">
               <td colSpan={2} className="px-2 py-1.5 text-right text-[11px] text-muted-foreground">
                 Σ Schlüssel
               </td>
@@ -737,7 +737,7 @@ function TeamBlock({
         )}
       </div>
 
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full border-collapse text-xs">
         <thead>
           <tr className="border-b bg-muted/10">
             <th className="px-2 py-1.5 text-left text-xs font-medium text-muted-foreground">

@@ -152,7 +152,7 @@ export function TeamOverview() {
       >
         <CarryoverSummary plan={plan} weekRows={weekRows} />
         <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-xs">
             {/* Pin Monat + KW widths so sticky left offsets line up exactly
                 with the column edges (same fix as the Plan view). */}
             <colgroup>
