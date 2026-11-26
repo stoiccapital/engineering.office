@@ -133,7 +133,7 @@ export function Freigaben() {
                     <div className="inline-flex gap-1.5">
                       <button
                         onClick={() => approve(item)}
-                        className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                        className="inline-flex h-7 items-center gap-1 rounded bg-foreground px-2.5 text-xs font-medium text-background hover:opacity-90"
                         title="Freigeben"
                       >
                         <Check className="h-3.5 w-3.5" />
@@ -141,7 +141,7 @@ export function Freigaben() {
                       </button>
                       <button
                         onClick={() => setRejectFor(item)}
-                        className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-background px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
+                        className="inline-flex h-7 items-center gap-1 rounded border px-2.5 text-xs font-medium text-danger hover:bg-danger-soft"
                         title="Ablehnen"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -192,7 +192,7 @@ function RejectDialog({
     <Dialog.Root open={!!item} onOpenChange={(open) => !open && onCancel()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-background">
           <div className="border-b px-5 py-4">
             <Dialog.Title className="text-sm font-semibold">Aufgabe ablehnen</Dialog.Title>
             <Dialog.Description className="mt-1 text-xs text-muted-foreground">

@@ -32,9 +32,9 @@ import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 // Status badge tones mirror the Plan tab's tone palette so the colour language
 // stays consistent: Abgabe = emerald, Urlaub = sky, Abstimmen = amber.
 const STATUS_BADGE: Record<PlanStatus, string> = {
-  abstimmen: 'bg-amber-100 text-amber-900',
-  urlaub: 'bg-sky-100 text-sky-900',
-  abgabe: 'bg-emerald-100 text-emerald-900',
+  abstimmen: 'bg-warning-soft text-warning',
+  urlaub: 'bg-info-soft text-info',
+  abgabe: 'bg-success-soft text-success',
 }
 
 export function TeamOverview() {
@@ -399,7 +399,7 @@ function WeekCell({
                   </div>
                 )}
                 {todo.carriedFrom && (
-                  <div className="ml-4 inline-flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-500/15 dark:text-amber-300">
+                  <div className="ml-4 inline-flex w-fit items-center gap-1 rounded bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning">
                     aus KW {todo.carriedFrom.week}
                     {todo.carriedCount && todo.carriedCount > 1 && (
                       <span className="font-mono tabular-nums">· {todo.carriedCount}/3</span>
@@ -408,7 +408,7 @@ function WeekCell({
                 )}
                 {pending && (
                   <div className="ml-4">
-                    <span className="inline-flex items-center rounded bg-violet-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-violet-900">
+                    <span className="inline-flex items-center rounded bg-info-soft px-1.5 py-0.5 font-mono text-[11px] font-semibold text-info">
                       In Prüfung
                     </span>
                   </div>
@@ -421,7 +421,7 @@ function WeekCell({
                   />
                 )}
                 {rejected && (
-                  <div className="ml-4 mt-1 flex items-start gap-2 rounded border border-destructive/30 bg-destructive/5 px-2 py-1.5">
+                  <div className="ml-4 mt-1 flex items-start gap-2 rounded bg-danger-soft px-2 py-1.5">
                     <div className="min-w-0 flex-1">
                       <div className="text-[10px] font-semibold uppercase tracking-wide text-destructive">
                         Abgelehnt
@@ -469,7 +469,7 @@ function ConfirmSubmitDialog({
     <Dialog.Root open={!!todo} onOpenChange={(open) => !open && onCancel()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-md border bg-background">
           <div className="border-b px-5 py-4">
             <Dialog.Title className="text-sm font-semibold">
               Zur Freigabe senden?
@@ -535,8 +535,8 @@ function ProgressSlider({
 // "ganze Woche"; otherwise the selected weekday codes are highlighted. Tone
 // controls the color (blue = Urlaub, orange = Mobiles Arbeiten).
 const DAY_BADGE_CLASSES: Record<'blue' | 'orange', string> = {
-  blue: 'bg-sky-100 text-sky-900',
-  orange: 'bg-orange-100 text-orange-900',
+  blue: 'bg-info-soft text-info',
+  orange: 'bg-warning-soft text-warning',
 }
 
 // Compact horizontal summary: how many carried-over duplicates are in the
@@ -567,15 +567,15 @@ function CarryoverSummary({
     (a, b) => Number(a[0]) - Number(b[0]),
   )
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b bg-amber-50/60 px-4 py-2 text-xs dark:bg-amber-500/10">
-      <span className="font-semibold text-amber-900 dark:text-amber-300">
+    <div className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-4 py-2 text-xs">
+      <span className="font-semibold text-warning">
         ↻ Verschleppungen: {total}
       </span>
       <span className="text-muted-foreground">·</span>
       {ordered.map(([w, n]) => (
         <span
           key={w}
-          className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 font-mono tabular-nums text-amber-900 dark:bg-amber-500/20 dark:text-amber-200"
+          className="inline-flex items-center gap-1 rounded bg-warning-soft px-1.5 py-0.5 font-mono tabular-nums text-warning"
         >
           KW {w} · {n}
         </span>

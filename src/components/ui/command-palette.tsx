@@ -74,7 +74,7 @@ export function CommandPalette({ onNavigate }: Props) {
       onClick={close}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-lg border bg-card shadow-xl"
+        className="w-full max-w-lg overflow-hidden rounded-md border bg-card shadow-md"
         onClick={(e) => e.stopPropagation()}
       >
         <Command

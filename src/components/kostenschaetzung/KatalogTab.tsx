@@ -215,9 +215,9 @@ export function KatalogTab() {
             )}
 
             {selected.pruefhinweis && (
-              <div className="flex gap-2 rounded border border-amber-500/30 bg-amber-100/60 p-2 dark:bg-amber-500/10">
-                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
-                <div className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+              <div className="flex gap-2 rounded bg-warning-soft p-2">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                <div className="text-xs leading-relaxed text-warning">
                   {selected.pruefhinweis}
                 </div>
               </div>

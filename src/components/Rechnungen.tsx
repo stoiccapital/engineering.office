@@ -38,11 +38,10 @@ const N_CYCLE: NStatus[] = ['aktuell', 'neu', 'rgGestellt', 'nichtRelevant']
 const DE_CYCLE: NStatus[] = ['aktuell', 'neu', 'rgGestellt']
 
 const N_STATUS_CHIP: Record<NStatus, string> = {
-  aktuell: 'bg-sky-100 text-sky-900 border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-200',
-  nichtRelevant: 'bg-muted text-muted-foreground border-border',
-  neu: 'bg-amber-100 text-amber-900 border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200',
-  rgGestellt:
-    'bg-emerald-100 text-emerald-900 border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200',
+  aktuell: 'bg-info-soft text-info',
+  nichtRelevant: 'bg-muted text-muted-foreground',
+  neu: 'bg-warning-soft text-warning',
+  rgGestellt: 'bg-success-soft text-success',
 }
 
 const N_STATUS_SHORT: Record<NStatus, string> = {
@@ -54,8 +53,8 @@ const N_STATUS_SHORT: Record<NStatus, string> = {
 
 const PL_BRANCH_CHIP: Record<PlBranchStatus, string> = {
   nein: 'bg-muted text-muted-foreground',
-  ja: 'bg-sky-100 text-sky-900 dark:bg-sky-500/15 dark:text-sky-200',
-  neu: 'bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-200',
+  ja: 'bg-info-soft text-info',
+  neu: 'bg-warning-soft text-warning',
 }
 
 function cycle<T>(arr: T[], current: T): T {
@@ -773,7 +772,7 @@ function ImportDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-md border bg-card">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div>
               <Dialog.Title className="text-sm font-semibold">

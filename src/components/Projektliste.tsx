@@ -35,14 +35,10 @@ import { useFullscreen } from '@/components/ui/use-fullscreen'
 import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 const STATUS_CHIP: Record<string, string> = {
-  'in Bearbeitung':
-    'bg-amber-100 text-amber-900 border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200',
-  'Projekt ruht':
-    'bg-sky-100 text-sky-900 border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-200',
-  'Projekt beendet':
-    'bg-emerald-100 text-emerald-900 border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200',
-  'Projekt abgeschlossen':
-    'bg-emerald-100 text-emerald-900 border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200',
+  'in Bearbeitung': 'bg-warning-soft text-warning',
+  'Projekt ruht': 'bg-info-soft text-info',
+  'Projekt beendet': 'bg-success-soft text-success',
+  'Projekt abgeschlossen': 'bg-success-soft text-success',
 }
 
 export function Projektliste() {
@@ -483,10 +479,10 @@ const Row = memo(function Row({
       <td className="px-2 py-1">
         <span
           className={cn(
-            'inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase',
-            nlLabel === 'DE' && 'border-sky-500/30 bg-sky-50 text-sky-900 dark:bg-sky-500/10 dark:text-sky-200',
-            nlLabel === 'PL' && 'border-amber-500/30 bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-200',
-            !nlLabel && 'border-border bg-muted text-muted-foreground',
+            'inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium uppercase',
+            nlLabel === 'DE' && 'bg-info-soft text-info',
+            nlLabel === 'PL' && 'bg-warning-soft text-warning',
+            !nlLabel && 'bg-muted text-muted-foreground',
           )}
           title={row.fachbereich}
         >
@@ -711,7 +707,7 @@ function ImportPreviewDialog({
     <Dialog.Root open={!!preview} onOpenChange={(o) => !o && onCancel()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card p-5 shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card p-5">
           <Dialog.Title className="text-base font-semibold">
             Import vorbereitet
           </Dialog.Title>

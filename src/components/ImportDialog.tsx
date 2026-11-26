@@ -95,7 +95,7 @@ export function ImportDialog() {
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[min(90vw,640px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-background shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[min(90vw,640px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-md border bg-background">
           <div className="flex items-start justify-between border-b px-5 py-4">
             <div>
               <Dialog.Title className="text-base font-semibold">

@@ -256,16 +256,16 @@ export function PositionenTab() {
             {meta && (
               <div
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px]',
+                  'inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px]',
                   preisstandMatch
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                    : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                    ? 'bg-success-soft text-success'
+                    : 'bg-warning-soft text-warning',
                 )}
               >
                 <span
                   className={cn(
                     'h-1.5 w-1.5 rounded-full',
-                    preisstandMatch ? 'bg-emerald-500' : 'bg-amber-500',
+                    preisstandMatch ? 'bg-success' : 'bg-warning',
                   )}
                 />
                 Katalog: {meta.quartal}

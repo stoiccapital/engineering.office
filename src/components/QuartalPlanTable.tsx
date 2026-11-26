@@ -706,7 +706,7 @@ function AssignDialog({
     <Dialog.Root open={!!task} onOpenChange={(open) => !open && onCancel()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-md border bg-background">
           <div className="border-b px-5 py-4">
             <Dialog.Title className="text-sm font-semibold">
               Aufgabe zuweisen
@@ -788,7 +788,7 @@ function MoveAllTodosDialog({
     <Dialog.Root open={open} onOpenChange={(o) => !o && onCancel()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-background">
           <div className="border-b px-5 py-4">
             <Dialog.Title className="text-sm font-semibold">
               Alle Aufgaben übertragen
@@ -1008,7 +1008,7 @@ function TodoRow({
       className={cn(
         'group flex flex-col gap-0.5 rounded px-1.5 py-0.5',
         tone ? TONE_CLASSES[tone] : 'hover:bg-muted',
-        isDragging && 'z-20 shadow-md',
+        isDragging && 'z-20 ring-1 ring-ring',
         isCarriedOrigin && 'opacity-55 grayscale',
       )}
     >
@@ -1299,7 +1299,7 @@ function RosterPickerDialog({
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-background">
           <div className="border-b px-5 py-4">
             <Dialog.Title className="text-sm font-semibold">
               Mitarbeiter aus Roster hinzufügen

@@ -69,7 +69,7 @@ export function KatalogDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex h-[82vh] w-[92vw] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border bg-card shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex h-[82vh] w-[92vw] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-md border bg-card">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div>
               <Dialog.Title className="text-sm font-semibold">

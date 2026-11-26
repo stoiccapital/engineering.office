@@ -173,19 +173,17 @@ export function UebersichtTab() {
         <div className="mt-3">
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
-              stand.tone === 'emerald' &&
-                'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-              stand.tone === 'danger' &&
-                'border-destructive/30 bg-destructive/10 text-destructive',
-              stand.tone === 'muted' && 'text-muted-foreground',
+              'inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px]',
+              stand.tone === 'emerald' && 'bg-success-soft text-success',
+              stand.tone === 'danger' && 'bg-danger-soft text-danger',
+              stand.tone === 'muted' && 'bg-muted text-muted-foreground',
             )}
           >
             <span
               className={cn(
                 'h-1.5 w-1.5 rounded-full',
-                stand.tone === 'emerald' && 'bg-emerald-500',
-                stand.tone === 'danger' && 'bg-destructive',
+                stand.tone === 'emerald' && 'bg-success',
+                stand.tone === 'danger' && 'bg-danger',
                 stand.tone === 'muted' && 'bg-muted-foreground/50',
               )}
             />

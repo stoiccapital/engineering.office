@@ -236,7 +236,7 @@ function AddProjectDialog({
     <Dialog.Root open={open} onOpenChange={(v) => !v && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card">
           <div className="border-b px-5 py-3">
             <Dialog.Title className="text-sm font-semibold">
               Projekt aus Projektliste wählen
@@ -332,7 +332,7 @@ function ConfirmRemoveDialog({
     <Dialog.Root open={project !== null} onOpenChange={(v) => !v && onCancel()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card shadow-xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card">
           <div className="border-b px-5 py-3">
             <Dialog.Title className="text-sm font-semibold">
               Projekt entfernen

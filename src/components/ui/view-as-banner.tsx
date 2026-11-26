@@ -10,7 +10,7 @@ export function ViewAsBanner() {
   if (!viewAsRoleId || !currentRole) return null
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-100 px-6 py-2 text-xs text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">
+    <div className="flex items-center justify-between gap-3 border-b bg-warning-soft px-6 py-2 text-xs text-warning">
       <div className="flex items-center gap-2">
         <Eye className="h-3.5 w-3.5" />
         <span>
@@ -19,20 +19,20 @@ export function ViewAsBanner() {
           {realRole && (
             <>
               {' · '}
-              <span className="text-amber-900/70 dark:text-amber-200/70">
+              <span className="opacity-70">
                 Deine echte Rolle: {realRole.name}
               </span>
             </>
           )}
           {' · '}
-          <span className="text-amber-900/70 dark:text-amber-200/70">
+          <span className="opacity-70">
             Schreiben läuft weiterhin unter deiner echten Rolle
           </span>
         </span>
       </div>
       <button
         onClick={() => setViewAsRole(null)}
-        className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-background/40 px-2 py-0.5 font-medium hover:bg-background/60"
+        className="inline-flex items-center gap-1 rounded bg-background/40 px-2 py-0.5 font-medium hover:bg-background/60"
       >
         <X className="h-3 w-3" />
         Zurück zur eigenen Rolle

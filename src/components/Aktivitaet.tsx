@@ -15,9 +15,9 @@ const KIND_LABEL: Record<ActivityKind, string> = {
 }
 
 const KIND_CHIP: Record<ActivityKind, string> = {
-  login: 'bg-emerald-100 text-emerald-900 border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200',
-  view: 'bg-muted text-muted-foreground border-border',
-  action: 'bg-amber-100 text-amber-900 border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200',
+  login: 'bg-success-soft text-success',
+  view: 'bg-muted text-muted-foreground',
+  action: 'bg-warning-soft text-warning',
 }
 
 const DAY_OPTIONS = [1, 7, 30, 90] as const
