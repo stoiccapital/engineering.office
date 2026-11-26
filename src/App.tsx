@@ -967,7 +967,7 @@ function NavItem({
         'relative flex w-full items-center gap-2 rounded-md py-1.5 text-[13px] font-medium transition-colors',
         collapsed ? 'justify-center px-2' : nested ? 'pl-7 pr-3' : 'px-3',
         active
-          ? 'bg-primary/15 text-foreground'
+          ? 'bg-primary/10 text-foreground'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
