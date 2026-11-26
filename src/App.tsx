@@ -91,12 +91,12 @@ const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table
   ziele_kontrolle: { title: 'Ziele · Zielkontrolle', label: 'Zielkontrolle', icon: Gauge },
   rechnungen: { title: 'Rechnungen', label: 'Rechnungen', icon: FileText },
   projektliste: { title: 'Projektliste', label: 'Projektliste', icon: FolderKanban },
-  ke_imv_uebersicht: { title: 'Kostenermittlung IMV · Übersicht', label: 'Übersicht', icon: LayoutDashboard },
-  ke_imv_projekte: { title: 'Kostenermittlung IMV · Kostenermittlungen', label: 'Kostenermittlungen', icon: ListTree },
-  ke_imv_ril: { title: 'Kostenermittlung IMV · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
-  ke_imv_free: { title: 'Kostenermittlung IMV · Freie Einheitspreise', label: 'Freie Einheitspreise', icon: Database },
-  ke_imv_entry: { title: 'Kostenermittlung IMV · Kostenkennwert hinzufügen', label: 'Kostenkennwert hinzufügen', icon: FileSpreadsheet },
-  ke_imv_indices: { title: 'Kostenermittlung IMV · Preisindizes', label: 'Preisindizes', icon: Gauge },
+  ke_imv_uebersicht: { title: 'Kostenermittlung · Übersicht', label: 'Übersicht', icon: LayoutDashboard },
+  ke_imv_projekte: { title: 'Kostenermittlung · Kostenermittlungen', label: 'Kostenermittlungen', icon: ListTree },
+  ke_imv_ril: { title: 'Kostenermittlung · Datenbank Ril 808', label: 'Datenbank Ril 808', icon: Database },
+  ke_imv_free: { title: 'Kostenermittlung · Freie Einheitspreise', label: 'Freie Einheitspreise', icon: Database },
+  ke_imv_entry: { title: 'Kostenermittlung · Kostenkennwert hinzufügen', label: 'Kostenkennwert hinzufügen', icon: FileSpreadsheet },
+  ke_imv_indices: { title: 'Kostenermittlung · Preisindizes', label: 'Preisindizes', icon: Gauge },
   hr_zeiterfassung: { title: 'HR · Zeiterfassung', label: 'Zeiterfassung', icon: Clock },
   hr_gespraeche: { title: 'HR · Gespräche', label: 'Gespräche', icon: MessageSquare },
   mitarbeiter: { title: 'Mitarbeiter', label: 'Mitarbeiter', icon: Users },
@@ -128,7 +128,7 @@ const NAV: NavEntry[] = [
   {
     kind: 'group',
     id: 'kostenermittlung_imv',
-    label: 'Kostenermittlung IMV',
+    label: 'Kostenermittlung',
     icon: FileSpreadsheet,
     children: KE_IMV_VIEWS,
   },
@@ -1037,7 +1037,7 @@ function KeImvFrame({ view }: { view: View }) {
     <iframe
       ref={ref}
       src="/imv-kostenermittlung.html"
-      title="Kostenermittlung IMV"
+      title="Kostenermittlung"
       className="-m-6 block border-0"
       style={{ width: 'calc(100% + 3rem)', height: 'calc(100vh - 62px)' }}
     />

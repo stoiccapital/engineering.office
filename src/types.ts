@@ -619,7 +619,7 @@ export const MODULE_GROUPS: { label: string; modules: ModuleId[] }[] = [
   { label: 'Operative Planung', modules: ['dashboard', 'forecast', 'plan', 'plan_overview'] },
   { label: 'Rechnungen', modules: ['rechnungen'] },
   { label: 'Projektliste', modules: ['projektliste'] },
-  { label: 'Kostenermittlung IMV', modules: ['ke_imv_uebersicht', 'ke_imv_projekte', 'ke_imv_ril', 'ke_imv_free', 'ke_imv_entry', 'ke_imv_indices'] },
+  { label: 'Kostenermittlung', modules: ['ke_imv_uebersicht', 'ke_imv_projekte', 'ke_imv_ril', 'ke_imv_free', 'ke_imv_entry', 'ke_imv_indices'] },
   { label: 'HR', modules: ['hr_zeiterfassung', 'hr_gespraeche', 'hr_team_view'] },
   { label: 'Einstellungen', modules: ['mitarbeiter', 'settings'] },
 ]
@@ -627,7 +627,7 @@ export const MODULE_GROUPS: { label: string; modules: ModuleId[] }[] = [
 // Backwards compatibility: expand deprecated coarse IDs so stored role data
 // keeps working. Called when loading access config from KV / mock. Dropped
 // kostenschaetzung / kostenermittlung legacy mappings — those modules were
-// removed; the equivalent functionality lives in Kostenermittlung IMV.
+// removed; the equivalent functionality lives in Kostenermittlung.
 const KNOWN_MODULES = new Set<string>(MODULES)
 export function migrateModuleIds(mods: string[]): ModuleId[] {
   const out = new Set<ModuleId>()
