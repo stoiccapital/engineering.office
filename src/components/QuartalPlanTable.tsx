@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import * as Popover from '@radix-ui/react-popover'
 import { usePlan, cellKey, type TeamFilter } from '@/plan-store'
 import { useProjektliste } from '@/projektliste-store'
 import { useRoster } from '@/roster-store'
@@ -1018,15 +1019,27 @@ function TodoRow({
   type HashState = { query: string; hashPos: number }
   const [hashState, setHashState] = useState<HashState | null>(null)
   const [pickerIdx, setPickerIdx] = useState(0)
+  // Second entry point: click-to-open dropdown (mouse-first). Uses its own
+  // query state since there is no textarea context to parse.
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerQuery, setPickerQuery] = useState('')
+  const [pickerBtnIdx, setPickerBtnIdx] = useState(0)
 
-  // Lazy-load Projektliste the first time a picker is triggered.
+  // Lazy-load Projektliste the first time either picker is triggered.
   useEffect(() => {
-    if (hashState && projektlisteStatus === 'idle') void loadProjektliste()
-  }, [hashState, projektlisteStatus, loadProjektliste])
+    if ((hashState || pickerOpen) && projektlisteStatus === 'idle') void loadProjektliste()
+  }, [hashState, pickerOpen, projektlisteStatus, loadProjektliste])
 
-  const filtered = useMemo(() => {
-    if (!hashState) return []
-    const q = hashState.query.toLowerCase()
+  // Reset button-picker state when it closes.
+  useEffect(() => {
+    if (!pickerOpen) {
+      setPickerQuery('')
+      setPickerBtnIdx(0)
+    }
+  }, [pickerOpen])
+
+  function filterRows(query: string) {
+    const q = query.toLowerCase().trim()
     const rows = q
       ? projektRows.filter(
           (r) =>
@@ -1036,7 +1049,17 @@ function TodoRow({
         )
       : projektRows
     return rows.slice(0, 8)
-  }, [hashState, projektRows])
+  }
+  const filtered = useMemo(
+    () => (hashState ? filterRows(hashState.query) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hashState, projektRows],
+  )
+  const buttonFiltered = useMemo(
+    () => (pickerOpen ? filterRows(pickerQuery) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pickerOpen, pickerQuery, projektRows],
+  )
 
   // Clamp selected index if the filter list shrinks under the cursor.
   useEffect(() => {
@@ -1122,7 +1145,7 @@ function TodoRow({
           </button>
         )}
         <div className="min-w-0 flex-1 overflow-hidden">
-          {attachedProject && (
+          {attachedProject ? (
             <button
               type="button"
               onClick={() => onUpdate({ projectId: undefined })}
@@ -1133,6 +1156,100 @@ function TodoRow({
               <span className="truncate">{attachedProject.projekt}</span>
               <X className="h-2.5 w-2.5 shrink-0" />
             </button>
+          ) : (
+            !effectiveLocked && (
+              <Popover.Root open={pickerOpen} onOpenChange={setPickerOpen}>
+                <Popover.Trigger asChild>
+                  <button
+                    type="button"
+                    className="mb-0.5 inline-flex items-center gap-1 rounded border border-dashed border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground focus:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+                    title="Projekt zuordnen"
+                  >
+                    <Plus className="h-2.5 w-2.5" />
+                    Projekt
+                  </button>
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Content
+                    align="start"
+                    side="bottom"
+                    sideOffset={4}
+                    className="z-50 w-64 rounded-md border bg-card p-1 focus:outline-none"
+                    onOpenAutoFocus={(e) => {
+                      // Keep auto-focus for the search input; prevents Popover
+                      // from stealing it back to the trigger.
+                      e.preventDefault()
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      value={pickerQuery}
+                      onChange={(e) => {
+                        setPickerQuery(e.target.value)
+                        setPickerBtnIdx(0)
+                      }}
+                      onKeyDown={(e) => {
+                        if (buttonFiltered.length === 0) return
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault()
+                          setPickerBtnIdx((i) => (i + 1) % buttonFiltered.length)
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault()
+                          setPickerBtnIdx(
+                            (i) => (i - 1 + buttonFiltered.length) % buttonFiltered.length,
+                          )
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault()
+                          const p = buttonFiltered[pickerBtnIdx] ?? buttonFiltered[0]
+                          if (p) {
+                            onUpdate({ projectId: p.id })
+                            setPickerOpen(false)
+                          }
+                        }
+                      }}
+                      placeholder="Projekt suchen…"
+                      className="mb-1 w-full rounded bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground"
+                    />
+                    <div className="max-h-56 overflow-y-auto">
+                      {buttonFiltered.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          {projektlisteStatus === 'loading'
+                            ? 'Projekte werden geladen …'
+                            : 'Kein Projekt gefunden.'}
+                        </div>
+                      ) : (
+                        buttonFiltered.map((row, i) => (
+                          <button
+                            key={row.id}
+                            type="button"
+                            onClick={() => {
+                              onUpdate({ projectId: row.id })
+                              setPickerOpen(false)
+                            }}
+                            onMouseEnter={() => setPickerBtnIdx(i)}
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs',
+                              i === pickerBtnIdx
+                                ? 'bg-accent text-foreground'
+                                : 'hover:bg-muted',
+                            )}
+                          >
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {row.projekt}
+                            </span>
+                            {row.fachbereich && (
+                              <span className="shrink-0 text-muted-foreground">
+                                {row.fachbereich}
+                              </span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover.Root>
+            )
           )}
           <textarea
             ref={taRef}
