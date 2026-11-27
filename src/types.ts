@@ -120,6 +120,7 @@ type LegacyTodo = {
   carriedOver?: boolean
   carriedFrom?: { week: number; empIndex: number; todoId: string }
   carriedCount?: number
+  projectId?: string
 }
 type LegacyPoolTask = { id: string; text: string; empIndex?: number }
 type LegacyPlan = Omit<QuartalPlan, 'employees' | 'todos' | 'pool'> & {
@@ -155,6 +156,7 @@ export function migratePlan(input: QuartalPlan | LegacyPlan | null | undefined):
       carriedOver: t.carriedOver,
       carriedFrom: t.carriedFrom,
       carriedCount: t.carriedCount,
+      projectId: t.projectId,
     }))
   }
   // Pool tasks without an empIndex (shipped before the per-employee split)
