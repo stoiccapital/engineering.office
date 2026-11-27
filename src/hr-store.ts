@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { fetchHr, saveHr } from '@/api'
+import { createAutosave } from './lib/autosave'
 import { logActivity } from '@/activity-store'
 
 function log(action: string, target?: string) {
@@ -36,36 +37,35 @@ type State = {
   removeUtterance: (employeeId: string, utteranceId: string) => void
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
 
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
+export const useHr = create<State>()((set, get) => {
+  const autosave = createAutosave<HrDoc>({
+    save: async (doc, mode) => {
+      if (mode === 'keepalive') {
+        await saveHr(doc, { keepalive: true })
+        return
+      }
+      try {
+        await saveHr(doc)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
     const s = get()
     if (!s.doc) return
-    try {
-      await saveHr({ ...s.doc, updatedAt: new Date().toISOString() })
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
-
-function mutate(
-  get: () => State,
-  set: (p: Partial<State>) => void,
-  fn: (doc: HrDoc) => HrDoc,
-) {
-  const s = get()
-  if (!s.doc) return
-  const next = fn(s.doc)
-  set({ doc: next })
-  scheduleSave(get, set)
-}
-
-export const useHr = create<State>()((set, get) => ({
+    set({ status: 'saving' })
+    autosave.schedule({ ...s.doc, updatedAt: new Date().toISOString() })
+  }
+  function mutate(fn: (doc: HrDoc) => HrDoc) {
+    const s = get()
+    if (!s.doc) return
+    set({ doc: fn(s.doc) })
+    scheduleSave()
+  }
+  return {
   doc: null,
   status: 'idle',
   error: null,
@@ -93,13 +93,13 @@ export const useHr = create<State>()((set, get) => ({
       pause: init.pause ?? 0,
       notiz: init.notiz ?? '',
     }
-    mutate(get, set, (d) => ({ ...d, entries: [...d.entries, entry] }))
+    mutate((d) => ({ ...d, entries: [...d.entries, entry] }))
     log('entry.add', `${entry.datum} · ${entry.employeeId}`)
     return id
   },
 
   updateEntry: (id, patch) => {
-    mutate(get, set, (d) => ({
+    mutate((d) => ({
       ...d,
       entries: d.entries.map((e) => (e.id === id ? { ...e, ...patch } : e)),
     }))
@@ -107,7 +107,7 @@ export const useHr = create<State>()((set, get) => ({
   },
 
   removeEntry: (id) => {
-    mutate(get, set, (d) => ({
+    mutate((d) => ({
       ...d,
       entries: d.entries.filter((e) => e.id !== id),
     }))
@@ -115,7 +115,7 @@ export const useHr = create<State>()((set, get) => ({
   },
 
   duplicateEntry: (id) => {
-    mutate(get, set, (d) => {
+    mutate((d) => {
       const src = d.entries.find((e) => e.id === id)
       if (!src) return d
       const i = d.entries.findIndex((e) => e.id === id)
@@ -131,7 +131,7 @@ export const useHr = create<State>()((set, get) => ({
     const trimmed = text.trim()
     if (!trimmed) return
     const u = buildUtterance(author, trimmed)
-    mutate(get, set, (d) => {
+    mutate((d) => {
       const i = d.threads.findIndex((t) => t.employeeId === employeeId)
       if (i === -1) {
         return {
@@ -147,7 +147,7 @@ export const useHr = create<State>()((set, get) => ({
   },
 
   removeUtterance: (employeeId, utteranceId) => {
-    mutate(get, set, (d) => ({
+    mutate((d) => ({
       ...d,
       threads: d.threads.map((t) =>
         t.employeeId === employeeId
@@ -157,7 +157,8 @@ export const useHr = create<State>()((set, get) => ({
     }))
     log('gespraeche.remove', `${employeeId} · ${utteranceId}`)
   },
-}))
+  }
+})
 
 export function emptyHrDoc(): HrDoc {
   return emptyDoc()

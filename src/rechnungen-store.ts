@@ -10,6 +10,7 @@ import {
   type RechnungsplanRow,
 } from './types'
 import { fetchRechnungsplan, saveRechnungsplan } from './api'
+import { createAutosave } from './lib/autosave'
 
 const now = new Date()
 const CURRENT_YEAR = now.getFullYear()
@@ -42,22 +43,6 @@ export type NEntrySlot =
   | { kind: 'nachtrag'; index: number }
   | { kind: 'zeithonorar' }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
-    const s = get()
-    if (!s.data) return
-    try {
-      await saveRechnungsplan(s.year, s.month, s.data)
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
 
 function newId(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -102,19 +87,42 @@ function carryForward(prev: Rechnungsplan, year: number, month: number): Rechnun
   }
 }
 
-export const useRechnungen = create<State>()((set, get) => ({
+export const useRechnungen = create<State>()((set, get) => {
+  const autosave = createAutosave<{ year: number; month: number; data: Rechnungsplan }>({
+    save: async (p, mode) => {
+      if (mode === 'keepalive') {
+        await saveRechnungsplan(p.year, p.month, p.data, { keepalive: true })
+        return
+      }
+      try {
+        await saveRechnungsplan(p.year, p.month, p.data)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
+    const s = get()
+    if (!s.data) return
+    set({ status: 'saving' })
+    autosave.schedule({ year: s.year, month: s.month, data: s.data })
+  }
+  return {
   year: CURRENT_YEAR,
   month: CURRENT_MONTH,
   data: null,
   status: 'idle',
   error: null,
 
-  setYear: (y) => {
+  setYear: async (y) => {
+    await autosave.flush()
     set({ year: y })
     void get().load()
   },
 
-  setMonth: (m) => {
+  setMonth: async (m) => {
+    await autosave.flush()
     set({ month: m })
     void get().load()
   },
@@ -136,7 +144,7 @@ export const useRechnungen = create<State>()((set, get) => ({
     const row = emptyRechnungsplanRow(s.data.nachtragCount, s.data.showZeithonorar)
     row.id = newId()
     set({ data: { ...s.data, rows: [...s.data.rows, row] } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updateRow: (id, patch) => {
@@ -148,14 +156,14 @@ export const useRechnungen = create<State>()((set, get) => ({
         rows: s.data.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removeRow: (id) => {
     const s = get()
     if (!s.data) return
     set({ data: { ...s.data, rows: s.data.rows.filter((r) => r.id !== id) } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updateNote: (id, columnId, text) => {
@@ -169,7 +177,7 @@ export const useRechnungen = create<State>()((set, get) => ({
         ),
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updateNEntry: (id, slot, patch) => {
@@ -193,7 +201,7 @@ export const useRechnungen = create<State>()((set, get) => ({
         }),
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   setNachtragCount: (n) => {
@@ -210,7 +218,7 @@ export const useRechnungen = create<State>()((set, get) => ({
         })),
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   setShowZeithonorar: (show) => {
@@ -226,7 +234,7 @@ export const useRechnungen = create<State>()((set, get) => ({
         })),
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   renameNoteColumn: (columnId, label) => {
@@ -240,7 +248,7 @@ export const useRechnungen = create<State>()((set, get) => ({
         ),
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   copyFromPreviousMonth: async () => {
@@ -252,12 +260,13 @@ export const useRechnungen = create<State>()((set, get) => ({
       if (!source || source.rows.length === 0) return
       const next = carryForward(source, s.year, s.month)
       set({ data: next })
-      scheduleSave(get, (p) => set(p as Partial<State>))
+      scheduleSave()
     } catch (e) {
       set({ status: 'error', error: (e as Error).message })
     }
   },
-}))
+  }
+})
 
 // Kept for callers that still import rechnungsplanKey through this file.
 export { rechnungsplanKey }

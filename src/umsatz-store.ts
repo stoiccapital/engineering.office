@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { MonthValues, Umsatzkontrolle, UmsatzTeam } from './types'
 import { emptyMonthValues } from './types'
 import { fetchUmsatz, saveUmsatz, fetchZiele } from './api'
+import { createAutosave } from './lib/autosave'
 import { defaultUmsatz } from './lib/seeds'
 import { currentCalendarQuarter, migrateUmsatz } from './lib/umsatz'
 
@@ -26,22 +27,6 @@ type State = {
   updateCell: (teamId: string, metric: MetricKey, monthIndex: number, value: number | null) => void
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
-    const s = get()
-    if (!s.data) return
-    try {
-      await saveUmsatz(s.year, s.data)
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
 
 function withMonth(values: MonthValues, index: number, value: number | null): MonthValues {
   const next = values.slice()
@@ -59,14 +44,36 @@ function ensureTeam(data: Umsatzkontrolle, teamId: string): UmsatzTeam {
   }
 }
 
-export const useUmsatz = create<State>()((set, get) => ({
+export const useUmsatz = create<State>()((set, get) => {
+  const autosave = createAutosave<{ year: number; data: Umsatzkontrolle }>({
+    save: async (p, mode) => {
+      if (mode === 'keepalive') {
+        await saveUmsatz(p.year, p.data, { keepalive: true })
+        return
+      }
+      try {
+        await saveUmsatz(p.year, p.data)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
+    const s = get()
+    if (!s.data) return
+    set({ status: 'saving' })
+    autosave.schedule({ year: s.year, data: s.data })
+  }
+  return {
   year: CURRENT_YEAR,
   quarter: CURRENT_QUARTER,
   data: null,
   status: 'idle',
   error: null,
 
-  setYear: (y) => {
+  setYear: async (y) => {
+    await autosave.flush()
     set({ year: y })
     void get().load()
   },
@@ -94,6 +101,7 @@ export const useUmsatz = create<State>()((set, get) => ({
       ? s.data.teams.map((t) => (t.id === teamId ? updated : t))
       : [...s.data.teams, updated]
     set({ data: { ...s.data, teams } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
-}))
+  }
+})

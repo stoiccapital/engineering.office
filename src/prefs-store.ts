@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { fetchUserPrefs, saveUserPrefs } from '@/api'
+import { createAutosave } from './lib/autosave'
 
 // Per-user preferences: theme (dark/light) + accent color. Server-persisted
 // via `functions/api/user-prefs.ts` (shared `documents` table, keyed per
@@ -53,28 +54,31 @@ function readAccent(): Accent {
   return 'indigo'
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
-    const s = get()
-    try {
-      const doc: PrefsDoc = {
-        theme: s.theme,
-        accent: s.accent,
-        updatedAt: new Date().toISOString(),
+export const usePrefs = create<State>()((set, get) => {
+  const autosave = createAutosave<PrefsDoc>({
+    save: async (doc, mode) => {
+      if (mode === 'keepalive') {
+        await saveUserPrefs(doc, { keepalive: true })
+        return
       }
-      await saveUserPrefs(doc)
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
-
-export const usePrefs = create<State>()((set, get) => ({
+      try {
+        await saveUserPrefs(doc)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
+    const s = get()
+    set({ status: 'saving' })
+    autosave.schedule({
+      theme: s.theme,
+      accent: s.accent,
+      updatedAt: new Date().toISOString(),
+    })
+  }
+  return {
   theme: readTheme(),
   accent: readAccent(),
   status: 'idle',
@@ -101,7 +105,7 @@ export const usePrefs = create<State>()((set, get) => ({
         // First-time user — no server doc yet. Keep current values, persist
         // them so subsequent devices inherit.
         set({ hydrated: true, status: 'saved' })
-        scheduleSave(get, set)
+        scheduleSave()
       }
     } catch (e) {
       // Not signed in / offline — keep localStorage values, flag hydrated so
@@ -114,13 +118,14 @@ export const usePrefs = create<State>()((set, get) => ({
     if (get().theme === t) return
     set({ theme: t })
     localStorage.setItem(THEME_KEY, t)
-    if (get().hydrated) scheduleSave(get, set)
+    if (get().hydrated) scheduleSave()
   },
 
   setAccent: (a) => {
     if (get().accent === a) return
     set({ accent: a })
     localStorage.setItem(ACCENT_KEY, a)
-    if (get().hydrated) scheduleSave(get, set)
+    if (get().hydrated) scheduleSave()
   },
-}))
+  }
+})

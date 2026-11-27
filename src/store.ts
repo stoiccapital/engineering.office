@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Period, ProjectRow, Quarter, RiskFlag } from './types'
 import { fetchPeriod, savePeriod } from './api'
+import { createAutosave } from './lib/autosave'
 import { currentCalendarQuarter } from './lib/umsatz'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -51,35 +52,41 @@ type State = {
   replaceRows: (rows: ProjectRow[]) => void
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
+export const useForecast = create<State>()((set, get) => {
+  const autosave = createAutosave<{ key: string; period: Period }>({
+    save: async (p, mode) => {
+      if (mode === 'keepalive') {
+        await savePeriod(p.key, p.period, { keepalive: true })
+        return
+      }
+      try {
+        await savePeriod(p.key, p.period)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
     const s = get()
     if (!s.period) return
-    try {
-      await savePeriod(periodKey(s.year, s.quarter), s.period)
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
-
-export const useForecast = create<State>()((set, get) => ({
+    set({ status: 'saving' })
+    autosave.schedule({ key: periodKey(s.year, s.quarter), period: s.period })
+  }
+  return {
   year: CURRENT_YEAR,
   quarter: CURRENT_QUARTER,
   period: null,
   status: 'idle',
   error: null,
 
-  setYear: (y) => {
+  setYear: async (y) => {
+    await autosave.flush()
     set({ year: y })
     void get().load()
   },
-  setQuarter: (q) => {
+  setQuarter: async (q) => {
+    await autosave.flush()
     set({ quarter: q })
     void get().load()
   },
@@ -103,7 +110,7 @@ export const useForecast = create<State>()((set, get) => ({
     const s = get()
     if (!s.period) return
     set({ period: { ...s.period, rows: [...s.period.rows, emptyRow()] } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updateRow: (id, patch) => {
@@ -115,14 +122,14 @@ export const useForecast = create<State>()((set, get) => ({
         rows: s.period.rows.map((r) => (r.id === id ? { ...r, ...patch } : r)),
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   deleteRow: (id) => {
     const s = get()
     if (!s.period) return
     set({ period: { ...s.period, rows: s.period.rows.filter((r) => r.id !== id) } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   setFlag: (id, which, flag) => {
@@ -134,13 +141,14 @@ export const useForecast = create<State>()((set, get) => ({
         rows: s.period.rows.map((r) => (r.id === id ? { ...r, [which]: flag } : r)),
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   replaceRows: (rows) => {
     const s = get()
     if (!s.period) return
     set({ period: { ...s.period, rows } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
-}))
+  }
+})

@@ -9,6 +9,7 @@ import {
   type ZieleTeam,
 } from './types'
 import { fetchZiele, saveZiele } from './api'
+import { createAutosave } from './lib/autosave'
 import { defaultZiele } from './lib/seeds'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -59,22 +60,6 @@ type State = {
   unlock: () => void
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
-    const s = get()
-    if (!s.ziele) return
-    try {
-      await saveZiele(s.year, s.ziele)
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
 
 function mapBranch(
   z: Ziele,
@@ -94,14 +79,36 @@ function newId(): string {
     : `id_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
-export const useZiele = create<State>()((set, get) => ({
+export const useZiele = create<State>()((set, get) => {
+  const autosave = createAutosave<{ year: number; ziele: Ziele }>({
+    save: async (p, mode) => {
+      if (mode === 'keepalive') {
+        await saveZiele(p.year, p.ziele, { keepalive: true })
+        return
+      }
+      try {
+        await saveZiele(p.year, p.ziele)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
+    const s = get()
+    if (!s.ziele) return
+    set({ status: 'saving' })
+    autosave.schedule({ year: s.year, ziele: s.ziele })
+  }
+  return {
   year: CURRENT_YEAR,
   halbjahr: INITIAL_HALBJAHR,
   ziele: null,
   status: 'idle',
   error: null,
 
-  setYear: (y) => {
+  setYear: async (y) => {
+    await autosave.flush()
     set({ year: y })
     void get().load()
   },
@@ -124,7 +131,7 @@ export const useZiele = create<State>()((set, get) => ({
     const s = get()
     if (!s.ziele) return
     set({ ziele: mapBranch(s.ziele, branchId, (b) => ({ ...b, ...patch })) })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   renameTeam: (branchId, teamId, name) => {
@@ -135,7 +142,7 @@ export const useZiele = create<State>()((set, get) => ({
         mapTeam(b, teamId, (t) => ({ ...t, name })),
       ),
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   addTeam: (branchId) => {
@@ -147,7 +154,7 @@ export const useZiele = create<State>()((set, get) => ({
         teams: [...b.teams, { id: newId(), name: `Team ${b.teams.length + 1}`, people: [] }],
       })),
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removeTeam: (branchId, teamId) => {
@@ -159,7 +166,7 @@ export const useZiele = create<State>()((set, get) => ({
         teams: b.teams.filter((t) => t.id !== teamId),
       })),
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   addPerson: (branchId, teamId) => {
@@ -173,7 +180,7 @@ export const useZiele = create<State>()((set, get) => ({
         })),
       ),
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removePerson: (branchId, teamId, personId) => {
@@ -187,7 +194,7 @@ export const useZiele = create<State>()((set, get) => ({
         })),
       ),
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updatePerson: (branchId, teamId, personId, patch) => {
@@ -201,7 +208,7 @@ export const useZiele = create<State>()((set, get) => ({
         })),
       ),
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updatePersonFTE: (branchId, teamId, personId, half, value) => {
@@ -219,7 +226,7 @@ export const useZiele = create<State>()((set, get) => ({
         })),
       ),
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updateTeilungsschluessel: (branchId, teamId, bucket, value) => {
@@ -238,7 +245,7 @@ export const useZiele = create<State>()((set, get) => ({
         }),
       ),
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   lock: (by) => {
@@ -252,7 +259,7 @@ export const useZiele = create<State>()((set, get) => ({
         lockedBy: by,
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   unlock: () => {
@@ -266,9 +273,10 @@ export const useZiele = create<State>()((set, get) => ({
         lockedBy: undefined,
       },
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
-}))
+  }
+})
 
 // Pure derived math — reused in the view and tests. All FTE sums accept an
 // optional `half` to narrow to H1 or H2; without it they return the annual

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { fetchProjektliste, saveProjektliste } from './api'
+import { createAutosave } from './lib/autosave'
 import {
   emptyProjektlisteDoc,
   type ForecastFlag,
@@ -79,22 +80,6 @@ type State = {
   undoLastImport: () => void
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
-    const s = get()
-    if (!s.doc) return
-    try {
-      await saveProjektliste({ ...s.doc, updatedAt: new Date().toISOString() })
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
 
 function normNum(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null
@@ -146,7 +131,28 @@ function normalize(raw: ProjektlisteDoc | null): ProjektlisteDoc {
   }
 }
 
-export const useProjektliste = create<State>()((set, get) => ({
+export const useProjektliste = create<State>()((set, get) => {
+  const autosave = createAutosave<ProjektlisteDoc>({
+    save: async (doc, mode) => {
+      if (mode === 'keepalive') {
+        await saveProjektliste(doc, { keepalive: true })
+        return
+      }
+      try {
+        await saveProjektliste(doc)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
+    const s = get()
+    if (!s.doc) return
+    set({ status: 'saving' })
+    autosave.schedule({ ...s.doc, updatedAt: new Date().toISOString() })
+  }
+  return {
   doc: null,
   status: 'idle',
   error: null,
@@ -175,7 +181,7 @@ export const useProjektliste = create<State>()((set, get) => ({
     if (!s.doc) return ''
     const row = normRow({})
     set({ doc: { ...s.doc, rows: [row, ...s.doc.rows] } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
     return row.id
   },
 
@@ -192,7 +198,7 @@ export const useProjektliste = create<State>()((set, get) => ({
         : r,
     )
     set({ doc: { ...s.doc, rows } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removeRow: (id) => {
@@ -200,7 +206,7 @@ export const useProjektliste = create<State>()((set, get) => ({
     if (!s.doc) return
     const rows = s.doc.rows.filter((r) => r.id !== id)
     set({ doc: { ...s.doc, rows } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   stageImport: (incoming, mode) => {
@@ -291,7 +297,7 @@ export const useProjektliste = create<State>()((set, get) => ({
       importedAt: new Date().toISOString(),
     }
     set({ doc, stagedImport: null, lastImportBackup: backup })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
     setTimeout(() => {
       const st = get()
       if (st.lastImportBackup && st.lastImportBackup.expiresAt <= Date.now()) {
@@ -311,9 +317,10 @@ export const useProjektliste = create<State>()((set, get) => ({
       },
       lastImportBackup: null,
     })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
-}))
+  }
+})
 
 // Filter + search + sort helper used by the view. Case-insensitive match on
 // projekt / projektleiter / fachbereich / status / leistung, then sorted.

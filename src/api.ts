@@ -174,7 +174,26 @@ async function docGet(path: string): Promise<Response> {
 
 // Saves to the same document run one after another so each request carries
 // the version returned by the previous one.
-function docPut(path: string, body: string): Promise<Response> {
+// When `keepalive` is true (page lifecycle flush), we skip the serialization
+// chain and the 409 ceremony — the page is dying, we just want the bytes to
+// hit the server. fetch{keepalive:true} outlives the page up to the browser's
+// keepalive body cap (~64 KB in Chromium).
+function docPut(path: string, body: string, opts?: { keepalive?: boolean }): Promise<Response> {
+  if (opts?.keepalive) {
+    const v = docVersions.get(path)
+    return fetch(path, {
+      method: 'PUT',
+      headers: { ...(headers() as Record<string, string>), ...(v !== undefined ? { [DOC_VERSION]: v } : {}) },
+      body,
+      keepalive: true,
+    }).catch((err) => {
+      // Last-gasp fallback: sendBeacon. Can't carry the version header, so
+      // the server treats it as "skip check" and overwrites. Better than
+      // losing the edit entirely.
+      try { navigator.sendBeacon(path, body) } catch { /* nothing left */ }
+      throw err
+    })
+  }
   const prev = saveQueues.get(path) ?? Promise.resolve()
   const next = prev
     .catch(() => {})
@@ -206,12 +225,12 @@ export async function fetchPeriod(key: string): Promise<Period | null> {
   return data
 }
 
-export async function savePeriod(key: string, period: Period): Promise<void> {
+export async function savePeriod(key: string, period: Period, opts?: { keepalive?: boolean }): Promise<void> {
   if (mock.isDev) {
     mock.setPeriod(key, period)
     return
   }
-  const res = await docPut(`/api/period/${key}`, JSON.stringify(period))
+  const res = await docPut(`/api/period/${key}`, JSON.stringify(period), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -224,12 +243,12 @@ export async function fetchPlan(year: number): Promise<QuartalPlan | null> {
   return (await res.json()) as QuartalPlan | null
 }
 
-export async function savePlan(year: number, plan: QuartalPlan): Promise<void> {
+export async function savePlan(year: number, plan: QuartalPlan, opts?: { keepalive?: boolean }): Promise<void> {
   if (mock.isDev) {
     mock.setPlan(year, plan)
     return
   }
-  const res = await docPut(`/api/plan/${year}`, JSON.stringify(plan))
+  const res = await docPut(`/api/plan/${year}`, JSON.stringify(plan), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -242,12 +261,12 @@ export async function fetchZiele(year: number): Promise<Ziele | null> {
   return (await res.json()) as Ziele | null
 }
 
-export async function saveZiele(year: number, ziele: Ziele): Promise<void> {
+export async function saveZiele(year: number, ziele: Ziele, opts?: { keepalive?: boolean }): Promise<void> {
   if (mock.isDev) {
     mock.setZiele(year, ziele)
     return
   }
-  const res = await docPut(`/api/ziele/${year}`, JSON.stringify(ziele))
+  const res = await docPut(`/api/ziele/${year}`, JSON.stringify(ziele), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -260,12 +279,12 @@ export async function fetchUmsatz(year: number): Promise<Umsatzkontrolle | null>
   return (await res.json()) as Umsatzkontrolle | null
 }
 
-export async function saveUmsatz(year: number, data: Umsatzkontrolle): Promise<void> {
+export async function saveUmsatz(year: number, data: Umsatzkontrolle, opts?: { keepalive?: boolean }): Promise<void> {
   if (mock.isDev) {
     mock.setUmsatz(year, data)
     return
   }
-  const res = await docPut(`/api/umsatz/${year}`, JSON.stringify(data))
+  const res = await docPut(`/api/umsatz/${year}`, JSON.stringify(data), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -286,13 +305,14 @@ export async function saveRechnungsplan(
   year: number,
   month: number,
   data: Rechnungsplan,
+  opts?: { keepalive?: boolean },
 ): Promise<void> {
   if (mock.isDev) {
     mock.setRechnungsplan(year, month, data)
     return
   }
   const key = rechnungsplanKey(year, month)
-  const res = await docPut(`/api/rechnungsplan/${key}`, JSON.stringify(data))
+  const res = await docPut(`/api/rechnungsplan/${key}`, JSON.stringify(data), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -305,12 +325,12 @@ export async function fetchRoster(): Promise<Roster | null> {
   return (await res.json()) as Roster | null
 }
 
-export async function saveRoster(data: Roster): Promise<void> {
+export async function saveRoster(data: Roster, opts?: { keepalive?: boolean }): Promise<void> {
   if (mock.isDev) {
     mock.setRoster(data)
     return
   }
-  const res = await docPut('/api/roster', JSON.stringify(data))
+  const res = await docPut('/api/roster', JSON.stringify(data), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -347,12 +367,12 @@ export async function fetchProjektliste(): Promise<ProjektlisteDoc | null> {
   return (await res.json()) as ProjektlisteDoc | null
 }
 
-export async function saveProjektliste(data: ProjektlisteDoc): Promise<void> {
+export async function saveProjektliste(data: ProjektlisteDoc, opts?: { keepalive?: boolean }): Promise<void> {
   if (mock.isDev) {
     mock.setProjektliste(data)
     return
   }
-  const res = await docPut('/api/projektliste', JSON.stringify(data))
+  const res = await docPut('/api/projektliste', JSON.stringify(data), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -365,12 +385,12 @@ export async function fetchUserPrefs(): Promise<unknown> {
   return await res.json()
 }
 
-export async function saveUserPrefs(data: unknown): Promise<void> {
+export async function saveUserPrefs(data: unknown, opts?: { keepalive?: boolean }): Promise<void> {
   if (mock.isDev) {
     mock.setUserPrefs(data)
     return
   }
-  const res = await docPut('/api/user-prefs', JSON.stringify(data))
+  const res = await docPut('/api/user-prefs', JSON.stringify(data), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -383,12 +403,12 @@ export async function fetchKostenermittlungImv(): Promise<unknown> {
   return await res.json()
 }
 
-export async function saveKostenermittlungImv(data: unknown): Promise<void> {
+export async function saveKostenermittlungImv(data: unknown, opts?: { keepalive?: boolean }): Promise<void> {
   if (mock.isDev) {
     mock.setKostenermittlungImv(data)
     return
   }
-  const res = await docPut('/api/kostenermittlung_imv', JSON.stringify(data))
+  const res = await docPut('/api/kostenermittlung_imv', JSON.stringify(data), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }
@@ -401,12 +421,12 @@ export async function fetchHr(): Promise<unknown> {
   return await res.json()
 }
 
-export async function saveHr(data: unknown): Promise<void> {
+export async function saveHr(data: unknown, opts?: { keepalive?: boolean }): Promise<void> {
   if (mock.isDev) {
     mock.setHr(data)
     return
   }
-  const res = await docPut('/api/hr', JSON.stringify(data))
+  const res = await docPut('/api/hr', JSON.stringify(data), opts)
   if (res.status === 401) throw new Error('unauthorized')
   if (!res.ok) throw new Error(`save failed: ${res.status}`)
 }

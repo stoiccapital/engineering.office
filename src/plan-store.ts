@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Branch, Employee, PlanStatus, PoolTask, QuartalPlan, WeekTodo } from './types'
 import { migratePlan } from './types'
 import { fetchPlan, savePlan } from './api'
+import { createAutosave } from './lib/autosave'
 import { currentISOWeek, quarterOfISOWeek, type QuarterLabel } from './lib/iso-week'
 import { logActivity } from '@/activity-store'
 
@@ -101,24 +102,30 @@ type State = {
   moveAllTodos: (fromEmpIndex: number, toEmpIndex: number) => void
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
+export const usePlan = create<State>()((set, get) => {
+  // Autosave: debounced save with lifecycle flush (beforeunload, pagehide,
+  // visibilitychange=hidden). See src/lib/autosave.ts.
+  const autosave = createAutosave<{ year: number; plan: QuartalPlan }>({
+    save: async (p, mode) => {
+      if (mode === 'keepalive') {
+        await savePlan(p.year, p.plan, { keepalive: true })
+        return
+      }
+      try {
+        await savePlan(p.year, p.plan)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
     const s = get()
     if (!s.plan) return
-    try {
-      await savePlan(s.year, s.plan)
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
-
-export const usePlan = create<State>()((set, get) => ({
+    set({ status: 'saving' })
+    autosave.schedule({ year: s.year, plan: s.plan })
+  }
+  return {
   year: CURRENT_YEAR,
   quarter: INITIAL_QUARTER,
   teamFilter: 'all',
@@ -126,7 +133,10 @@ export const usePlan = create<State>()((set, get) => ({
   status: 'idle',
   error: null,
 
-  setYear: (y) => {
+  setYear: async (y) => {
+    // Flush before swapping documents — any pending save belongs to the OLD
+    // year and would otherwise fire with the NEW plan payload.
+    await autosave.flush()
     set({ year: y })
     void get().load()
   },
@@ -159,7 +169,7 @@ export const usePlan = create<State>()((set, get) => ({
       status === null ? 'cell.clear' : `cell.set.${status}`,
       `KW ${week} · ${empLabel(s.plan, empIndex)}`,
     )
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   renameEmployee: (empIndex, name) => {
@@ -168,7 +178,7 @@ export const usePlan = create<State>()((set, get) => ({
     const employees = s.plan.employees.map((e, i) => (i === empIndex ? { ...e, name } : e))
     set({ plan: { ...s.plan, employees } })
     log('employee.rename', `${empLabel(s.plan, empIndex)} → ${name}`)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   setEmployeeBranch: (empIndex, branch) => {
@@ -177,7 +187,7 @@ export const usePlan = create<State>()((set, get) => ({
     const employees = s.plan.employees.map((e, i) => (i === empIndex ? { ...e, branch } : e))
     set({ plan: { ...s.plan, employees } })
     log('employee.branch', `${empLabel(s.plan, empIndex)} → ${branch}`)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   addEmployee: (branch = 'de') => {
@@ -191,7 +201,7 @@ export const usePlan = create<State>()((set, get) => ({
     const employees = [...s.plan.employees, newEmp]
     set({ plan: { ...s.plan, employees } })
     log('employee.add', newEmp.name)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   addRosterEmployee: (rosterEmployeeId, name, branch) => {
@@ -211,7 +221,7 @@ export const usePlan = create<State>()((set, get) => ({
     )
     set({ plan: { ...s.plan, employees, dismissedRosterEmployeeIds } })
     log('employee.add.roster', name)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removeEmployee: (empIndex) => {
@@ -248,7 +258,7 @@ export const usePlan = create<State>()((set, get) => ({
       .filter((t) => t.empIndex !== empIndex)
       .map((t) => ({ ...t, empIndex: t.empIndex > empIndex ? t.empIndex - 1 : t.empIndex }))
     set({ plan: { ...s.plan, employees, cells, todos, pool, dismissedRosterEmployeeIds } })
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   addTodo: (empIndex, week) => {
@@ -260,7 +270,7 @@ export const usePlan = create<State>()((set, get) => ({
     const todos = { ...(s.plan.todos ?? {}), [k]: [...current, todo] }
     set({ plan: { ...s.plan, todos } })
     log('todo.add', `KW ${week} · ${empLabel(s.plan, empIndex)}`)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updateTodo: (empIndex, week, id, patch) => {
@@ -276,7 +286,7 @@ export const usePlan = create<State>()((set, get) => ({
       `todo.update.${changed || 'any'}`,
       `KW ${week} · ${empLabel(s.plan, empIndex)}`,
     )
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removeTodo: (empIndex, week, id) => {
@@ -290,7 +300,7 @@ export const usePlan = create<State>()((set, get) => ({
     else allTodos[k] = next
     set({ plan: { ...s.plan, todos: allTodos } })
     log('todo.remove', `KW ${week} · ${empLabel(s.plan, empIndex)}`)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   addPoolTask: (empIndex, text = '') => {
@@ -299,7 +309,7 @@ export const usePlan = create<State>()((set, get) => ({
     const pool = [...(s.plan.pool ?? []), { id: newId(), text, empIndex }]
     set({ plan: { ...s.plan, pool } })
     log('pool.add', empLabel(s.plan, empIndex))
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updatePoolTask: (id, text) => {
@@ -308,7 +318,7 @@ export const usePlan = create<State>()((set, get) => ({
     const pool = (s.plan.pool ?? []).map((t) => (t.id === id ? { ...t, text } : t))
     set({ plan: { ...s.plan, pool } })
     log('pool.update', id)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removePoolTask: (id) => {
@@ -317,7 +327,7 @@ export const usePlan = create<State>()((set, get) => ({
     const pool = (s.plan.pool ?? []).filter((t) => t.id !== id)
     set({ plan: { ...s.plan, pool } })
     log('pool.remove', id)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   assignPoolTask: (poolId, week) => {
@@ -335,7 +345,7 @@ export const usePlan = create<State>()((set, get) => ({
       'pool.assign',
       `KW ${week} · ${empLabel(s.plan, poolEntry.empIndex)}`,
     )
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   moveTodo: (from, to, todoId, toIndex) => {
@@ -376,7 +386,7 @@ export const usePlan = create<State>()((set, get) => ({
             to.empIndex,
           )} KW ${to.week}`,
     )
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   moveAllTodos: (fromEmpIndex, toEmpIndex) => {
@@ -399,6 +409,7 @@ export const usePlan = create<State>()((set, get) => ({
       'todo.move.all',
       `${empLabel(s.plan, fromEmpIndex)} → ${empLabel(s.plan, toEmpIndex)}`,
     )
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
-}))
+  }
+})

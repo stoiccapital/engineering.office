@@ -7,6 +7,7 @@ import {
   type RosterTeam,
 } from './types'
 import { fetchRoster, saveRoster } from './api'
+import { createAutosave } from './lib/autosave'
 import { logActivity } from '@/activity-store'
 
 function log(action: string, target?: string) {
@@ -35,22 +36,6 @@ type State = {
   clearAllLogins: (exceptId?: string) => void
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
-    const s = get()
-    if (!s.roster) return
-    try {
-      await saveRoster(s.roster)
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
 
 function newId(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -58,7 +43,28 @@ function newId(): string {
     : `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
-export const useRoster = create<State>()((set, get) => ({
+export const useRoster = create<State>()((set, get) => {
+  const autosave = createAutosave<Roster>({
+    save: async (roster, mode) => {
+      if (mode === 'keepalive') {
+        await saveRoster(roster, { keepalive: true })
+        return
+      }
+      try {
+        await saveRoster(roster)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
+    const s = get()
+    if (!s.roster) return
+    set({ status: 'saving' })
+    autosave.schedule(s.roster)
+  }
+  return {
   roster: null,
   status: 'idle',
   error: null,
@@ -83,7 +89,7 @@ export const useRoster = create<State>()((set, get) => ({
     const loc: RosterLocation = { id: newId(), name }
     set({ roster: { ...s.roster, locations: [...s.roster.locations, loc] } })
     log('location.add', name || loc.id)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updateLocation: (id, patch) => {
@@ -96,7 +102,7 @@ export const useRoster = create<State>()((set, get) => ({
       },
     })
     log(`location.update.${Object.keys(patch).join(',') || 'any'}`, id)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removeLocation: (id) => {
@@ -113,7 +119,7 @@ export const useRoster = create<State>()((set, get) => ({
       },
     })
     log('location.remove', removed?.name ?? id)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   addTeam: (name = '', locationId) => {
@@ -122,7 +128,7 @@ export const useRoster = create<State>()((set, get) => ({
     const team: RosterTeam = { id: newId(), name, locationId }
     set({ roster: { ...s.roster, teams: [...s.roster.teams, team] } })
     log('team.add', name || team.id)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updateTeam: (id, patch) => {
@@ -135,7 +141,7 @@ export const useRoster = create<State>()((set, get) => ({
       },
     })
     log(`team.update.${Object.keys(patch).join(',') || 'any'}`, id)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removeTeam: (id) => {
@@ -152,7 +158,7 @@ export const useRoster = create<State>()((set, get) => ({
       },
     })
     log('team.remove', removed?.name ?? id)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   addEmployee: (teamId) => {
@@ -161,7 +167,7 @@ export const useRoster = create<State>()((set, get) => ({
     const emp: RosterEmployee = { id: newId(), vorname: '', name: '', teamId }
     set({ roster: { ...s.roster, employees: [...s.roster.employees, emp] } })
     log('employee.add', emp.id)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   updateEmployee: (id, patch) => {
@@ -183,7 +189,7 @@ export const useRoster = create<State>()((set, get) => ({
         : id
     if (Object.hasOwn(patch, 'password')) log('employee.password.set', label)
     else log(`employee.update.${Object.keys(patch).join(',') || 'any'}`, label)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   removeEmployee: (id) => {
@@ -200,7 +206,7 @@ export const useRoster = create<State>()((set, get) => ({
       'employee.remove',
       removed ? `${removed.vorname} ${removed.name}` : id,
     )
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
 
   clearAllLogins: (exceptId) => {
@@ -217,6 +223,7 @@ export const useRoster = create<State>()((set, get) => ({
       },
     })
     log('employee.logins.clear.all', exceptId ? `except ${exceptId}` : undefined)
-    scheduleSave(get, (p) => set(p as Partial<State>))
+    scheduleSave()
   },
-}))
+  }
+})

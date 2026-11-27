@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { fetchKostenermittlungImv, saveKostenermittlungImv } from '@/api'
+import { createAutosave } from './lib/autosave'
 import { logActivity } from '@/activity-store'
 
 // The IMV HTML app owns its own state schema (schema / estimates[] / settings /
@@ -23,24 +24,28 @@ type State = {
   receiveFromFrame: (state: unknown) => void
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleSave(get: () => State, set: (p: Partial<State>) => void) {
-  if (saveTimer) clearTimeout(saveTimer)
-  set({ status: 'saving' })
-  saveTimer = setTimeout(async () => {
+export const useImv = create<State>()((set, get) => {
+  const autosave = createAutosave<unknown>({
+    save: async (doc, mode) => {
+      if (mode === 'keepalive') {
+        await saveKostenermittlungImv(doc, { keepalive: true })
+        return
+      }
+      try {
+        await saveKostenermittlungImv(doc)
+        set({ status: 'saved', error: null })
+      } catch (e) {
+        set({ status: 'error', error: (e as Error).message })
+      }
+    },
+  })
+  function scheduleSave() {
     const s = get()
     if (s.doc === null) return
-    try {
-      await saveKostenermittlungImv(s.doc)
-      set({ status: 'saved', error: null })
-    } catch (e) {
-      set({ status: 'error', error: (e as Error).message })
-    }
-  }, 500)
-}
-
-export const useImv = create<State>()((set, get) => ({
+    set({ status: 'saving' })
+    autosave.schedule(s.doc)
+  }
+  return {
   doc: null,
   hydrated: false,
   status: 'idle',
@@ -60,7 +65,8 @@ export const useImv = create<State>()((set, get) => ({
 
   receiveFromFrame: (state) => {
     set({ doc: state })
-    scheduleSave(get, set)
+    scheduleSave()
     logActivity({ kind: 'action', module: 'ke_imv_projekte', action: 'persist' })
   },
-}))
+  }
+})
