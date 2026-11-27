@@ -18,7 +18,7 @@ export function TextCell({
   readOnly,
   multiline,
 }: Props) {
-  const base = 'w-full px-2 py-1.5 text-sm outline-none rounded-sm'
+  const base = 'w-full px-2 py-1.5 text-sm outline-none rounded'
   // Editable cells carry a subtle fill at rest so input slots are visible
   // at a glance: darker in light mode, lighter in dark mode. Read-only cells
   // stay flat — plain-text output.

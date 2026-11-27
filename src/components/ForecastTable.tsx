@@ -109,8 +109,8 @@ export function ForecastTable() {
             <col className="w-10" />
           </colgroup>
 
-          <thead className="sticky top-0 z-20 bg-card shadow-[inset_0_-1px_0_hsl(var(--border))]">
-            <tr>
+          <thead className="sticky top-0 z-20 bg-muted/40">
+            <tr className="border-b">
               {groups.map((g, i) => (
                 <th
                   key={i}
@@ -121,7 +121,7 @@ export function ForecastTable() {
                 </th>
               ))}
             </tr>
-            <tr className="border-b bg-muted">
+            <tr className="border-b">
               <Th>PRIO</Th>
               <Th>PL DE</Th>
               <Th>PL PLN</Th>

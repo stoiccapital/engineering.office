@@ -139,7 +139,7 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
           <DropdownMenu.Content
             align="start"
             sideOffset={6}
-            className="z-50 w-56 rounded-md border bg-card p-1 text-sm shadow-md focus:outline-none"
+            className="z-50 w-56 rounded-md border bg-card p-1 text-sm focus:outline-none"
           >
             <DropdownMenu.Sub>
               <DropdownMenu.SubTrigger
@@ -152,7 +152,7 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
               <DropdownMenu.Portal>
                 <DropdownMenu.SubContent
                   sideOffset={4}
-                  className="z-50 w-48 rounded-md border bg-card p-1 text-sm shadow-md focus:outline-none"
+                  className="z-50 w-48 rounded-md border bg-card p-1 text-sm focus:outline-none"
                 >
                   <DropdownMenu.Item
                     onSelect={openFilePicker}
@@ -199,12 +199,12 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
                 <div className="truncate text-sm font-medium">
                   {currentUser ? currentUser.displayName : currentRole?.name}
                 </div>
-                <div className="truncate text-[11px] text-muted-foreground">
+                <div className="truncate text-xs text-muted-foreground">
                   {currentUser ? currentRole?.name : admin ? 'Admin' : ''}
                   {currentUser && admin ? ' · Admin' : ''}
                 </div>
                 {currentUser && (
-                  <div className="truncate font-mono text-[10px] text-muted-foreground">
+                  <div className="truncate font-mono text-xs text-muted-foreground">
                     {currentUser.kuerzel ? `${currentUser.kuerzel} · ` : ''}
                     {currentUser.email}
                   </div>
@@ -284,7 +284,7 @@ export function UserMenu({ collapsed }: { collapsed: boolean }) {
                   <DropdownMenu.Portal>
                     <DropdownMenu.SubContent
                       sideOffset={4}
-                      className="z-50 w-56 rounded-md border bg-card p-1 text-sm shadow-md focus:outline-none"
+                      className="z-50 w-56 rounded-md border bg-card p-1 text-sm focus:outline-none"
                     >
                       <DropdownMenu.Item
                         onSelect={() => setViewAsRole(null)}

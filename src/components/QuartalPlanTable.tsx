@@ -65,10 +65,11 @@ export function todoTone(text: string): TodoTone {
 }
 
 export const TONE_CLASSES: Record<Exclude<TodoTone, null>, string> = {
-  red: 'text-red-700 dark:text-red-200 border-l-2 border-red-500 pl-1.5 bg-red-500/15',
-  green: 'text-emerald-600 border-l-2 border-emerald-500 pl-1.5',
-  yellow: 'text-amber-600 border-l-2 border-amber-500 pl-1.5',
-  blue: 'text-sky-600 border-l-2 border-sky-500 pl-1.5',
+  red: 'text-destructive border-l-2 border-destructive pl-1.5 bg-destructive/10',
+  green: 'text-success border-l-2 border-success pl-1.5',
+  yellow: 'text-warning border-l-2 border-warning pl-1.5',
+  blue: 'text-info border-l-2 border-info pl-1.5',
+  // orange/purple: keine Token – Produktentscheidung offen (siehe docs/audits/2026-11-27-ui.md)
   orange: 'text-orange-600 border-l-2 border-orange-500 pl-1.5',
   purple: 'text-violet-600 border-l-2 border-violet-500 pl-1.5',
 }
@@ -76,10 +77,10 @@ export const TONE_CLASSES: Record<Exclude<TodoTone, null>, string> = {
 export const URLAUB_DAYS_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr'] as const
 
 const LEGEND_CLASSES: Record<Exclude<TodoTone, null>, string> = {
-  red: 'text-red-600 border-l-2 border-red-500',
-  green: 'text-emerald-600 border-l-2 border-emerald-500',
-  yellow: 'text-amber-600 border-l-2 border-amber-500',
-  blue: 'text-sky-600 border-l-2 border-sky-500',
+  red: 'text-destructive border-l-2 border-destructive',
+  green: 'text-success border-l-2 border-success',
+  yellow: 'text-warning border-l-2 border-warning',
+  blue: 'text-info border-l-2 border-info',
   orange: 'text-orange-600 border-l-2 border-orange-500',
   purple: 'text-violet-600 border-l-2 border-violet-500',
 }

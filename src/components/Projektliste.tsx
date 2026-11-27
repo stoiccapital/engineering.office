@@ -704,9 +704,9 @@ function ImportPreviewDialog({
   return (
     <Dialog.Root open={!!preview} onOpenChange={(o) => !o && onCancel()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card p-5">
-          <Dialog.Title className="text-base font-semibold">
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-4 shadow-xl">
+          <Dialog.Title className="text-sm font-semibold">
             Import vorbereitet
           </Dialog.Title>
           <Dialog.Description className="mt-1 text-xs text-muted-foreground">

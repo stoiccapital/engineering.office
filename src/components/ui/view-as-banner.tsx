@@ -10,9 +10,9 @@ export function ViewAsBanner() {
   if (!viewAsRoleId || !currentRole) return null
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b bg-warning-soft px-6 py-2 text-xs text-warning">
+    <div className="flex items-center justify-between gap-3 border-b bg-muted/40 px-6 py-2 text-xs text-muted-foreground">
       <div className="flex items-center gap-2">
-        <Eye className="h-3.5 w-3.5" />
+        <Eye className="h-3.5 w-3.5 text-warning" />
         <span>
           Ansicht als{' '}
           <span className="font-semibold">{currentRole.name}</span>
@@ -32,7 +32,7 @@ export function ViewAsBanner() {
       </div>
       <button
         onClick={() => setViewAsRole(null)}
-        className="inline-flex items-center gap-1 rounded bg-background/40 px-2 py-0.5 font-medium hover:bg-background/60"
+        className="inline-flex items-center gap-1 rounded border bg-background px-2 py-0.5 font-medium hover:bg-accent"
       >
         <X className="h-3 w-3" />
         Zurück zur eigenen Rolle

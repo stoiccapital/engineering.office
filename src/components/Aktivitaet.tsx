@@ -166,7 +166,7 @@ export function Aktivitaet() {
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-md border bg-card p-3">
-      <div className="text-[11px] font-medium uppercase tracking-[0.02em] text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
       <div className="mt-1 font-mono text-lg font-semibold tabular-nums">

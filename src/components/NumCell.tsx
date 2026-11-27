@@ -45,7 +45,7 @@ export function NumCell({ value, onChange, readOnly, pct, decimals, className, p
       className={cn(
         // Editable cells carry a subtle fill at rest — darker in light mode,
         // lighter in dark mode — so input slots are visible at a glance.
-        'num w-full px-2 py-1.5 text-sm outline-none rounded-sm bg-foreground/[0.03] transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]',
+        'num w-full px-2 py-1.5 text-sm outline-none rounded bg-foreground/[0.03] transition-colors hover:bg-foreground/[0.06] focus:bg-foreground/[0.1]',
         className,
       )}
       value={editing ? draft : display}

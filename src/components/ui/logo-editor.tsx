@@ -86,11 +86,11 @@ export function LogoEditor({ src, open, onOpenChange, onSave, busy }: Props) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-card p-5 focus:outline-none">
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-4 shadow-xl focus:outline-none">
           <div className="mb-4 flex items-start justify-between">
             <div>
-              <Dialog.Title className="text-base font-semibold">Logo anpassen</Dialog.Title>
+              <Dialog.Title className="text-sm font-semibold">Logo anpassen</Dialog.Title>
               <Dialog.Description className="mt-0.5 text-xs text-muted-foreground">
                 Ziehen zum Verschieben · Scrollen oder Slider zum Zoomen
               </Dialog.Description>

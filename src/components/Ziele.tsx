@@ -494,9 +494,9 @@ function TeamTile({
       <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {name}
       </div>
-      <div className="mt-0.5 font-mono text-base font-semibold tabular-nums">
+      <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
         {fmtDecimal(effective, 2)}{' '}
-        <span className="text-[10px] opacity-70">FTE</span>
+        <span className="text-xs opacity-70">FTE</span>
       </div>
       <div className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
         {fmtDecimal(operative, 2)} + {fmtDecimal(overheadAlloc, 2)}{' '}
@@ -539,7 +539,7 @@ function OverheadBadge({
     tone === 'blue' ? 'bg-info' : tone === 'violet' ? 'bg-foreground/40' : 'bg-success'
   return (
     <div className="flex flex-col rounded border bg-card px-2 py-1.5">
-      <span className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.02em] text-muted-foreground">
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
         <span className={cn('h-1.5 w-1.5 rounded-full', dotClass)} />
         {label}
       </span>
@@ -1055,7 +1055,7 @@ function TotalLine({ label, v, big }: { label: string; v: number; big?: boolean 
   return (
     <div className="flex items-baseline justify-between gap-2">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={cn('num tabular-nums font-mono', big ? 'text-base font-semibold' : 'text-sm')}>
+      <span className={cn('num tabular-nums font-mono', big ? 'text-lg font-semibold' : 'text-sm')}>
         {fmtEUR(v)} €
       </span>
     </div>

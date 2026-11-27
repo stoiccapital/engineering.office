@@ -155,7 +155,7 @@ export function Rechnungen() {
       >
         <div className={cn('overflow-auto', isFullscreen && 'min-h-0 flex-1')}>
           <table className="w-max min-w-full border-collapse text-xs">
-            <thead className="sticky top-0 z-20 bg-muted/90 backdrop-blur">
+            <thead className="sticky top-0 z-20 bg-muted">
               <tr className="border-b font-medium text-muted-foreground">
                 <Th className="w-[88px] text-left">Polen</Th>
                 <Th className="w-[104px] text-left">DE</Th>
@@ -523,7 +523,7 @@ function SettingsPopover({
         <Popover.Content
           align="end"
           sideOffset={6}
-          className="z-50 w-64 rounded-md border bg-card p-3 text-sm shadow-md focus:outline-none"
+          className="z-50 w-64 rounded-md border bg-card p-3 text-sm focus:outline-none"
         >
           <div className="space-y-3">
             <div className="text-xs font-semibold text-muted-foreground">
@@ -651,7 +651,7 @@ function DatePopover({
           className={cn(
             'inline-flex h-6 items-center gap-1 rounded border px-1.5 font-mono text-[10px] tabular-nums',
             value
-              ? 'border-emerald-500/30 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-200'
+              ? 'border-success/30 bg-success-soft text-success hover:bg-success-soft/80'
               : 'border-dashed text-muted-foreground hover:bg-accent',
           )}
           title={value ? 'Datum ändern' : 'Datum hinzufügen'}
@@ -664,7 +664,7 @@ function DatePopover({
         <Popover.Content
           align="start"
           sideOffset={4}
-          className="z-50 rounded-md border bg-card p-2 shadow-md focus:outline-none"
+          className="z-50 rounded-md border bg-card p-2 focus:outline-none"
         >
           <input
             type="date"
@@ -771,7 +771,7 @@ function ImportDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-md border bg-card">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div>

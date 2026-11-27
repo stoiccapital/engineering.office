@@ -85,7 +85,7 @@ export function PeriodPicker({
         <Popover.Content
           align="end"
           sideOffset={6}
-          className="z-50 w-56 rounded-md border bg-card p-2 text-sm shadow-md focus:outline-none"
+          className="z-50 w-56 rounded-md border bg-card p-2 text-sm focus:outline-none"
         >
           {showYear && (
             <div className="mb-2 space-y-1">

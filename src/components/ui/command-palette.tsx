@@ -64,11 +64,11 @@ export function CommandPalette({ onNavigate }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-foreground/20 p-4 pt-24 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-foreground/20 p-4 pt-24"
       onClick={close}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-md border bg-card shadow-md"
+        className="w-full max-w-lg overflow-hidden rounded-md border bg-card"
         onClick={(e) => e.stopPropagation()}
       >
         <Command
@@ -125,7 +125,7 @@ export function CommandPalette({ onNavigate }: Props) {
               </Command.Item>
             </Command.Group>
           </Command.List>
-          <div className="flex items-center justify-between border-t px-3 py-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
             <span>↑↓ navigieren · ↵ auswählen · esc schließen</span>
             <span className="font-mono">⌘ K</span>
           </div>
@@ -136,7 +136,7 @@ export function CommandPalette({ onNavigate }: Props) {
 }
 
 const groupCls = cn(
-  '[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:text-muted-foreground',
+  '[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground',
 )
 
 const itemCls = cn(

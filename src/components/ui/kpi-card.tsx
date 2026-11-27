@@ -22,7 +22,7 @@ export function KPICard({
       <div className="mt-1 flex items-baseline gap-1">
         <span
           className={cn(
-            'font-mono tabular-nums text-xl font-semibold',
+            'font-mono tabular-nums text-2xl font-semibold',
             tone === 'danger' && 'text-destructive',
           )}
         >

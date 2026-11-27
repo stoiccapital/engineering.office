@@ -28,7 +28,7 @@ export function InfoTooltip({ children, className }: Props) {
             side="bottom"
             align="end"
             sideOffset={6}
-            className="z-50 max-w-xs rounded-md border bg-card p-3 text-xs text-foreground shadow-md"
+            className="z-50 max-w-xs rounded-md border bg-card p-3 text-xs text-foreground"
           >
             {children}
             <Tooltip.Arrow className="fill-card" />
