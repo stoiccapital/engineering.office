@@ -1174,7 +1174,7 @@ function TodoRow({
                     align="start"
                     side="bottom"
                     sideOffset={4}
-                    className="z-50 w-64 rounded-md border bg-card p-1 focus:outline-none"
+                    className="z-50 w-80 rounded-md border bg-card p-1 focus:outline-none"
                     onOpenAutoFocus={(e) => {
                       // Keep auto-focus for the search input; prevents Popover
                       // from stealing it back to the trigger.
@@ -1228,18 +1228,18 @@ function TodoRow({
                             }}
                             onMouseEnter={() => setPickerBtnIdx(i)}
                             className={cn(
-                              'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs',
+                              'flex w-full flex-col items-stretch rounded px-2 py-1 text-left',
                               i === pickerBtnIdx
                                 ? 'bg-accent text-foreground'
                                 : 'hover:bg-muted',
                             )}
                           >
-                            <span className="min-w-0 flex-1 truncate font-medium">
-                              {row.projekt}
+                            <span className="line-clamp-2 text-xs font-medium leading-snug">
+                              {row.projekt || <span className="italic text-muted-foreground">ohne Namen</span>}
                             </span>
-                            {row.fachbereich && (
-                              <span className="shrink-0 text-muted-foreground">
-                                {row.fachbereich}
+                            {(row.fachbereich || row.projektleiter) && (
+                              <span className="truncate text-[10px] text-muted-foreground">
+                                {[row.fachbereich, row.projektleiter].filter(Boolean).join(' · ')}
                               </span>
                             )}
                           </button>
@@ -1271,10 +1271,10 @@ function TodoRow({
             <div
               role="listbox"
               aria-label="Projekt wählen"
-              className="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border bg-card text-xs"
+              className="absolute left-0 z-30 mt-1 max-h-56 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border bg-card"
             >
               {filtered.length === 0 ? (
-                <div className="px-2 py-1.5 text-muted-foreground">
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">
                   {projektlisteStatus === 'loading'
                     ? 'Projekte werden geladen …'
                     : 'Kein Projekt gefunden.'}
@@ -1294,13 +1294,17 @@ function TodoRow({
                     }}
                     onMouseEnter={() => setPickerIdx(i)}
                     className={cn(
-                      'flex w-full items-center gap-2 px-2 py-1 text-left',
+                      'flex w-full flex-col items-stretch px-2 py-1 text-left',
                       i === pickerIdx ? 'bg-accent text-foreground' : 'hover:bg-muted',
                     )}
                   >
-                    <span className="min-w-0 flex-1 truncate font-medium">{row.projekt}</span>
-                    {row.fachbereich && (
-                      <span className="shrink-0 text-muted-foreground">{row.fachbereich}</span>
+                    <span className="line-clamp-2 text-xs font-medium leading-snug">
+                      {row.projekt || <span className="italic text-muted-foreground">ohne Namen</span>}
+                    </span>
+                    {(row.fachbereich || row.projektleiter) && (
+                      <span className="truncate text-[10px] text-muted-foreground">
+                        {[row.fachbereich, row.projektleiter].filter(Boolean).join(' · ')}
+                      </span>
                     )}
                   </button>
                 ))
