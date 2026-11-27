@@ -68,6 +68,10 @@ export type WeekTodo = {
   carriedOver?: boolean
   carriedFrom?: { week: number; empIndex: number; todoId: string }
   carriedCount?: number
+  // Optional link to a Projektliste row (see projektliste-store). Users attach
+  // a project via `#` autocomplete inside the todo textarea (QuartalPlanTable).
+  // Independent of `text` and `tone` — tone still comes from text keywords.
+  projectId?: string
 }
 
 export type Branch = 'de' | 'pl'

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { usePlan, cellKey, type TeamFilter } from '@/plan-store'
+import { useProjektliste } from '@/projektliste-store'
 import { useRoster } from '@/roster-store'
 import type { Roster, RosterEmployee } from '@/types'
 import { useForecast } from '@/store'
@@ -1002,12 +1003,106 @@ function TodoRow({
     transition,
     opacity: isDragging ? 0.4 : 1,
   }
+
+  // --- Project attach via `#` autocomplete (Projektliste) -------------------
+  const taRef = useRef<HTMLTextAreaElement | null>(null)
+  const projektlisteDoc = useProjektliste((s) => s.doc)
+  const projektlisteStatus = useProjektliste((s) => s.status)
+  const loadProjektliste = useProjektliste((s) => s.load)
+  const projektRows = projektlisteDoc?.rows ?? []
+  const attachedProject = useMemo(
+    () => (todo.projectId ? projektRows.find((r) => r.id === todo.projectId) : undefined),
+    [todo.projectId, projektRows],
+  )
+
+  type HashState = { query: string; hashPos: number }
+  const [hashState, setHashState] = useState<HashState | null>(null)
+  const [pickerIdx, setPickerIdx] = useState(0)
+
+  // Lazy-load Projektliste the first time a picker is triggered.
+  useEffect(() => {
+    if (hashState && projektlisteStatus === 'idle') void loadProjektliste()
+  }, [hashState, projektlisteStatus, loadProjektliste])
+
+  const filtered = useMemo(() => {
+    if (!hashState) return []
+    const q = hashState.query.toLowerCase()
+    const rows = q
+      ? projektRows.filter(
+          (r) =>
+            r.projekt.toLowerCase().includes(q) ||
+            r.fachbereich.toLowerCase().includes(q) ||
+            r.projektleiter.toLowerCase().includes(q),
+        )
+      : projektRows
+    return rows.slice(0, 8)
+  }, [hashState, projektRows])
+
+  // Clamp selected index if the filter list shrinks under the cursor.
+  useEffect(() => {
+    if (pickerIdx > 0 && pickerIdx >= filtered.length) setPickerIdx(0)
+  }, [pickerIdx, filtered.length])
+
+  function detectHash(text: string, caret: number): HashState | null {
+    const upToCursor = text.slice(0, caret)
+    // Hash must start at buffer start or after whitespace; query excludes
+    // whitespace and further `#` so typing a space ends the picker.
+    const m = upToCursor.match(/(?:^|\s)#([^\s#]*)$/)
+    if (!m) return null
+    return { query: m[1]!, hashPos: caret - m[1]!.length - 1 }
+  }
+
+  const handleText = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value
+    onUpdate({ text })
+    const next = detectHash(text, e.target.selectionStart)
+    setHashState(next)
+    setPickerIdx(0)
+  }
+
+  const pickProject = (rowId: string) => {
+    if (!hashState) return
+    const el = taRef.current
+    const caret = el?.selectionStart ?? todo.text.length
+    const before = todo.text.slice(0, hashState.hashPos)
+    const after = todo.text.slice(caret)
+    // Clean the glue: collapse double spaces left behind by the strip.
+    const cleaned = (before + after).replace(/ {2,}/g, ' ').replace(/ +$/, '').trim()
+    onUpdate({ text: cleaned, projectId: rowId })
+    setHashState(null)
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!hashState) return
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setHashState(null)
+      return
+    }
+    if (filtered.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setPickerIdx((i) => (i + 1) % filtered.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setPickerIdx((i) => (i - 1 + filtered.length) % filtered.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const p = filtered[pickerIdx] ?? filtered[0]
+      if (p) pickProject(p.id)
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      const p = filtered[pickerIdx] ?? filtered[0]
+      if (p) pickProject(p.id)
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group flex flex-col gap-0.5 rounded px-1.5 py-0.5',
+        'group relative flex flex-col gap-0.5 rounded px-1.5 py-0.5',
         tone ? TONE_CLASSES[tone] : 'hover:bg-muted',
         isDragging && 'z-20 ring-1 ring-ring',
         isCarriedOrigin && 'opacity-55 grayscale',
@@ -1027,10 +1122,25 @@ function TodoRow({
           </button>
         )}
         <div className="min-w-0 flex-1 overflow-hidden">
+          {attachedProject && (
+            <button
+              type="button"
+              onClick={() => onUpdate({ projectId: undefined })}
+              disabled={isCarriedOrigin}
+              className="mb-0.5 inline-flex max-w-full items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+              title={`Projekt entfernen: ${attachedProject.projekt}`}
+            >
+              <span className="truncate">{attachedProject.projekt}</span>
+              <X className="h-2.5 w-2.5 shrink-0" />
+            </button>
+          )}
           <textarea
+            ref={taRef}
             value={todo.text}
-            onChange={(e) => onUpdate({ text: e.target.value })}
-            placeholder="Aufgabe…"
+            onChange={handleText}
+            onKeyDown={onKeyDown}
+            onBlur={() => setHashState(null)}
+            placeholder={attachedProject ? 'Aufgabe…' : 'Aufgabe… (# für Projekt)'}
             rows={1}
             readOnly={isCarriedOrigin}
             className={cn(
@@ -1040,6 +1150,46 @@ function TodoRow({
             )}
             style={{ fieldSizing: 'content' } as React.CSSProperties}
           />
+          {hashState && (
+            <div
+              role="listbox"
+              aria-label="Projekt wählen"
+              className="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border bg-card text-xs"
+            >
+              {filtered.length === 0 ? (
+                <div className="px-2 py-1.5 text-muted-foreground">
+                  {projektlisteStatus === 'loading'
+                    ? 'Projekte werden geladen …'
+                    : 'Kein Projekt gefunden.'}
+                </div>
+              ) : (
+                filtered.map((row, i) => (
+                  <button
+                    key={row.id}
+                    role="option"
+                    aria-selected={i === pickerIdx}
+                    type="button"
+                    // onMouseDown so blur doesn't close the picker before the
+                    // click handler runs.
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      pickProject(row.id)
+                    }}
+                    onMouseEnter={() => setPickerIdx(i)}
+                    className={cn(
+                      'flex w-full items-center gap-2 px-2 py-1 text-left',
+                      i === pickerIdx ? 'bg-accent text-foreground' : 'hover:bg-muted',
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 truncate font-medium">{row.projekt}</span>
+                    {row.fachbereich && (
+                      <span className="shrink-0 text-muted-foreground">{row.fachbereich}</span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
         {!isCarriedOrigin && (
           <button
