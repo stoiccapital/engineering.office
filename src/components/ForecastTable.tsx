@@ -5,6 +5,7 @@ import { useProjektliste } from '@/projektliste-store'
 import { derive } from '@/types'
 import type { ProjectRow } from '@/types'
 import { findProjekt } from '@/lib/project-lookup'
+import { FilterSelect } from '@/components/ui/filter-select'
 import { NumCell } from './NumCell'
 import { ProjectAttach } from './ProjectAttach'
 import { TextCell } from './TextCell'
@@ -376,20 +377,13 @@ function PMFilter({
   pms: string[]
 }) {
   return (
-    <select
+    <FilterSelect
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-accent focus:ring-1 focus:ring-ring"
+      onChange={onChange}
+      options={[...pms, { value: '__unassigned__', label: 'Ohne Zuordnung' }]}
+      allLabel="Alle Projektleiter"
       title="Nach Projektleiter filtern"
-    >
-      <option value="all">Alle Projektleiter</option>
-      {pms.map((pm) => (
-        <option key={pm} value={pm}>
-          {pm}
-        </option>
-      ))}
-      <option value="__unassigned__">Ohne Zuordnung</option>
-    </select>
+    />
   )
 }
 

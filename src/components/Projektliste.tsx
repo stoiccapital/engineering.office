@@ -14,6 +14,7 @@ import {
 import * as XLSX from 'xlsx'
 import { Section } from '@/components/ui/section'
 import { Button } from '@/components/ui/button'
+import { FilterSelect } from '@/components/ui/filter-select'
 import { LoadingCard } from '@/components/ui/loading-card'
 import {
   totalSums,
@@ -140,18 +141,13 @@ export function Projektliste() {
                 className="h-8 w-56 rounded-md border border-input bg-background pl-7 pr-2 text-xs outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
-            <select
+            <FilterSelect
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-            >
-              <option value="">Alle Status</option>
-              {statusOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+              onChange={setStatusFilter}
+              options={statusOptions}
+              allLabel="Alle Status"
+              allValue=""
+            />
             <input
               ref={fileRef}
               type="file"

@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { KPIStrip } from '@/components/KPIStrip'
 import { ForecastTable } from '@/components/ForecastTable'
-import { SaveStatus } from '@/components/SaveStatus'
-import { PlanSaveStatus } from '@/components/PlanSaveStatus'
-import { ZieleSaveStatus } from '@/components/ZieleSaveStatus'
-import { UmsatzSaveStatus } from '@/components/UmsatzSaveStatus'
-import { RechnungenSaveStatus } from '@/components/RechnungenSaveStatus'
+import { StoreSaveStatus } from '@/components/StoreSaveStatus'
 import { PlanTabs } from '@/components/PlanTabs'
 import { Freigaben } from '@/components/Freigaben'
 import { ImportDialog } from '@/components/ImportDialog'
@@ -17,10 +13,8 @@ import { Mitarbeiter } from '@/components/Mitarbeiter'
 import { Settings } from '@/components/Settings'
 import { ZeiterfassungTab as HrZeiterfassungTab } from '@/components/hr/ZeiterfassungTab'
 import { GespraecheTab as HrGespraecheTab } from '@/components/hr/GespraecheTab'
-import { HrSaveStatus } from '@/components/HrSaveStatus'
 import { Aktivitaet } from '@/components/Aktivitaet'
 import { Projektliste } from '@/components/Projektliste'
-import { ProjektlisteSaveStatus } from '@/components/ProjektlisteSaveStatus'
 import { useProjektliste } from '@/projektliste-store'
 import { logActivity } from '@/activity-store'
 import { AuthScreen, AwaitingApproval } from '@/components/AuthScreen'
@@ -39,7 +33,7 @@ import { useRechnungen } from '@/rechnungen-store'
 import { useRoster } from '@/roster-store'
 import { useImv } from '@/imv-store'
 import { usePrefs } from '@/prefs-store'
-import { KostenermittlungImvSaveStatus } from '@/components/KostenermittlungImvSaveStatus'
+import { usePeriod } from '@/period-store'
 import { useHr } from '@/hr-store'
 import { useAccess, allowedModules } from '@/access-store'
 import type { ModuleId } from '@/types'
@@ -298,6 +292,26 @@ function Shell() {
     if (!prefsHydrated) void loadPrefs()
   }, [prefsHydrated, loadPrefs])
 
+  // Global year (docs/principles.md §1): one year drives every data store.
+  // When usePeriod.year changes, push into each module. The per-module
+  // setYear still flushes autosave + triggers load, so this composes with
+  // the existing lifecycle.
+  const globalYear = usePeriod((s) => s.year)
+  const setForecastYear = useForecast((s) => s.setYear)
+  const setPlanYear = usePlan((s) => s.setYear)
+  const setZieleYear = useZiele((s) => s.setYear)
+  const setUmsatzYear = useUmsatz((s) => s.setYear)
+  const setRechnungenYear = useRechnungen((s) => s.setYear)
+  const setDashboardYear = useDashboard((s) => s.setYear)
+  useEffect(() => {
+    setForecastYear(globalYear)
+    setPlanYear(globalYear)
+    setZieleYear(globalYear)
+    setUmsatzYear(globalYear)
+    setRechnungenYear(globalYear)
+    setDashboardYear(globalYear)
+  }, [globalYear, setForecastYear, setPlanYear, setZieleYear, setUmsatzYear, setRechnungenYear, setDashboardYear])
+
   useEffect(() => {
     void loadForecast()
   }, [loadForecast])
@@ -423,14 +437,14 @@ function Shell() {
           <div className="flex min-h-[62px] items-center justify-between gap-4 px-6 py-4">
             <h1 className="text-base font-semibold">{meta.title}</h1>
             <div className="flex items-center gap-4">
-              {view === 'forecast' && <SaveStatus />}
-              {view === 'plan' && <PlanSaveStatus />}
-              {(view === 'ziele_dashboard' || view === 'ziele_teams') && <ZieleSaveStatus />}
-              {view === 'ziele_kontrolle' && <UmsatzSaveStatus />}
-              {view === 'rechnungen' && <RechnungenSaveStatus />}
-              {view === 'projektliste' && <ProjektlisteSaveStatus />}
-              {KE_IMV_VIEWS.includes(view) && <KostenermittlungImvSaveStatus />}
-              {(view === 'hr_zeiterfassung' || view === 'hr_gespraeche') && <HrSaveStatus />}
+              {view === 'forecast' && <StoreSaveStatus store="forecast" />}
+              {view === 'plan' && <StoreSaveStatus store="plan" />}
+              {(view === 'ziele_dashboard' || view === 'ziele_teams') && <StoreSaveStatus store="ziele" />}
+              {view === 'ziele_kontrolle' && <StoreSaveStatus store="umsatz" />}
+              {view === 'rechnungen' && <StoreSaveStatus store="rechnungen" />}
+              {view === 'projektliste' && <StoreSaveStatus store="projektliste" />}
+              {KE_IMV_VIEWS.includes(view) && <StoreSaveStatus store="imv" />}
+              {(view === 'hr_zeiterfassung' || view === 'hr_gespraeche') && <StoreSaveStatus store="hr" />}
               <ViewPeriodPicker view={view} />
               {view === 'forecast' && <ImportDialog />}
             </div>
@@ -718,17 +732,21 @@ function ViewPeriodPicker({ view }: { view: View }) {
   }
 }
 
+// All pickers write year to usePeriod (one source of truth). The Shell's
+// sync effect pushes the new year into every per-module store. Quarter /
+// month / halbjahr stay per-module.
+const setGlobalYear = (y: number) => usePeriod.getState().setYear(y)
+
 function ZielePicker() {
   const year = useZiele((s) => s.year)
   const halbjahr = useZiele((s) => s.halbjahr)
-  const setYear = useZiele((s) => s.setYear)
   const setHalbjahr = useZiele((s) => s.setHalbjahr)
   const halbjahrOrAll: HalbjahrOrAll =
     halbjahr === 'h1' ? 'H1' : halbjahr === 'h2' ? 'H2' : 'all'
   return (
     <PeriodPicker
       year={year}
-      onYearChange={setYear}
+      onYearChange={setGlobalYear}
       halbjahr={halbjahrOrAll}
       onHalbjahrChange={(h) =>
         setHalbjahr(h === 'H1' ? 'h1' : h === 'H2' ? 'h2' : 'all')
@@ -740,12 +758,11 @@ function ZielePicker() {
 function DashboardPicker() {
   const year = useDashboard((s) => s.year)
   const quarter = useDashboard((s) => s.quarter)
-  const setYear = useDashboard((s) => s.setYear)
   const setQuarter = useDashboard((s) => s.setQuarter)
   return (
     <PeriodPicker
       year={year}
-      onYearChange={setYear}
+      onYearChange={setGlobalYear}
       quarter={quarter}
       onQuarterChange={(q) => setQuarter(q as Quarter)}
       includeJahr={false}
@@ -756,12 +773,11 @@ function DashboardPicker() {
 function ForecastPicker() {
   const year = useForecast((s) => s.year)
   const quarter = useForecast((s) => s.quarter)
-  const setYear = useForecast((s) => s.setYear)
   const setQuarter = useForecast((s) => s.setQuarter)
   return (
     <PeriodPicker
       year={year}
-      onYearChange={setYear}
+      onYearChange={setGlobalYear}
       quarter={quarter}
       onQuarterChange={(q) => setQuarter(q as Quarter)}
       includeJahr={false}
@@ -772,12 +788,11 @@ function ForecastPicker() {
 function PlanPicker() {
   const year = usePlan((s) => s.year)
   const quarter = usePlan((s) => s.quarter)
-  const setYear = usePlan((s) => s.setYear)
   const setQuarter = usePlan((s) => s.setQuarter)
   return (
     <PeriodPicker
       year={year}
-      onYearChange={setYear}
+      onYearChange={setGlobalYear}
       quarter={quarter as QuarterOrAll}
       onQuarterChange={(q) => setQuarter(q === 'all' ? 'all' : (q as Quarter))}
     />
@@ -786,19 +801,17 @@ function PlanPicker() {
 
 function FreigabenPicker() {
   const year = usePlan((s) => s.year)
-  const setYear = usePlan((s) => s.setYear)
-  return <PeriodPicker year={year} onYearChange={setYear} />
+  return <PeriodPicker year={year} onYearChange={setGlobalYear} />
 }
 
 function RechnungenPicker() {
   const year = useRechnungen((s) => s.year)
   const month = useRechnungen((s) => s.month)
-  const setYear = useRechnungen((s) => s.setYear)
   const setMonth = useRechnungen((s) => s.setMonth)
   return (
     <PeriodPicker
       year={year}
-      onYearChange={setYear}
+      onYearChange={setGlobalYear}
       month={month}
       onMonthChange={setMonth}
     />
@@ -808,12 +821,11 @@ function RechnungenPicker() {
 function UmsatzPicker() {
   const year = useUmsatz((s) => s.year)
   const quarter = useUmsatz((s) => s.quarter)
-  const setYear = useUmsatz((s) => s.setYear)
   const setQuarter = useUmsatz((s) => s.setQuarter)
   return (
     <PeriodPicker
       year={year}
-      onYearChange={setYear}
+      onYearChange={setGlobalYear}
       quarter={quarter}
       onQuarterChange={setQuarter}
     />
