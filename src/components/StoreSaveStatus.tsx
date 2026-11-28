@@ -31,22 +31,49 @@ type StoreKey =
   | 'projektliste'
   | 'imv'
 
-type Selector = (s: { status: SaveStatusValue; error: string | null }) => { status: SaveStatusValue; error: string | null }
-const pickStatusError: Selector = (s) => ({ status: s.status, error: s.error })
-
-/** Registry of store → hook that exposes `status` and `error`. */
-const STORES: Record<StoreKey, () => { status: SaveStatusValue; error: string | null }> = {
-  forecast: () => useForecast(pickStatusError as never),
-  plan: () => usePlan(pickStatusError as never),
-  ziele: () => useZiele(pickStatusError as never),
-  umsatz: () => useUmsatz(pickStatusError as never),
-  rechnungen: () => useRechnungen(pickStatusError as never),
-  hr: () => useHr(pickStatusError as never),
-  projektliste: () => useProjektliste(pickStatusError as never),
-  imv: () => useImv(pickStatusError as never),
+// IMPORTANT: each selector must return a PRIMITIVE (status string or error
+// string|null). Returning an object { status, error } creates a new reference
+// on every call and zustand's default Object.is check fires an infinite
+// re-render loop ("Maximum update depth exceeded"). See docs/principles.md
+// §1 and the Zustand selector rule in CLAUDE memory.
+const STORES: Record<StoreKey, { useStatus: () => SaveStatusValue; useError: () => string | null }> = {
+  forecast: {
+    useStatus: () => useForecast((s) => s.status as SaveStatusValue),
+    useError: () => useForecast((s) => s.error),
+  },
+  plan: {
+    useStatus: () => usePlan((s) => s.status as SaveStatusValue),
+    useError: () => usePlan((s) => s.error),
+  },
+  ziele: {
+    useStatus: () => useZiele((s) => s.status as SaveStatusValue),
+    useError: () => useZiele((s) => s.error),
+  },
+  umsatz: {
+    useStatus: () => useUmsatz((s) => s.status as SaveStatusValue),
+    useError: () => useUmsatz((s) => s.error),
+  },
+  rechnungen: {
+    useStatus: () => useRechnungen((s) => s.status as SaveStatusValue),
+    useError: () => useRechnungen((s) => s.error),
+  },
+  hr: {
+    useStatus: () => useHr((s) => s.status as SaveStatusValue),
+    useError: () => useHr((s) => s.error),
+  },
+  projektliste: {
+    useStatus: () => useProjektliste((s) => s.status as SaveStatusValue),
+    useError: () => useProjektliste((s) => s.error),
+  },
+  imv: {
+    useStatus: () => useImv((s) => s.status as SaveStatusValue),
+    useError: () => useImv((s) => s.error),
+  },
 }
 
 export function StoreSaveStatus({ store }: { store: StoreKey }) {
-  const { status, error } = STORES[store]()
+  const entry = STORES[store]
+  const status = entry.useStatus()
+  const error = entry.useError()
   return <SaveIndicator status={status} error={error} />
 }
