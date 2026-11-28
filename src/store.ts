@@ -54,23 +54,12 @@ type State = {
 
 export const useForecast = create<State>()((set, get) => {
   const autosave = createAutosave<{ key: string; period: Period }>({
-    save: async (p, mode) => {
-      if (mode === 'keepalive') {
-        await savePeriod(p.key, p.period, { keepalive: true })
-        return
-      }
-      try {
-        await savePeriod(p.key, p.period)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (p, mode) => savePeriod(p.key, p.period, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
     if (!s.period) return
-    set({ status: 'saving' })
     autosave.schedule({ key: periodKey(s.year, s.quarter), period: s.period })
   }
   return {

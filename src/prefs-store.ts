@@ -56,22 +56,11 @@ function readAccent(): Accent {
 
 export const usePrefs = create<State>()((set, get) => {
   const autosave = createAutosave<PrefsDoc>({
-    save: async (doc, mode) => {
-      if (mode === 'keepalive') {
-        await saveUserPrefs(doc, { keepalive: true })
-        return
-      }
-      try {
-        await saveUserPrefs(doc)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (doc, mode) => saveUserPrefs(doc, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
-    set({ status: 'saving' })
     autosave.schedule({
       theme: s.theme,
       accent: s.accent,

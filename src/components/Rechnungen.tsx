@@ -15,6 +15,7 @@ import { useProjektliste } from '@/projektliste-store'
 import { saveRechnungsplan } from '@/api'
 import { findProjekt } from '@/lib/project-lookup'
 import { FilterSelect } from '@/components/ui/filter-select'
+import { EmployeeAttach } from './EmployeeAttach'
 import { ProjectAttach } from './ProjectAttach'
 import { parseWorkbook, type ImportResult } from '@/lib/rechnungen-import'
 import {
@@ -264,11 +265,10 @@ export function Rechnungen() {
                     </div>
                   </td>
                   <td className="px-1 py-0.5">
-                    <TextCell
+                    <EmployeeAttach
                       value={row.pl}
                       onChange={(v) => updateRow(row.id, { pl: v })}
-                      placeholder="MuA"
-                      className="font-mono text-[11px]"
+                      placeholder="PL"
                     />
                   </td>
                   <NEntryCell

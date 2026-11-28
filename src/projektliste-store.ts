@@ -133,23 +133,12 @@ function normalize(raw: ProjektlisteDoc | null): ProjektlisteDoc {
 
 export const useProjektliste = create<State>()((set, get) => {
   const autosave = createAutosave<ProjektlisteDoc>({
-    save: async (doc, mode) => {
-      if (mode === 'keepalive') {
-        await saveProjektliste(doc, { keepalive: true })
-        return
-      }
-      try {
-        await saveProjektliste(doc)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (doc, mode) => saveProjektliste(doc, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
     if (!s.doc) return
-    set({ status: 'saving' })
     autosave.schedule({ ...s.doc, updatedAt: new Date().toISOString() })
   }
   return {

@@ -45,23 +45,12 @@ function newId(): string {
 
 export const useRoster = create<State>()((set, get) => {
   const autosave = createAutosave<Roster>({
-    save: async (roster, mode) => {
-      if (mode === 'keepalive') {
-        await saveRoster(roster, { keepalive: true })
-        return
-      }
-      try {
-        await saveRoster(roster)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (roster, mode) => saveRoster(roster, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
     if (!s.roster) return
-    set({ status: 'saving' })
     autosave.schedule(s.roster)
   }
   return {

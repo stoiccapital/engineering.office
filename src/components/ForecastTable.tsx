@@ -6,6 +6,7 @@ import { derive } from '@/types'
 import type { ProjectRow } from '@/types'
 import { findProjekt } from '@/lib/project-lookup'
 import { FilterSelect } from '@/components/ui/filter-select'
+import { EmployeeAttach } from './EmployeeAttach'
 import { NumCell } from './NumCell'
 import { ProjectAttach } from './ProjectAttach'
 import { TextCell } from './TextCell'
@@ -225,10 +226,20 @@ function Row({
         <PrioCell row={row} onUpdate={onUpdate} readOnly={ro} />
       </Td>
       <Td>
-        <TextCell value={row.projektleiterDE} onChange={(v) => onUpdate({ projektleiterDE: v })} placeholder="…" readOnly={ro} />
+        <EmployeeAttach
+          value={row.projektleiterDE}
+          onChange={(v) => onUpdate({ projektleiterDE: v })}
+          disabled={ro}
+          branch="de"
+        />
       </Td>
       <Td>
-        <TextCell value={row.projektleiterPL} onChange={(v) => onUpdate({ projektleiterPL: v })} placeholder="…" readOnly={ro} />
+        <EmployeeAttach
+          value={row.projektleiterPL}
+          onChange={(v) => onUpdate({ projektleiterPL: v })}
+          disabled={ro}
+          branch="pl"
+        />
       </Td>
       <Td>
         <div className="space-y-0.5">

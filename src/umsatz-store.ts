@@ -46,23 +46,12 @@ function ensureTeam(data: Umsatzkontrolle, teamId: string): UmsatzTeam {
 
 export const useUmsatz = create<State>()((set, get) => {
   const autosave = createAutosave<{ year: number; data: Umsatzkontrolle }>({
-    save: async (p, mode) => {
-      if (mode === 'keepalive') {
-        await saveUmsatz(p.year, p.data, { keepalive: true })
-        return
-      }
-      try {
-        await saveUmsatz(p.year, p.data)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (p, mode) => saveUmsatz(p.year, p.data, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
     if (!s.data) return
-    set({ status: 'saving' })
     autosave.schedule({ year: s.year, data: s.data })
   }
   return {

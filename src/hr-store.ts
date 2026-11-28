@@ -40,23 +40,12 @@ type State = {
 
 export const useHr = create<State>()((set, get) => {
   const autosave = createAutosave<HrDoc>({
-    save: async (doc, mode) => {
-      if (mode === 'keepalive') {
-        await saveHr(doc, { keepalive: true })
-        return
-      }
-      try {
-        await saveHr(doc)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (doc, mode) => saveHr(doc, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
     if (!s.doc) return
-    set({ status: 'saving' })
     autosave.schedule({ ...s.doc, updatedAt: new Date().toISOString() })
   }
   function mutate(fn: (doc: HrDoc) => HrDoc) {

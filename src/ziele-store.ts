@@ -81,23 +81,12 @@ function newId(): string {
 
 export const useZiele = create<State>()((set, get) => {
   const autosave = createAutosave<{ year: number; ziele: Ziele }>({
-    save: async (p, mode) => {
-      if (mode === 'keepalive') {
-        await saveZiele(p.year, p.ziele, { keepalive: true })
-        return
-      }
-      try {
-        await saveZiele(p.year, p.ziele)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (p, mode) => saveZiele(p.year, p.ziele, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
     if (!s.ziele) return
-    set({ status: 'saving' })
     autosave.schedule({ year: s.year, ziele: s.ziele })
   }
   return {

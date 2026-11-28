@@ -108,6 +108,21 @@ If you answered no to any, stop and fix before merging.
 - **Modal for every "+ New X".** → Inline composer where the context lives.
 - **Required fields the system could have inferred.** → Default and let the user override.
 
+## Engineering rules (not visual, but non-negotiable)
+
+- **Never return a fresh object, array, or array-method result from a Zustand
+  selector.** `useStore(s => ({ status, error }))` or `useStore(s => s.rows.filter(...))`
+  creates a new reference on every call. Zustand compares with `Object.is` and
+  will infinite-render. Return primitives from each selector, or pull the
+  raw slice and `useMemo` the derivation in the consumer.
+- **Autosave status must be honest.** `"Gespeichert"` only when nothing is
+  scheduled, nothing is in flight, and the last save succeeded. If a
+  keystroke happened mid-save, the indicator should stay at `"Speichert …"`
+  until the follow-up save confirms.
+- **Lifecycle flush on every autosave store.** `beforeunload`, `pagehide`,
+  `visibilitychange=hidden`. See `src/lib/autosave.ts`. New stores wire
+  through `createAutosave`; no hand-rolled `setTimeout` debounces.
+
 ## When to break the rules
 
 The rules are breakable **if** the break is cheaper for the user than

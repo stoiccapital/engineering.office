@@ -89,23 +89,12 @@ function carryForward(prev: Rechnungsplan, year: number, month: number): Rechnun
 
 export const useRechnungen = create<State>()((set, get) => {
   const autosave = createAutosave<{ year: number; month: number; data: Rechnungsplan }>({
-    save: async (p, mode) => {
-      if (mode === 'keepalive') {
-        await saveRechnungsplan(p.year, p.month, p.data, { keepalive: true })
-        return
-      }
-      try {
-        await saveRechnungsplan(p.year, p.month, p.data)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (p, mode) => saveRechnungsplan(p.year, p.month, p.data, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
     if (!s.data) return
-    set({ status: 'saving' })
     autosave.schedule({ year: s.year, month: s.month, data: s.data })
   }
   return {

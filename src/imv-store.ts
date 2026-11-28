@@ -26,23 +26,12 @@ type State = {
 
 export const useImv = create<State>()((set, get) => {
   const autosave = createAutosave<unknown>({
-    save: async (doc, mode) => {
-      if (mode === 'keepalive') {
-        await saveKostenermittlungImv(doc, { keepalive: true })
-        return
-      }
-      try {
-        await saveKostenermittlungImv(doc)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (doc, mode) => saveKostenermittlungImv(doc, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
     if (s.doc === null) return
-    set({ status: 'saving' })
     autosave.schedule(s.doc)
   }
   return {

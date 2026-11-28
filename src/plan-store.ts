@@ -103,26 +103,14 @@ type State = {
 }
 
 export const usePlan = create<State>()((set, get) => {
-  // Autosave: debounced save with lifecycle flush (beforeunload, pagehide,
-  // visibilitychange=hidden). See src/lib/autosave.ts.
+  // Autosave owns status transitions — see src/lib/autosave.ts.
   const autosave = createAutosave<{ year: number; plan: QuartalPlan }>({
-    save: async (p, mode) => {
-      if (mode === 'keepalive') {
-        await savePlan(p.year, p.plan, { keepalive: true })
-        return
-      }
-      try {
-        await savePlan(p.year, p.plan)
-        set({ status: 'saved', error: null })
-      } catch (e) {
-        set({ status: 'error', error: (e as Error).message })
-      }
-    },
+    save: (p, mode) => savePlan(p.year, p.plan, { keepalive: mode === 'keepalive' }),
+    onStatus: (status, error) => set({ status, error }),
   })
   function scheduleSave() {
     const s = get()
     if (!s.plan) return
-    set({ status: 'saving' })
     autosave.schedule({ year: s.year, plan: s.plan })
   }
   return {

@@ -34,6 +34,7 @@ import { fmtEUR } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useFullscreen } from '@/components/ui/use-fullscreen'
 import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
+import { EmployeeAttach } from './EmployeeAttach'
 
 const STATUS_CHIP: Record<string, string> = {
   'in Bearbeitung': 'bg-warning-soft text-warning',
@@ -484,7 +485,7 @@ const Row = memo(function Row({
         </span>
       </td>
       <td className="px-2 py-1">
-        <TextCell value={row.projektleiter} onChange={(v) => onUpdate(row.id, { projektleiter: v })} placeholder="PL" />
+        <EmployeeAttach value={row.projektleiter} onChange={(v) => onUpdate(row.id, { projektleiter: v })} />
       </td>
       <td className="px-2 py-1">
         <select
