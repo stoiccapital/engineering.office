@@ -11,7 +11,10 @@ import {
   X,
 } from 'lucide-react'
 import { useRechnungen } from '@/rechnungen-store'
+import { useProjektliste } from '@/projektliste-store'
 import { saveRechnungsplan } from '@/api'
+import { findProjekt } from '@/lib/project-lookup'
+import { ProjectAttach } from './ProjectAttach'
 import { parseWorkbook, type ImportResult } from '@/lib/rechnungen-import'
 import {
   N_STATUS_LABELS,
@@ -71,6 +74,7 @@ function fmtShortDate(iso: string): string {
 
 export function Rechnungen() {
   const data = useRechnungen((s) => s.data)
+  const projektlisteRows = useProjektliste((s) => s.doc?.rows ?? [])
   const addRow = useRechnungen((s) => s.addRow)
   const removeRow = useRechnungen((s) => s.removeRow)
   const updateRow = useRechnungen((s) => s.updateRow)
@@ -233,11 +237,30 @@ export function Rechnungen() {
                     />
                   </td>
                   <td className="px-1 py-0.5">
-                    <TextCell
-                      value={row.projektname}
-                      onChange={(v) => updateRow(row.id, { projektname: v })}
-                      placeholder="Projektname"
-                    />
+                    <div className="flex flex-col gap-0.5">
+                      <ProjectAttach
+                        projectId={row.projectId}
+                        onChange={(id) => {
+                          if (id) {
+                            const p = findProjekt(projektlisteRows, id)
+                            updateRow(row.id, {
+                              projectId: id,
+                              projektname: p?.projekt ?? row.projektname,
+                              pl: p?.projektleiter ?? row.pl,
+                            })
+                          } else {
+                            updateRow(row.id, { projectId: undefined })
+                          }
+                        }}
+                        compact
+                      />
+                      <TextCell
+                        value={row.projektname}
+                        onChange={(v) => updateRow(row.id, { projektname: v })}
+                        placeholder="Projektname"
+                        readOnly={!!row.projectId}
+                      />
+                    </div>
                   </td>
                   <td className="px-1 py-0.5">
                     <TextCell

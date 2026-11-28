@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Trash2, Plus, Lock, Unlock, Flame } from 'lucide-react'
 import { useForecast } from '@/store'
+import { useProjektliste } from '@/projektliste-store'
 import { derive } from '@/types'
 import type { ProjectRow } from '@/types'
+import { findProjekt } from '@/lib/project-lookup'
 import { NumCell } from './NumCell'
+import { ProjectAttach } from './ProjectAttach'
 import { TextCell } from './TextCell'
 import { FlagToggle } from './FlagToggle'
 import { fmtEUR } from '@/lib/format'
@@ -214,6 +217,7 @@ function Row({
 }) {
   const d = derive(row)
   const ro = locked
+  const projektliste = useProjektliste((s) => s.doc?.rows ?? [])
   return (
     <tr className="border-b last:border-b-0 hover:bg-accent">
       <Td>
@@ -226,13 +230,31 @@ function Row({
         <TextCell value={row.projektleiterPL} onChange={(v) => onUpdate({ projektleiterPL: v })} placeholder="…" readOnly={ro} />
       </Td>
       <Td>
-        <TextCell
-          value={row.projektname}
-          onChange={(v) => onUpdate({ projektname: v })}
-          placeholder="Projektname"
-          readOnly={ro}
-          multiline
-        />
+        <div className="space-y-0.5">
+          <ProjectAttach
+            projectId={row.projectId}
+            onChange={(id) => {
+              if (id) {
+                // On attach, pull the catalog's current name forward so
+                // existing consumers reading row.projektname still work.
+                // Overrides any hand-typed value — detach to go free-text.
+                const p = findProjekt(projektliste, id)
+                onUpdate({ projectId: id, projektname: p?.projekt ?? row.projektname })
+              } else {
+                onUpdate({ projectId: undefined })
+              }
+            }}
+            disabled={ro}
+            compact
+          />
+          <TextCell
+            value={row.projektname}
+            onChange={(v) => onUpdate({ projektname: v })}
+            placeholder="Projektname"
+            readOnly={ro || !!row.projectId}
+            multiline
+          />
+        </div>
       </Td>
       <Td>
         <TextCell value={row.projNr} onChange={(v) => onUpdate({ projNr: v })} placeholder="26D000" className="font-mono text-xs" readOnly={ro} />

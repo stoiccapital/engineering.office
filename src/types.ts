@@ -17,6 +17,10 @@ export type ProjectRow = {
   leistungsstandPL: number | null // 0..1
   prio?: boolean
   prioAllowOvertime?: boolean
+  // Link to the Projektliste catalog (one source of truth for projects).
+  // When set, projektname is kept in sync with the catalog's row on read;
+  // the stored field stays for backward compat with legacy free-text rows.
+  projectId?: string
 }
 
 export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4'
@@ -426,6 +430,10 @@ export const PL_BRANCH_LABELS: Record<PlBranchStatus, string> = {
 
 export type RechnungsplanRow = {
   id: string
+  // Link to the Projektliste catalog. When set, projNr/projektname/pl read
+  // from the catalog's row; stored fields remain for backward compat with
+  // legacy free-text rows.
+  projectId?: string
   projNr: string
   projektname: string
   pl: string // Projektleiter-Kürzel, Freitext
