@@ -81,6 +81,28 @@ const KE_IMV_VIEWS: View[] = [
 const HR_VIEWS: View[] = ['hr_zeiterfassung', 'hr_gespraeche']
 const ZIELE_VIEWS: View[] = ['ziele_dashboard', 'ziele_teams', 'ziele_kontrolle']
 
+// Per-role landing (docs/principles.md §6). Preset names match PRESET_ROLES
+// in src/types.ts. Custom roles fall through to the generic default.
+function roleLandingPreference(roleName: string | undefined): View[] {
+  switch (roleName) {
+    case 'GF und Teamleiter': return ['dashboard', 'ziele_dashboard']
+    case 'Verwaltung': return ['rechnungen', 'dashboard']
+    case 'Projektleiter': return ['plan', 'dashboard']
+    case 'Projektingenieur':
+    case 'Konstrukteur':
+    case 'Azubis':
+    case 'Werkstudenten':
+      return ['plan']
+    default:
+      return []
+  }
+}
+function roleLanding(roleName: string | undefined, allowed: Set<View>): View {
+  for (const v of roleLandingPreference(roleName)) if (allowed.has(v)) return v
+  if (allowed.has('ziele_dashboard')) return 'ziele_dashboard'
+  return (Array.from(allowed)[0] as View) ?? 'forecast'
+}
+
 const VIEW_META: Record<View, { title: string; label: string; icon: typeof Table2 }> = {
   forecast: { title: 'Forecast', label: 'Forecast', icon: Table2 },
   plan: { title: 'Quartalsplanung', label: 'Quartalsplanung', icon: CalendarDays },
@@ -225,9 +247,11 @@ function Shell() {
   }, [currentRole])
   const nav = useMemo(() => filterNav(NAV, allowed), [allowed])
 
-  const firstAllowed: View = allowed.has('ziele_dashboard')
-    ? 'ziele_dashboard'
-    : ((Array.from(allowed)[0] as View) ?? 'forecast')
+  // Role-based landing (docs/principles.md §6): pick the view that answers
+  // "what should I do right now?" for this role, instead of any-allowed-view.
+  // Preset role names match src/types.ts PRESET_ROLES. Custom roles fall
+  // through to the generic default.
+  const firstAllowed: View = roleLanding(currentRole?.name, allowed)
 
   const [view, setView] = useState<View>(() => {
     const stored = localStorage.getItem(VIEW_KEY) as View | null

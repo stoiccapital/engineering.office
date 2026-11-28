@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Command } from 'cmdk'
-import { CalendarDays, CheckSquare, FolderKanban, Gauge, LayoutDashboard, LogOut, Moon, Sun, Table2, Users } from 'lucide-react'
+import { CalendarDays, CheckSquare, FilePlus, FolderKanban, FolderPlus, Gauge, LayoutDashboard, LogOut, Moon, Receipt, Sun, Table2, UserPlus, Users } from 'lucide-react'
 import { useAccess } from '@/access-store'
+import { useProjektliste } from '@/projektliste-store'
+import { useRechnungen } from '@/rechnungen-store'
+import { useRoster } from '@/roster-store'
 import { cn } from '@/lib/utils'
 
 type View =
@@ -13,10 +16,79 @@ type View =
   | 'ziele_teams'
   | 'ziele_kontrolle'
   | 'projektliste'
+  | 'rechnungen'
+  | 'mitarbeiter'
 
 type Props = {
   onNavigate: (view: View) => void
 }
+
+type Verb = {
+  id: string
+  label: string
+  keywords: string
+  icon: typeof Table2
+  run: (ctx: { navigate: (v: View) => void }) => void
+}
+
+// Verbs = the things people actually do. Each either mutates a store
+// directly (addRow-style) or navigates + schedules a next-microtask action.
+// Role-filtering is deliberately NOT applied here: the destination view is
+// already role-gated at the App level — a user who can't access a view can't
+// land on it, so triggering the verb is a no-op for them. Keeps the palette
+// simple and discoverable.
+const VERBS: Verb[] = [
+  {
+    id: 'project.create',
+    label: 'Projekt anlegen',
+    keywords: 'projekt anlegen neu projektliste',
+    icon: FolderPlus,
+    run: ({ navigate }) => {
+      navigate('projektliste')
+      queueMicrotask(() => {
+        try { useProjektliste.getState().addRow() } catch { /* doc not loaded yet */ }
+      })
+    },
+  },
+  {
+    id: 'invoice.create',
+    label: 'Rechnung erstellen',
+    keywords: 'rechnung erstellen neu invoice',
+    icon: Receipt,
+    run: ({ navigate }) => {
+      navigate('rechnungen')
+      queueMicrotask(() => {
+        try { useRechnungen.getState().addRow() } catch { /* data not loaded yet */ }
+      })
+    },
+  },
+  {
+    id: 'employee.create',
+    label: 'Mitarbeiter anlegen',
+    keywords: 'mitarbeiter anlegen neu einstellen roster',
+    icon: UserPlus,
+    run: ({ navigate }) => {
+      navigate('mitarbeiter')
+      queueMicrotask(() => {
+        try { useRoster.getState().addEmployee() } catch { /* roster not loaded */ }
+      })
+    },
+  },
+  {
+    id: 'forecast.add-row',
+    label: 'Forecast-Zeile anlegen',
+    keywords: 'forecast zeile anlegen projekt neu',
+    icon: FilePlus,
+    run: ({ navigate }) => {
+      navigate('forecast')
+      // Forecast is in src/store.ts (useForecast); its addRow lives there.
+      // Lazy-import to avoid cyclic imports in this UI module.
+      void import('@/store').then((m) => {
+        try { m.useForecast.getState().addRow() } catch { /* not loaded */ }
+      })
+    },
+  },
+]
 
 const ITEMS: { view: View; label: string; keywords: string; icon: typeof Table2 }[] = [
   { view: 'ziele_dashboard', label: 'Ziele · Dashboard', keywords: 'ziele dashboard fte pools teams teilungsschlüssel übersicht', icon: LayoutDashboard },
@@ -89,6 +161,26 @@ export function CommandPalette({ onNavigate }: Props) {
             <Command.Empty className="px-3 py-6 text-center text-xs text-muted-foreground">
               Keine Treffer.
             </Command.Empty>
+
+            <Command.Group heading="Aktionen" className={groupCls}>
+              {VERBS.map((verb) => {
+                const Icon = verb.icon
+                return (
+                  <Command.Item
+                    key={verb.id}
+                    value={`${verb.label} ${verb.keywords}`}
+                    onSelect={() => {
+                      verb.run({ navigate: onNavigate })
+                      close()
+                    }}
+                    className={itemCls}
+                  >
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span className="flex-1">{verb.label}</span>
+                  </Command.Item>
+                )
+              })}
+            </Command.Group>
 
             <Command.Group heading="Navigation" className={groupCls}>
               {ITEMS.map((item) => {
