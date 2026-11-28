@@ -247,9 +247,8 @@ function Row({
             projectId={row.projectId}
             onChange={(id) => {
               if (id) {
-                // On attach, pull the catalog's current name forward so
-                // existing consumers reading row.projektname still work.
-                // Overrides any hand-typed value — detach to go free-text.
+                // Sync stored name for backward compat with consumers that
+                // still read row.projektname directly (exports, reports).
                 const p = findProjekt(projektliste, id)
                 onUpdate({ projectId: id, projektname: p?.projekt ?? row.projektname })
               } else {
@@ -259,13 +258,22 @@ function Row({
             disabled={ro}
             compact
           />
-          <TextCell
-            value={row.projektname}
-            onChange={(v) => onUpdate({ projektname: v })}
-            placeholder="Projektname"
-            readOnly={ro || !!row.projectId}
-            multiline
-          />
+          {(() => {
+            // Read-through (docs/principles.md §1): when linked, show the
+            // catalog's CURRENT name, not the stored copy. Catalog renames
+            // propagate here on next render. Free-text rows keep their value.
+            const linked = findProjekt(projektliste, row.projectId)
+            const displayName = linked?.projekt ?? row.projektname
+            return (
+              <TextCell
+                value={displayName}
+                onChange={(v) => onUpdate({ projektname: v })}
+                placeholder="Projektname"
+                readOnly={ro || !!row.projectId}
+                multiline
+              />
+            )
+          })()}
         </div>
       </Td>
       <Td>

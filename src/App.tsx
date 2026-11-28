@@ -19,6 +19,7 @@ import { useProjektliste } from '@/projektliste-store'
 import { logActivity } from '@/activity-store'
 import { AuthScreen, AwaitingApproval } from '@/components/AuthScreen'
 import { ConflictNotice } from '@/components/ConflictNotice'
+import { UndoToast } from '@/components/ui/undo-toast'
 import { PeriodPicker, type HalbjahrOrAll, type Quarter, type QuarterOrAll } from '@/components/ui/period-picker'
 import { UserMenu } from '@/components/ui/user-menu'
 import { ViewAsBanner } from '@/components/ui/view-as-banner'
@@ -191,6 +192,7 @@ export default function App() {
     <AccessGate>
       <Shell />
       <ConflictNotice />
+      <UndoToast />
     </AccessGate>
   )
 }

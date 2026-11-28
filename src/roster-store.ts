@@ -34,6 +34,8 @@ type State = {
   // except the one whose id matches `exceptId` (used to keep the currently
   // signed-in admin functional while wiping everyone else's login).
   clearAllLogins: (exceptId?: string) => void
+  // Restore a previous snapshot (used by undo flows). Autosaves.
+  replaceRoster: (next: Roster) => void
 }
 
 
@@ -212,6 +214,10 @@ export const useRoster = create<State>()((set, get) => {
       },
     })
     log('employee.logins.clear.all', exceptId ? `except ${exceptId}` : undefined)
+    scheduleSave()
+  },
+  replaceRoster: (next) => {
+    set({ roster: next })
     scheduleSave()
   },
   }

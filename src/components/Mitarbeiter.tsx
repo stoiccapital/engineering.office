@@ -5,6 +5,7 @@ import { LoadingCard } from '@/components/ui/loading-card'
 import { Num } from '@/components/ui/num'
 import { useRoster } from '@/roster-store'
 import { useAccess } from '@/access-store'
+import { useUndo } from '@/undo-store'
 import type { Role, RosterEmployee, RosterTeam } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -104,7 +105,13 @@ export function Mitarbeiter() {
                     <td className="px-3 py-2 text-right">
                       <button
                         onClick={() => {
-                          if (confirm(`Standort "${l.name || 'Unbenannt'}" löschen?`)) removeLocation(l.id)
+                          const snapshot = useRoster.getState().roster
+                          if (!snapshot) return
+                          removeLocation(l.id)
+                          useUndo.getState().push(
+                            `Standort „${l.name || 'Unbenannt'}" gelöscht`,
+                            () => useRoster.getState().replaceRoster(snapshot),
+                          )
                         }}
                         className="rounded p-1 text-muted-foreground/40 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
                         title="Löschen"
@@ -209,7 +216,13 @@ export function Mitarbeiter() {
                     <td className="px-3 py-2 text-right">
                       <button
                         onClick={() => {
-                          if (confirm(`Team "${t.name || 'Unbenannt'}" löschen?`)) removeTeam(t.id)
+                          const snapshot = useRoster.getState().roster
+                          if (!snapshot) return
+                          removeTeam(t.id)
+                          useUndo.getState().push(
+                            `Team „${t.name || 'Unbenannt'}" gelöscht`,
+                            () => useRoster.getState().replaceRoster(snapshot),
+                          )
                         }}
                         className="rounded p-1 text-muted-foreground/40 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
                         title="Löschen"
@@ -280,7 +293,13 @@ export function Mitarbeiter() {
                     onUpdate={(patch) => updateEmployee(e.id, patch)}
                     onRemove={() => {
                       const label = `${e.vorname} ${e.name}`.trim() || 'Unbenannt'
-                      if (confirm(`Mitarbeiter "${label}" löschen?`)) removeEmployee(e.id)
+                      const snapshot = useRoster.getState().roster
+                      if (!snapshot) return
+                      removeEmployee(e.id)
+                      useUndo.getState().push(
+                        `Mitarbeiter „${label}" gelöscht`,
+                        () => useRoster.getState().replaceRoster(snapshot),
+                      )
                     }}
                   />
                 ))}

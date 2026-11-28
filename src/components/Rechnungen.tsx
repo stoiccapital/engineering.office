@@ -256,12 +256,19 @@ export function Rechnungen() {
                         }}
                         compact
                       />
-                      <TextCell
-                        value={row.projektname}
-                        onChange={(v) => updateRow(row.id, { projektname: v })}
-                        placeholder="Projektname"
-                        readOnly={!!row.projectId}
-                      />
+                      {(() => {
+                        // Read-through: show catalog's live name when linked.
+                        const linked = findProjekt(projektlisteRows, row.projectId)
+                        const displayName = linked?.projekt ?? row.projektname
+                        return (
+                          <TextCell
+                            value={displayName}
+                            onChange={(v) => updateRow(row.id, { projektname: v })}
+                            placeholder="Projektname"
+                            readOnly={!!row.projectId}
+                          />
+                        )
+                      })()}
                     </div>
                   </td>
                   <td className="px-1 py-0.5">
