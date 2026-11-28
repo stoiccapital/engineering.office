@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Trash2, Plus, Lock, Unlock, Flame } from 'lucide-react'
 import { useForecast } from '@/store'
-import { useProjektliste } from '@/projektliste-store'
 import { derive } from '@/types'
 import type { ProjectRow } from '@/types'
-import { findProjekt } from '@/lib/project-lookup'
+import { findProjekt, useProjektlisteRows } from '@/lib/project-lookup'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { EmployeeAttach } from './EmployeeAttach'
 import { NumCell } from './NumCell'
@@ -219,7 +218,7 @@ function Row({
 }) {
   const d = derive(row)
   const ro = locked
-  const projektliste = useProjektliste((s) => s.doc?.rows ?? [])
+  const projektliste = useProjektlisteRows()
   return (
     <tr className="border-b last:border-b-0 hover:bg-accent">
       <Td>

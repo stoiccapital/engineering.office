@@ -11,9 +11,8 @@ import {
   X,
 } from 'lucide-react'
 import { useRechnungen } from '@/rechnungen-store'
-import { useProjektliste } from '@/projektliste-store'
 import { saveRechnungsplan } from '@/api'
-import { findProjekt } from '@/lib/project-lookup'
+import { findProjekt, useProjektlisteRows } from '@/lib/project-lookup'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { EmployeeAttach } from './EmployeeAttach'
 import { ProjectAttach } from './ProjectAttach'
@@ -76,7 +75,7 @@ function fmtShortDate(iso: string): string {
 
 export function Rechnungen() {
   const data = useRechnungen((s) => s.data)
-  const projektlisteRows = useProjektliste((s) => s.doc?.rows ?? [])
+  const projektlisteRows = useProjektlisteRows()
   const addRow = useRechnungen((s) => s.addRow)
   const removeRow = useRechnungen((s) => s.removeRow)
   const updateRow = useRechnungen((s) => s.updateRow)

@@ -5,7 +5,19 @@
  * values; the row's own stored fields stay for backward compat with legacy
  * free-text rows.
  */
+import { useProjektliste } from '@/projektliste-store'
 import type { ProjektlisteRow } from '@/types'
+
+// Stable empty array — never return a fresh `[]` from a zustand selector;
+// Object.is compares references and would re-render infinitely. See
+// docs/principles.md § Engineering rules.
+const EMPTY: readonly ProjektlisteRow[] = Object.freeze([]) as readonly ProjektlisteRow[]
+
+/** Hook: Projektliste rows with a reference-stable empty fallback. */
+export function useProjektlisteRows(): readonly ProjektlisteRow[] {
+  const doc = useProjektliste((s) => s.doc)
+  return doc?.rows ?? EMPTY
+}
 
 export function findProjekt(
   rows: readonly ProjektlisteRow[],

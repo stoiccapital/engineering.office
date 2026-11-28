@@ -11,7 +11,7 @@ import * as Popover from '@radix-ui/react-popover'
 import { Plus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useProjektliste } from '@/projektliste-store'
-import { filterProjekte, findProjekt } from '@/lib/project-lookup'
+import { filterProjekte, findProjekt, useProjektlisteRows } from '@/lib/project-lookup'
 import { cn } from '@/lib/utils'
 
 export function ProjectAttach({
@@ -26,7 +26,7 @@ export function ProjectAttach({
   /** When compact, the "+ Projekt" button is small-style and shows no label on narrow widths. */
   compact?: boolean
 }) {
-  const rows = useProjektliste((s) => s.doc?.rows ?? [])
+  const rows = useProjektlisteRows()
   const status = useProjektliste((s) => s.status)
   const load = useProjektliste((s) => s.load)
 
