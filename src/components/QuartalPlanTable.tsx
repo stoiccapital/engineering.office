@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils'
 import { ArrowRightLeft, ChevronDown, ChevronRight, Flame, GripVertical, Plus, X } from 'lucide-react'
 import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { ExportMenu } from '@/components/ui/export-menu'
 import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 import { Section } from '@/components/ui/section'
 import { AlwaysOnScrollbar } from '@/components/ui/always-on-scrollbar'
@@ -254,6 +255,34 @@ export function QuartalPlanTable() {
               <Plus className="h-3.5 w-3.5" />
               Aus Roster
             </button>
+            <ExportMenu
+              filename={`quartalsplanung-${year}${quarter === 'all' ? '' : `-${quarter}`}`}
+              buildSheets={() => {
+                if (!plan) return []
+                // One row per (employee × week) with every todo text joined.
+                const rows: Array<Record<string, string | number>> = []
+                plan.employees.forEach((emp, empIndex) => {
+                  const empCells = plan.todos ?? {}
+                  for (const key of Object.keys(empCells)) {
+                    const [eiStr, wkStr] = key.split(':')
+                    if (Number(eiStr) !== empIndex) continue
+                    const list = empCells[key] ?? []
+                    if (list.length === 0) continue
+                    rows.push({
+                      'Jahr': plan.year,
+                      'KW': Number(wkStr),
+                      'Mitarbeiter': emp.name,
+                      'NL': emp.branch,
+                      'Aufgaben': list.map((t) => t.text).join(' | '),
+                      'Anzahl': list.length,
+                    })
+                  }
+                })
+                rows.sort((a, b) => Number(a.KW) - Number(b.KW) || String(a.Mitarbeiter).localeCompare(String(b.Mitarbeiter)))
+                return [{ name: 'Quartalsplanung', rows }]
+              }}
+              disabled={!plan || plan.employees.length === 0}
+            />
             <TeamFilterToggle value={teamFilter} onChange={setTeamFilter} />
             <PlanLegend />
             <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />

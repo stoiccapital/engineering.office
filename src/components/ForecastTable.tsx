@@ -4,6 +4,7 @@ import { useForecast } from '@/store'
 import { derive } from '@/types'
 import type { ProjectRow } from '@/types'
 import { findProjekt, useProjektlisteRows } from '@/lib/project-lookup'
+import { ExportMenu } from '@/components/ui/export-menu'
 import { FilterSelect } from '@/components/ui/filter-select'
 import { EmployeeAttach } from './EmployeeAttach'
 import { NumCell } from './NumCell'
@@ -86,6 +87,32 @@ export function ForecastTable() {
       action={
         <div className="flex items-center gap-2">
           <PMFilter value={pmFilter} onChange={setPmFilter} pms={pms} />
+          <ExportMenu
+            filename={`forecast-${period?.year ?? ''}-${period?.quarter ?? ''}`}
+            buildSheets={() => [
+              {
+                name: 'Forecast',
+                rows: filteredRows.map((r) => ({
+                  'Projekt-Nr.': r.projNr,
+                  'Projektname': r.projektname,
+                  'PL DE': r.projektleiterDE,
+                  'PL PLN': r.projektleiterPL,
+                  'Leistung': r.leistung,
+                  'Forecast DE': r.forecastDE ?? '',
+                  'Flag DE': r.flagDE,
+                  'Forecast PL': r.forecastPL ?? '',
+                  'Flag PL': r.flagPL,
+                  'Abgerechnet DE': r.abgerechnetDE ?? '',
+                  'Abgerechnet PL': r.abgerechnetPL ?? '',
+                  'Leistungsstand DE %': r.leistungsstandDE != null ? r.leistungsstandDE * 100 : '',
+                  'Leistungsstand PL %': r.leistungsstandPL != null ? r.leistungsstandPL * 100 : '',
+                  'Priorität': r.prio ? 'ja' : '',
+                })),
+                columnWidths: { 'Projektname': 36, 'Leistung': 36, 'Projekt-Nr.': 12 },
+              },
+            ]}
+            disabled={!period || filteredRows.length === 0}
+          />
           <LockToggle locked={locked} onToggle={() => setLocked((v) => !v)} />
           <ForecastLegend />
           <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />

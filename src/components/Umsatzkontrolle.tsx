@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { NumCell } from './NumCell'
+import { ExportMenu } from '@/components/ui/export-menu'
 import { LoadingCard } from '@/components/ui/loading-card'
 import { useUmsatz, type MetricKey, type QuarterView } from '@/umsatz-store'
 import { useZiele } from '@/ziele-store'
@@ -105,7 +106,30 @@ export function Umsatzkontrolle() {
         isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
       )}
     >
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <ExportMenu
+          filename={`umsatzkontrolle-${umsatzYear}`}
+          buildSheets={() => {
+            const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+            const rowFor = (metric: 'ziel' | 'forecast' | 'rechnungen') =>
+              teams.map((t) => {
+                const vals = t[metric] as (number | null)[]
+                const row: Record<string, string | number> = {
+                  'Team': t.name,
+                  'NL': t.branch,
+                }
+                months.forEach((m, i) => { row[m] = vals[i] ?? '' })
+                row['Summe'] = vals.reduce((s, v) => s + (v ?? 0), 0)
+                return row
+              })
+            return [
+              { name: 'Ziel', rows: rowFor('ziel') },
+              { name: 'Forecast', rows: rowFor('forecast') },
+              { name: 'Rechnungen', rows: rowFor('rechnungen') },
+            ]
+          }}
+          disabled={teams.length === 0}
+        />
         <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
       </div>
       <CollapsibleSection

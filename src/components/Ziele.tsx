@@ -29,6 +29,7 @@ import { fmtDecimal, fmtEUR, fmtPct } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { logActivity } from '@/activity-store'
 import { useFullscreen } from '@/components/ui/use-fullscreen'
+import { ExportMenu } from '@/components/ui/export-menu'
 import { FullscreenToggle } from '@/components/ui/fullscreen-toggle'
 
 // Dashboard page — read-only FTE pool summary. Lives under the Ziele sidebar
@@ -75,7 +76,38 @@ export function ZieleTeamsPage() {
         isFullscreen && 'h-screen w-screen overflow-auto bg-background p-4',
       )}
     >
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <ExportMenu
+          filename={`ziele-${ziele.year}`}
+          buildSheets={() => {
+            const teamRows = ziele.branches.flatMap((b) =>
+              b.teams.map((t) => ({
+                'NL': b.id.toUpperCase(),
+                'Team': t.name,
+                'Operative Personen': t.people.filter((p) => (p.role ?? 'team') === 'team').length,
+                'FTE H1': t.people.reduce((s, p) => s + (p.fte?.h1 ?? 0), 0),
+                'FTE H2': t.people.reduce((s, p) => s + (p.fte?.h2 ?? 0), 0),
+              })),
+            )
+            const peopleRows = ziele.branches.flatMap((b) =>
+              b.teams.flatMap((t) =>
+                t.people.map((p) => ({
+                  'NL': b.id.toUpperCase(),
+                  'Team': t.name,
+                  'Person': p.name,
+                  'Rolle': p.role ?? 'team',
+                  'FTE H1': p.fte?.h1 ?? 0,
+                  'FTE H2': p.fte?.h2 ?? 0,
+                })),
+              ),
+            )
+            return [
+              { name: 'Teams', rows: teamRows },
+              { name: 'Personen', rows: peopleRows },
+            ]
+          }}
+          disabled={!ziele || ziele.branches.length === 0}
+        />
         <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
       </div>
       <LockBar
