@@ -113,13 +113,16 @@ export function Umsatzkontrolle() {
             const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
             const rowFor = (metric: 'ziel' | 'forecast' | 'rechnungen') =>
               teams.map((t) => {
-                const vals = t[metric] as (number | null)[]
+                const vals = t[metric] as ReadonlyArray<number | null>
                 const row: Record<string, string | number> = {
                   'Team': t.name,
                   'NL': t.branch,
                 }
-                months.forEach((m, i) => { row[m] = vals[i] ?? '' })
-                row['Summe'] = vals.reduce((s, v) => s + (v ?? 0), 0)
+                months.forEach((m, i) => {
+                  const v = vals[i]
+                  row[m] = v == null ? '' : v
+                })
+                row['Summe'] = vals.reduce<number>((s, v) => s + (v ?? 0), 0)
                 return row
               })
             return [
